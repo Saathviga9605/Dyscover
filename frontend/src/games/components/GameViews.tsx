@@ -16,4 +16,43 @@ export function WordFlashView({ trial, onResponse, emit, showing }: { trial: Wor
 
 export function SequenceQuestView({ trial, onResponse, emit, showing }: { trial: SequenceTrial; onResponse: (response: string[]) => void; emit: EventFn; showing: boolean }) { const [chosen, setChosen] = useState<string[]>([]); const available = trial.stimulus.sequence; return <div className="game-card-board sequence-board">{showing ? <div className="sequence-display">{available.map(item => <span key={item} className="sequence-token">{item === 'star' ? '✦' : item === 'moon' ? '☾' : item === 'sun' ? '☼' : item === 'leaf' ? '⌁' : item === 'cloud' ? '☁' : '≈'}</span>)}</div> : <><div className="sequence-answer" aria-live="polite">{chosen.length ? chosen.map((item, index) => <span key={`${item}-${index}`}>{item}</span>) : <small>Tap the pieces in order</small>}</div><div className="sequence-choices">{available.map(item => <button className="game-option sequence-option" disabled={chosen.includes(item)} key={item} onClick={() => { const next = [...chosen, item]; setChosen(next); emit('OPTION_SELECTED', { item, position: next.length }); if (next.length === available.length) onResponse(next); }}>{item}</button>)}</div><Button secondary onClick={() => { setChosen([]); emit('OPTION_DESELECTED', { reset: true }); }}>Start again</Button></>}</div>; }
 
-export function WordMazeView({ trial, onResponse, emit }: { trial: MazeTrial; onResponse: (response: string[]) => void; emit: EventFn }) { const [selected, setSelected] = useState<string[]>([]); const [found, setFound] = useState<string[]>([]); const [path, setPath] = useState<string[]>([]); const cells = trial.stimulus.grid.flatMap((row, rowIndex) => row.map((letter, columnIndex) => ({ letter, id: `${rowIndex},${columnIndex}` }))); const selectCell = (id: string) => { const nextPath = [...path, id]; setPath(nextPath); emit('OPTION_SELECTED', { cellId: id, path: nextPath }); const match = Object.entries(trial.stimulus.paths).find(([, targetPath]) => targetPath.length === nextPath.length && (targetPath.every((cell, index) => cell === nextPath[index]) || targetPath.every((cell, index) => cell === nextPath[nextPath.length - index - 1]))); if (match && !found.includes(match[0])) { const nextFound = [...found, match[0]]; setFound(nextFound); setSelected(nextFound); setPath([]); if (nextFound.length === trial.stimulus.targets.length) onResponse(nextFound); } else if (nextPath.length >= 8) setPath([]); }; return <div className="game-card-board maze-board"><div className="maze-targets">Find: {trial.stimulus.targets.map(target => <span className={found.includes(target) ? 'found' : ''} key={target}>{target}</span>)}</div><div className="maze-grid" style={{ gridTemplateColumns: `repeat(${trial.stimulus.size}, 1fr)` }}>{cells.map(cell => <button className={`maze-cell ${path.includes(cell.id) ? 'path' : ''}`} key={cell.id} onClick={() => selectCell(cell.id)} aria-label={`Letter ${cell.letter}`}>{cell.letter}</button>)}</div><p className="maze-help">Tap letters next to each other to trace a word.</p></div>; }
+export function WordMazeView({ trial, onResponse, emit }: { trial: MazeTrial; onResponse: (response: string[]) => void; emit: EventFn }) {
+	const [found, setFound] = useState<string[]>([]);
+	const [path, setPath] = useState<string[]>([]);
+	const [message, setMessage] = useState('Choose a word, then trace its letters.');
+	const cells = trial.stimulus.grid.flatMap((row, rowIndex) => row.map((letter, columnIndex) => ({ letter, id: `${rowIndex},${columnIndex}` })));
+	const normalizedPaths = Object.entries(trial.stimulus.paths).map(([word, targetPath]) => [word.toUpperCase(), targetPath] as const);
+	const selectedTarget = trial.stimulus.targets.find(target => !found.includes(target)) ?? trial.stimulus.targets[0];
+	const isAdjacent = (first: string, second: string) => {
+		const [firstRow, firstColumn] = first.split(',').map(Number);
+		const [secondRow, secondColumn] = second.split(',').map(Number);
+		return Math.abs(firstRow - secondRow) <= 1 && Math.abs(firstColumn - secondColumn) <= 1 && (firstRow !== secondRow || firstColumn !== secondColumn);
+	};
+	const selectCell = (id: string) => {
+		if (found.includes(selectedTarget)) return;
+		if (path.includes(id)) return;
+		if (path.length > 0 && !isAdjacent(path[path.length - 1], id)) {
+			setMessage('Those letters are not next to each other. Try a nearby letter.');
+			setPath([]);
+			emit('OPTION_DESELECTED', { reason: 'non_adjacent', cellId: id });
+			return;
+		}
+		const nextPath = [...path, id];
+		setPath(nextPath);
+		emit('OPTION_SELECTED', { cellId: id, path: nextPath, target: selectedTarget });
+		const match = normalizedPaths.find(([word, targetPath]) => word === selectedTarget && targetPath.length === nextPath.length && (targetPath.every((cell, index) => cell === nextPath[index]) || targetPath.every((cell, index) => cell === nextPath[nextPath.length - index - 1])));
+		if (match) {
+			const nextFound = [...found, match[0]];
+			setFound(nextFound);
+			setPath([]);
+			setMessage(nextFound.length === trial.stimulus.targets.length ? 'You found every word!' : 'Nice finding! Choose the next word.');
+			if (nextFound.length === trial.stimulus.targets.length) onResponse(nextFound);
+		} else if (nextPath.length >= selectedTarget.length) {
+			setMessage('Almost! Clear the path and try that word again.');
+			setPath([]);
+			emit('OPTION_DESELECTED', { reason: 'path_mismatch', target: selectedTarget });
+		}
+	};
+	const nextWord = () => { setPath([]); setMessage('Trace the next word.'); emit('BUTTON_CLICKED', { action: 'next_word', target: selectedTarget }); };
+	return <div className="game-card-board maze-board"><div className="maze-targets"><span className="maze-target-label">Find:</span>{trial.stimulus.targets.map(target => <button className={`maze-target ${found.includes(target) ? 'found' : target === selectedTarget ? 'current' : ''}`} key={target} onClick={() => { setPath([]); setMessage(`Find ${target}.`); }} aria-label={`Find ${target}`}>{target}</button>)}</div><div className="maze-grid" style={{ gridTemplateColumns: `repeat(${trial.stimulus.size}, 1fr)` }}>{cells.map(cell => <button className={`maze-cell ${path.includes(cell.id) ? 'path' : ''}`} key={cell.id} onClick={() => selectCell(cell.id)} aria-label={`Letter ${cell.letter}`}>{cell.letter}</button>)}</div><p className="maze-help" role="status">{message}</p>{found.length > 0 && found.length < trial.stimulus.targets.length && <Button secondary onClick={nextWord}>Next word <span>→</span></Button>}</div>;
+}
