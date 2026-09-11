@@ -1,5 +1,6 @@
 import { DifficultyManager } from './difficulty';
 import { createId, createSeededRandom } from './random';
+import { StimulusSpacing } from './stimulusSpacing';
 import type { AssessmentEvent, AssessmentSession, EventType, GameDefinition, GameResult, Trial, TrialEvaluation } from './types';
 
 export class GameEngine<TTrial extends Trial = Trial> {
@@ -10,6 +11,7 @@ export class GameEngine<TTrial extends Trial = Trial> {
   private trialStartedAt = 0;
   private readonly random;
   private readonly difficultyManager = new DifficultyManager();
+  private readonly stimulusSpacing = new StimulusSpacing();
 
   constructor(readonly definition: GameDefinition<TTrial>, session?: AssessmentSession, seed?: number) {
     this.random = createSeededRandom(seed);
@@ -20,7 +22,7 @@ export class GameEngine<TTrial extends Trial = Trial> {
   start(): void { this.session.status = 'IN_PROGRESS'; this.emit('SESSION_STARTED'); this.emit('GAME_STARTED', { gameVersion: this.definition.gameVersion }); }
   pause(): void { if (this.session.status === 'IN_PROGRESS') { this.session.status = 'PAUSED'; this.emit('SESSION_PAUSED'); } }
   resume(): void { if (this.session.status === 'PAUSED') { this.session.status = 'IN_PROGRESS'; this.emit('SESSION_RESUMED'); } }
-  beginTrial(index = this.trials.length): TTrial { const difficulty = this.difficultyManager.next(this.trials); const trial = this.definition.createTrial({ index, difficulty, random: this.random, sessionId: this.session.sessionId }); this.trialStartedAt = performance.now(); trial.startedAt = new Date().toISOString(); trial.stimulusPresentedAt = trial.startedAt; this.trials.push(trial); this.emit('TRIAL_STARTED', { trialIndex: index, difficulty }, trial.trialId); this.emit('STIMULUS_SHOWN', { stimulus: trial.stimulus }, trial.trialId); return trial; }
+  beginTrial(index = this.trials.length): TTrial { const difficulty = this.difficultyManager.next(this.trials); let trial = this.definition.createTrial({ index, difficulty, random: this.random, sessionId: this.session.sessionId }); let attempts = 0; while (attempts < this.stimulusSpacing.retryLimit() && this.stimulusSpacing.isRecent(trial.stimulus, this.definition.id)) { trial = this.definition.createTrial({ index, difficulty, random: this.random, sessionId: this.session.sessionId }); attempts += 1; } this.stimulusSpacing.push(trial.stimulus, this.definition.id); this.trialStartedAt = performance.now(); trial.startedAt = new Date().toISOString(); trial.stimulusPresentedAt = trial.startedAt; this.trials.push(trial); this.emit('TRIAL_STARTED', { trialIndex: index, difficulty }, trial.trialId); this.emit('STIMULUS_SHOWN', { stimulus: trial.stimulus }, trial.trialId); return trial; }
   recordResponse(trial: TTrial, response: unknown, evaluation?: TrialEvaluation): TTrial { const result = evaluation ?? this.definition.evaluateResponse(trial, response); const reactionTimeMs = Math.round(performance.now() - this.trialStartedAt); trial.actualResponse = result.actualResponse; trial.correct = result.correct; trial.score = result.score; trial.reactionTimeMs = reactionTimeMs; trial.responseAt = new Date().toISOString(); trial.metadata = { ...trial.metadata, ...result.metadata }; trial.attemptCount += 1; if (!result.correct) trial.errorCount += 1; this.emit('RESPONSE_SUBMITTED', { response, correct: result.correct, reactionTimeMs }, trial.trialId); return trial; }
   timeout(trial: TTrial): TTrial { trial.correct = false; trial.score = 0; trial.completedAt = new Date().toISOString(); trial.errorCount += 1; this.emit('TRIAL_TIMEOUT', { trialIndex: trial.trialIndex }, trial.trialId); return trial; }
   completeTrial(trial: TTrial): void { trial.completedAt = new Date().toISOString(); this.emit('TRIAL_COMPLETED', { correct: trial.correct, score: trial.score, reactionTimeMs: trial.reactionTimeMs }, trial.trialId); this.session.totalTrials = this.trials.length; }

@@ -30,6 +30,7 @@ from app.schemas import (
 )
 from app.ml.routes import router as ml_router
 from app.ml.quality import router as ml_quality_router
+from app.personalization.routes import router as personalization_router
 from app.speech.routes import router as speech_router
 
 settings = get_settings()
@@ -60,6 +61,7 @@ app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=li
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_methods=["*"], allow_headers=["*"])
 app.include_router(ml_router)
 app.include_router(ml_quality_router)
+app.include_router(personalization_router)
 app.include_router(speech_router)
 
 @app.exception_handler(RequestValidationError)
