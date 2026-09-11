@@ -10,11 +10,12 @@ export class GameEngine<TTrial extends Trial = Trial> {
   private eventSequence = 0;
   private trialStartedAt = 0;
   private readonly random;
-  private readonly difficultyManager = new DifficultyManager();
+  private readonly difficultyManager: DifficultyManager;
   private readonly stimulusSpacing = new StimulusSpacing();
 
-  constructor(readonly definition: GameDefinition<TTrial>, session?: AssessmentSession, seed?: number) {
+  constructor(readonly definition: GameDefinition<TTrial>, session?: AssessmentSession, seed?: number, initialDifficulty?: number) {
     this.random = createSeededRandom(seed);
+    this.difficultyManager = new DifficultyManager(1, 5, initialDifficulty);
     this.eventSequence = session?.eventSequence ?? 0;
     this.session = session ?? { sessionId: createId('session'), assessmentVersion: 'stage-2.0', startedAt: new Date().toISOString(), status: 'NOT_STARTED', games: [], currentGameIndex: 0, totalTrials: 0 };
   }

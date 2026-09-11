@@ -141,12 +141,25 @@ Deliberately uses the existing per-game `createTrial`; when a pool is smaller
 than the window the retry bound still guarantees termination without a new
 database system.
 
+Retries are purely in-memory inside `beginTrial`: a retried candidate is never
+pushed to `engine.trials` and emits no events, and persistence runs later in
+the `GameRunner` pipeline. The committed trial count, trial ids, and telemetry
+therefore match one per `beginTrial` exactly (regression-tested in
+`stimulusSpacing.test.ts`); no duplicate persisted trials or duplicated events
+are possible from the spacing loop.
+
 ## 9. Progress / trends
 
 `progress.py` returns a time-ordered per-assessment summary of observed
-domain accuracy, plus a `comparison` of the earliest vs latest assessment
-whose domains overlap. Trend deltas are arithmetic differences only — never
-a projection or forecast.
+domain accuracy over **completed assessments only**, plus a `comparison` of
+the earliest vs latest completed assessment whose domains overlap. Trend
+deltas are arithmetic differences only — never a projection or forecast.
+Abandoned (`planned`/in-progress) sessions are excluded from progress points
+so they cannot shift the earliest/latest comparison (verified on the live
+database, where a child with two completed screenings plus several abandoned
+sessions showed exactly two points and a comparison). Legacy rows that mix
+offset-naive and offset-aware timestamps are normalized to UTC before
+sorting (`service._utc_sort_key`).
 
 ## 10. Versioning / reproducibility
 
@@ -171,26 +184,47 @@ All under `/api/personalization` (router tags `personalization`),
 Requests against an unknown child return `404`. Response models live in
 `schemas.py` and are visible in OpenAPI.
 
-Frontend integration (minimal): parent dashboard now renders a
+Frontend integration (minimal): the parent dashboard renders a
 "Practice suggestions" card and a cumulative "Progress" card from these
-endpoints, preserving the existing design system. The child flow remains
-sequential; suggested difficulty per game is exposed via the difficulty
-endpoint and may be adopted as a starting level without further API work.
+endpoints, preserving the existing design system. With fewer than two
+completed assessments the Progress card shows non-clinical copy ("Complete
+another screening to see activity progress over time.") and never draws a
+trend; the earliest↔latest arithmetic comparison appears only once two or
+more completed assessments exist (see §9). Recommendations render the
+parent-safe `target_domain_label` (or a neutral fallback); internal category
+identifiers are part of the API contract but are never rendered.
+
+Child-flow difficulty adoption (hardening pass): at each game boundary (the
+intro of a new game, never per-trial) the runner fetches
+`difficulty/{game_id}` once and seeds that game's starting difficulty. All
+five games consume a uniform `1..5` level (`difficultyLevels` and
+`DIFFICULTY_BY_GAME` agree), so no game mechanics are redesigned. Fallback is
+safe and non-blocking: an API failure, an unknown child, a level the game
+cannot express, or insufficient evidence (which returns the configured default
+`level 1` by §6) all leave the engine on its existing default. The override
+is applied only to a not-yet-started engine with no trials, so an in-progress
+session is never disturbed.
 
 ## 12. Tests
 
-`backend/tests/test_personalization.py` (21 tests, all pass) covers:
+`backend/tests/test_personalization.py` (22 tests, all pass) covers:
 no-data handling, insufficient trials, sufficient observations, category
 correctness (strength / practice / developing / mixed), difficulty ±1 moves,
 difficulty bounds, hysteresis/no-oscillation, recommendation reasons,
 neutral recommendations, invalid-data safety (negative timing, missing
-correctness), behavior-only operation without speech/gaze, determinism,
-parent-safe language scanning, progress comparison, versioning/config
-summary, and safe difficulty defaults.
+correctness), mixed naive/aware timestamp normalization, completed-only
+progress points (abandoned sessions excluded), behavior-only operation
+without speech/gaze, determinism, parent-safe language scanning, progress
+comparison, versioning/config summary, and safe difficulty defaults.
 
-Frontend `stimulusSpacing.test.ts` (5 tests) covers spaced reappearance,
-signature equivalence, disablement, the retry loop, and deterministic
-determinism.
+Frontend focused tests (24 tests): `stimulusSpacing.test.ts` (6) covers
+spaced reappearance, signature equivalence, disablement, the retry loop,
+determinism, and one-trial-per-`beginTrial` persistence integrity;
+`difficulty.test.ts` (4) covers seeded starting difficulty and its adaptation;
+`childPersonalization.test.ts` (14) covers difficulty clamping, API-failure
+and insufficient-evidence fallback (the child still plays with the default),
+the not-yet-started engine guard, first-screening progress copy, and the
+recommendation label (never leaking internal category ids).
 
 ## 13. Non-goals / limitations
 

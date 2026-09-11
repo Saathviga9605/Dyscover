@@ -96,4 +96,21 @@ describe('GameEngine stimulus uniqueness', () => {
     const replay = Array.from({ length: 6 }, () => second.beginTrial());
     expect(trials.map(t => (t.stimulus as PoolStimulus).item)).toEqual(replay.map(t => (t.stimulus as PoolStimulus).item));
   });
+
+  it('persists exactly one trial and its telemetry per beginTrial despite retries', () => {
+    const base = poolDefinition(['a', 'b']);
+    const definition = { ...base, createTrial: (input: { index: number; difficulty: number; random: { pick<T>(items: T[]): T }; sessionId: string }) => { calls += 1; return base.createTrial(input as never); } };
+    const engine = new GameEngine(definition, undefined, 13);
+    engine.start();
+    Array.from({ length: 6 }, () => engine.beginTrial());
+    // A 2-item pool within a window of 4 forces the retry loop to run.
+    expect(calls).toBeGreaterThan(6);
+    // Retries stay in-memory: never more than one committed trial per beginTrial…
+    expect(engine.trials).toHaveLength(6);
+    // …no orphaned trial records or duplicated ids…
+    expect(new Set(engine.trials.map(t => t.trialId)).size).toBe(6);
+    // …and exactly the expected event stream reaches the telemetry layer.
+    expect(engine.events.filter(e => e.eventType === 'TRIAL_STARTED')).toHaveLength(6);
+    expect(engine.events.filter(e => e.eventType === 'STIMULUS_SHOWN')).toHaveLength(6);
+  });
 });

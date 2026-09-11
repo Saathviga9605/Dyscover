@@ -22,11 +22,13 @@ verify contracts through the FastAPI test client.
 
 import pytest
 from fastapi.testclient import TestClient
+from datetime import datetime, timezone
 
 from app.main import app
 from app.personalization.config import PERSONALIZATION_CONFIG
 from app.personalization.skills import build_domain_skill, categorize
 from app.personalization.difficulty import decide
+from app.personalization.service import _utc_sort_key
 from app.personalization import evidence
 
 
@@ -254,6 +256,8 @@ def test_recommendation_has_reason_and_difficulty(client: TestClient) -> None:
     assert recommendations[0]["reason"]
     assert recommendations[0]["game_id"] == "word-flash"
     assert 1 <= recommendations[0]["suggested_difficulty"] <= 5
+    assert recommendations[0]["target_domain"] == "orthographic-recognition"
+    assert recommendations[0]["target_domain_label"] == "Orthographic recognition"
 
 
 def test_neutral_recommendation_no_clinical_language(client: TestClient) -> None:
@@ -264,6 +268,18 @@ def test_neutral_recommendation_no_clinical_language(client: TestClient) -> None
 
 
 # ---- L: invalid data handled safely --------------------------------------
+
+def test_progress_sort_handles_mixed_naive_and_aware_timestamps() -> None:
+    # Legacy persisted rows can mix offset-naive and offset-aware timestamps;
+    # the assessment/trial sort keys must normalize before comparing.
+    naive = datetime(2026, 1, 1, 12, 0, 0)
+    aware = datetime(2026, 1, 2, 12, 0, 0, tzinfo=timezone.utc)
+    keys = [_utc_sort_key(aware), _utc_sort_key(naive)]
+    assert sorted(keys) == [_utc_sort_key(naive), _utc_sort_key(aware)]
+    assert _utc_sort_key(None) == datetime.min.replace(tzinfo=timezone.utc)
+    assert _utc_sort_key(aware) == aware.astimezone(timezone.utc)
+    assert _utc_sort_key(naive) == naive.replace(tzinfo=timezone.utc)
+
 
 def test_invalid_timing_does_not_taint_aggregates() -> None:
     trials = [_FakeTrial("letter-detective", True, 800), _FakeTrial("letter-detective", True, -500), _FakeTrial("letter-detective", True, 900), _FakeTrial("letter-detective", True, 850)]
@@ -336,6 +352,22 @@ def test_progress_compares_earliest_and_latest_assessment(client: TestClient) ->
                     "completed_at": f"2026-0{run}-01T12:00:0{i + 1}.000Z",
                 },
             )
+        client.post(f"/api/assessments/{assessment['id']}/summary", json={"games": [], "total_trials": 3})
+    # An abandoned (planned) session with trials must not shift the comparison.
+    abandoned = client.post("/api/assessments", json={"child_id": child["id"]}).json()
+    client.post(
+        f"/api/assessments/{abandoned['id']}/games/letter-detective/trials",
+        json={
+            "trial_number": 1,
+            "stimulus": {"target": "b", "options": ["b", "d"]},
+            "expected_response": "b",
+            "game_version": "1.0.0",
+            "domain": "visual-symbol-discrimination",
+            "difficulty": 2,
+            "correctness": True,
+            "completed_at": "2026-01-03T12:00:01.000Z",
+        },
+    )
     progress = client.get(f"/api/personalization/children/{child['id']}/progress")
     assert progress.status_code == 200
     body = progress.json()

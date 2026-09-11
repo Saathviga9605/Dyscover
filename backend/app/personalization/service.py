@@ -18,7 +18,7 @@ from . import PERSONALIZATION_ENGINE_VERSION, PERSONALIZATION_SCHEMA_VERSION, MO
 from .config import PERSONALIZATION_CONFIG, config_summary
 from .difficulty import DifficultyDecision
 from .domains import DEFAULT_GAME_ORDER
-from .recommendations import build_recommendations
+from .recommendations import build_recommendations, to_dict
 from .progress import build_progress
 from .skills import build_profile
 
@@ -36,6 +36,15 @@ class ObservedTrial:
     reaction_time_ms: float | None = None
     completed_at: datetime | None = None
     started_at: datetime | None = None
+
+
+def _utc_sort_key(ts):
+    """Comparable UTC key tolerant of legacy offset-naive persisted rows."""
+    if ts is None:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    if ts.tzinfo is None:
+        return ts.replace(tzinfo=timezone.utc)
+    return ts.astimezone(timezone.utc)
 
 
 def _all_game_sessions(db: Session, child_id: str) -> list[GameSession]:
@@ -94,11 +103,11 @@ def _assessments_and_trials(db: Session, child_id: str) -> list[tuple[Assessment
                 )
                 for t in stored_trials
             )
-        result.append((assessment, sorted(assessment_trials, key=lambda t: t.started_at or datetime.min.replace(tzinfo=timezone.utc))))
+        result.append((assessment, sorted(assessment_trials, key=lambda t: _utc_sort_key(t.started_at))))
     return sorted(
         result,
         key=lambda x: (
-            x[0].completed_at or x[0].created_at or datetime.min.replace(tzinfo=timezone.utc),
+            _utc_sort_key(x[0].completed_at or x[0].created_at),
             x[0].id,
         ),
     )
@@ -140,13 +149,21 @@ def build_child_recommendations(db: Session, child_id: str) -> dict:
         "child_id": child_id,
         "engine_version": PERSONALIZATION_ENGINE_VERSION,
         "mode": MODE,
-        "recommendations": [rec.__dict__ for rec in recommendations],
+        "recommendations": [to_dict(rec) for rec in recommendations],
     }
 
 
 def build_child_progress(db: Session, child_id: str) -> dict:
     at = _assessments_and_trials(db, child_id)
-    progress = build_progress(at, PERSONALIZATION_CONFIG)
+    # Progress points represent completed screenings only (abandoned or
+    # still-in-progress sessions carry no progress signal and must not shift
+    # the earliest/latest comparison).
+    completed_points = [
+        (assessment, trials)
+        for assessment, trials in at
+        if assessment.status == "completed" or assessment.completed_at is not None
+    ]
+    progress = build_progress(completed_points, PERSONALIZATION_CONFIG)
     progress.update(child_id=child_id, engine_version=PERSONALIZATION_ENGINE_VERSION, mode=MODE)
     return progress
 
