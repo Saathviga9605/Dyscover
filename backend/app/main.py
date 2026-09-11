@@ -1,7 +1,12 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+import logging
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import inspect, select, text
 from sqlalchemy.orm import Session
 
@@ -28,21 +33,38 @@ from app.ml.quality import router as ml_quality_router
 from app.speech.routes import router as speech_router
 
 settings = get_settings()
-app = FastAPI(title=settings.app_name, version=settings.app_version)
-app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_methods=["*"], allow_headers=["*"])
-app.include_router(ml_router)
-app.include_router(ml_quality_router)
-app.include_router(speech_router)
+logger = logging.getLogger("dyscover.api")
 
 
-@app.on_event("startup")
-def create_tables() -> None:
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    initialize_database()
+    yield
+
+
+def initialize_database() -> None:
     Base.metadata.create_all(bind=engine)
     if engine.url.get_backend_name() == "sqlite":
         columns = {column["name"] for column in inspect(engine).get_columns("speech_sessions")}
         if "expected_text" not in columns:
             with engine.begin() as connection:
                 connection.execute(text("ALTER TABLE speech_sessions ADD COLUMN expected_text TEXT NOT NULL DEFAULT ''"))
+
+
+app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
+app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_methods=["*"], allow_headers=["*"])
+app.include_router(ml_router)
+app.include_router(ml_quality_router)
+app.include_router(speech_router)
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    fields = [
+        {"field": ".".join(str(part) for part in error["loc"]), "message": error["msg"], "type": error["type"]}
+        for error in exc.errors()
+    ]
+    logger.warning("Request validation failed: %s %s -> %s", request.method, request.url.path, fields)
+    return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content={"detail": exc.errors()})
 
 
 @app.get("/api/health", response_model=HealthResponse)
@@ -144,6 +166,13 @@ def create_event(trial_id: UUID, payload: EventCreate, db: Session = Depends(get
     return event
 
 
+@app.get("/api/trials/{trial_id}/events", response_model=list[EventResponse])
+def list_trial_events(trial_id: UUID, db: Session = Depends(get_db)) -> list[InteractionEvent]:
+    if db.get(Trial, trial_id) is None:
+        raise HTTPException(status_code=404, detail="Trial not found")
+    return list(db.scalars(select(InteractionEvent).where(InteractionEvent.trial_id == trial_id).order_by(InteractionEvent.sequence_number)))
+
+
 @app.post("/api/assessments/{assessment_id}/summary", response_model=SummaryResponse, status_code=status.HTTP_201_CREATED)
 def create_summary(assessment_id: UUID, payload: SummaryCreate, db: Session = Depends(get_db)) -> AssessmentSummary:
     assessment = db.get(AssessmentSession, assessment_id)
@@ -165,4 +194,4 @@ def create_summary(assessment_id: UUID, payload: SummaryCreate, db: Session = De
 def list_assessments(child_id: UUID, db: Session = Depends(get_db)) -> list[AssessmentSession]:
     if db.get(ChildProfile, child_id) is None:
         raise HTTPException(status_code=404, detail="Child profile not found")
-    return list(db.scalars(select(AssessmentSession).where(AssessmentSession.child_id == child_id)))
+    return list(db.scalars(select(AssessmentSession).where(AssessmentSession.child_id == child_id).order_by(AssessmentSession.created_at.desc(), AssessmentSession.id.desc())))
