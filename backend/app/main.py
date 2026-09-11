@@ -2,7 +2,7 @@ from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import select
+from sqlalchemy import inspect, select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -25,17 +25,24 @@ from app.schemas import (
 )
 from app.ml.routes import router as ml_router
 from app.ml.quality import router as ml_quality_router
+from app.speech.routes import router as speech_router
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name, version=settings.app_version)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_methods=["*"], allow_headers=["*"])
 app.include_router(ml_router)
 app.include_router(ml_quality_router)
+app.include_router(speech_router)
 
 
 @app.on_event("startup")
 def create_tables() -> None:
     Base.metadata.create_all(bind=engine)
+    if engine.url.get_backend_name() == "sqlite":
+        columns = {column["name"] for column in inspect(engine).get_columns("speech_sessions")}
+        if "expected_text" not in columns:
+            with engine.begin() as connection:
+                connection.execute(text("ALTER TABLE speech_sessions ADD COLUMN expected_text TEXT NOT NULL DEFAULT ''"))
 
 
 @app.get("/api/health", response_model=HealthResponse)

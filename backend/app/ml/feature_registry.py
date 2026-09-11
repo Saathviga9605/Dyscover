@@ -29,6 +29,21 @@ FEATURE_REGISTRY: tuple[FeatureDefinition, ...] = (
     FeatureDefinition("pause_count", "Session pause events", "engagement", "count", "integer", 0, None, "count", "behavior"),
     FeatureDefinition("hint_count", "Hint-use events", "engagement", "count", "integer", 0, None, "count", "behavior"),
     FeatureDefinition("gaze_available", "Whether gaze-derived data exists", "gaze", "boolean", "integer", 0, 1, "availability", "gaze"),
+    FeatureDefinition("speech_reading_duration_ms", "Recorded reading duration when available", "fluency", "milliseconds", "float", 0, None, "observed", "speech"),
+    FeatureDefinition("speech_words_per_minute", "Recognized words divided by measured duration", "fluency", "words_per_minute", "float", 0, None, "ratio", "speech"),
+    FeatureDefinition("speech_substitution_count", "Expected words replaced in alignment", "reading_errors", "count", "integer", 0, None, "count", "speech"),
+    FeatureDefinition("speech_omission_count", "Expected words absent from transcript", "reading_errors", "count", "integer", 0, None, "count", "speech"),
+    FeatureDefinition("speech_insertion_count", "Additional transcript words", "reading_errors", "count", "integer", 0, None, "count", "speech"),
+    FeatureDefinition("speech_repetition_count", "Repeated recognized words", "reading_errors", "count", "integer", 0, None, "count", "speech"),
+    FeatureDefinition("speech_error_rate", "Alignment errors divided by expected words", "reading_errors", "proportion", "float", 0, 1, "ratio", "speech"),
+    FeatureDefinition("speech_pause_count", "Pauses meeting configured threshold", "pauses", "count", "integer", 0, None, "count", "speech"),
+    FeatureDefinition("speech_mean_pause_duration_ms", "Mean configured pause duration", "pauses", "milliseconds", "float", 0, None, "mean", "speech"),
+    FeatureDefinition("speech_median_pause_duration_ms", "Median configured pause duration", "pauses", "milliseconds", "float", 0, None, "median", "speech"),
+    FeatureDefinition("speech_pause_variability_ms2", "Pause duration variance", "pauses", "milliseconds_squared", "float", 0, None, "population_variance", "speech"),
+    FeatureDefinition("text_token_count", "Transcript token count", "lexical", "count", "integer", 0, None, "count", "text"),
+    FeatureDefinition("text_unique_token_count", "Unique transcript token count", "lexical", "count", "integer", 0, None, "count", "text"),
+    FeatureDefinition("text_type_token_ratio", "Unique tokens divided by total tokens", "lexical", "proportion", "float", 0, 1, "ratio", "text"),
+    FeatureDefinition("text_repetition_count", "Repeated transcript token count", "lexical", "count", "integer", 0, None, "sum", "text"),
 )
 
 REGISTRY_BY_NAME = {feature.name: feature for feature in FEATURE_REGISTRY}

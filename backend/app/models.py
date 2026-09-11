@@ -140,4 +140,19 @@ class AssessmentSummary(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 
+class SpeechSession(Base):
+    __tablename__ = "speech_sessions"
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    assessment_id: Mapped[UUID] = mapped_column(ForeignKey("assessment_sessions.id"), index=True)
+    trial_id: Mapped[UUID | None] = mapped_column(ForeignKey("trials.id"), index=True)
+    task_id: Mapped[str] = mapped_column(String(120))
+    expected_text: Mapped[str] = mapped_column(Text)
+    language: Mapped[str] = mapped_column(String(16), default="en")
+    audio_available: Mapped[bool] = mapped_column(default=False)
+    provider: Mapped[str] = mapped_column(String(80), default="unconfigured")
+    provider_version: Mapped[str] = mapped_column(String(40), default="unknown")
+    duration_ms: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 Index("ix_trials_game_number", Trial.game_session_id, Trial.trial_number, unique=True)
