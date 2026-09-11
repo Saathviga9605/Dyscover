@@ -168,11 +168,7 @@ button {
     <div id="game-over-screen" class="hidden">
         <h1>Well Done!</h1>
         <p>Your score: <span id="final-score">0</span></p>
-        <div id="dyslexia-assessment" style="margin: 20px 0; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 10px; text-align: center;">
-            <h3 style="margin: 0 0 10px 0; color: #ffd700;">Dyslexia Assessment</h3>
-            <p style="margin: 5px 0; font-size: 18px;">Probability: <span id="dyslexia-probability">0%</span></p>
-            <p id="dyslexia-message" style="margin: 5px 0; font-size: 14px; opacity: 0.9;"></p>
-        </div>
+        <p style="max-width: 420px; text-align: center; opacity: 0.9;">Your activity observations are ready for a grown-up to explore. This game is not a diagnosis.</p>
         <button id="play-again">Play Again</button>
     </div>
     <div id="score">Score: 0</div>
@@ -528,10 +524,6 @@ function endGame(){
     gameOverScreen.classList.remove('hidden');
     finalScoreEl.textContent=score;
     
-    // Calculate dyslexia probability based on score
-    const assessment = calculateDyslexiaProbability(score);
-    document.getElementById('dyslexia-probability').textContent = assessment.probability + '%';
-    document.getElementById('dyslexia-message').textContent = assessment.message;
     downloadMetricsCSV();
 }
 function nextChallenge(){clearAllScheduled();clearGameArea();if(currentChallenge>=selectedChallenges.length){endGame();return;}
@@ -632,43 +624,6 @@ function dragStart(e){dragSrcEl=this;}
 function dragOver(e){e.preventDefault();}
 function dropped(e){e.preventDefault();if(dragSrcEl!==this){let t=dragSrcEl.textContent;dragSrcEl.textContent=this.textContent;this.textContent=t;}}
 function shuffle(a){return a.slice().sort(()=>Math.random()-0.5);}
-
-/* Dyslexia Assessment */
-function calculateDyslexiaProbability(score) {
-    // Score ranges and corresponding dyslexia probability
-    // Lower scores indicate more difficulty with sequencing and working memory tasks
-    if (score >= 200) {
-        return {
-            probability: 5,
-            message: "Excellent performance! Very low risk of dyslexia."
-        };
-    } else if (score >= 150) {
-        return {
-            probability: 15,
-            message: "Good performance. Low risk of dyslexia."
-        };
-    } else if (score >= 100) {
-        return {
-            probability: 35,
-            message: "Moderate performance. Some signs of difficulty with sequencing tasks."
-        };
-    } else if (score >= 50) {
-        return {
-            probability: 60,
-            message: "Below average performance. Higher likelihood of dyslexia-related challenges."
-        };
-    } else if (score >= 20) {
-        return {
-            probability: 80,
-            message: "Significant difficulties detected. High probability of dyslexia."
-        };
-    } else {
-        return {
-            probability: 95,
-            message: "Severe difficulties with sequencing and working memory. Very high probability of dyslexia."
-        };
-    }
-}
 
 /* Pause */
 pauseBtn.onclick=()=>{paused?resumeGame():pauseGame();};

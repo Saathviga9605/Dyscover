@@ -1,0 +1,16 @@
+from uuid import UUID
+from fastapi import APIRouter, Depends
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+from app.database import get_db
+from app.models import AssessmentSession, GazeSample, Trial
+from .validation import build_quality_report
+
+router = APIRouter(prefix="/api/ml", tags=["ml-research"])
+
+@router.get("/quality")
+def quality(db: Session = Depends(get_db)):
+    sessions = list(db.scalars(select(AssessmentSession)))
+    trials = list(db.scalars(select(Trial)))
+    gaze = {str(sample.trial_id) for sample in db.scalars(select(GazeSample))}
+    return build_quality_report(sessions, trials, gaze)

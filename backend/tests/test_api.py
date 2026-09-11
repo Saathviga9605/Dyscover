@@ -54,3 +54,22 @@ def test_structured_trial_event_and_summary_contract(client: TestClient) -> None
     summary = client.post(f"/api/assessments/{assessment['id']}/summary", json={"games": [{"gameId": "letter-detective", "accuracy": 1}], "total_trials": 1})
     assert summary.status_code == 201
     assert summary.json()["schema_version"] == "2.0"
+
+
+def test_ml_profile_extracts_and_persists_observed_features(client: TestClient) -> None:
+    child = client.post("/api/children", json={"display_name": "Explorer", "birth_year": 2018}).json()
+    assessment = client.post("/api/assessments", json={"child_id": child["id"], "version": "stage-3.0"}).json()
+    profile = client.get(f"/api/ml/profile/session/{assessment['id']}")
+    assert profile.status_code == 200
+    assert profile.json()["mode"] == "OBSERVATION_ONLY"
+    assert profile.json()["model"]["status"] == "unavailable"
+    features = client.get(f"/api/ml/features/session/{assessment['id']}")
+    assert features.status_code == 200
+    assert features.json()["feature_schema_version"] == "1.0"
+
+
+def test_ml_quality_has_explicit_governance_state(client: TestClient) -> None:
+    quality = client.get("/api/ml/quality")
+    assert quality.status_code == 200
+    assert quality.json()["status"] in {"ok", "warning", "invalid"}
+    assert "warnings" in quality.json()

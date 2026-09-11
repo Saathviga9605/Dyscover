@@ -23,10 +23,14 @@ from app.schemas import (
     TrialCreate,
     TrialResponse,
 )
+from app.ml.routes import router as ml_router
+from app.ml.quality import router as ml_quality_router
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name, version=settings.app_version)
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_methods=["*"], allow_headers=["*"])
+app.include_router(ml_router)
+app.include_router(ml_quality_router)
 
 
 @app.on_event("startup")

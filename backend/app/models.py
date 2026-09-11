@@ -120,6 +120,17 @@ class FeatureVector(Base):
     features: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
+class SessionFeatureVector(Base):
+    __tablename__ = "session_feature_vectors"
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    assessment_id: Mapped[UUID] = mapped_column(ForeignKey("assessment_sessions.id"), unique=True, index=True)
+    feature_schema_version: Mapped[str] = mapped_column(String(16), default="1.0")
+    feature_extractor_version: Mapped[str] = mapped_column(String(16), default="1.0")
+    features: Mapped[dict] = mapped_column(JSON, default=dict)
+    quality: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class AssessmentSummary(Base):
     __tablename__ = "assessment_summaries"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)

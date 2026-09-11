@@ -4,6 +4,7 @@
 .game-pause-overlay h2 { margin: 10px 0 8px; color: var(--color-primary-deep); }
 .game-pause-overlay p { max-width: 320px; }
 .game-shell { position: relative; }
+.observed-list p { margin: 0; padding: 12px 0; border-bottom: 1px solid var(--color-border); font-size: .9rem; }.observed-list p:last-child { border-bottom: 0; }.domain-list { display: grid; gap: 10px; }.domain-list div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 12px; border-radius: var(--radius-sm); background: var(--color-surface-soft); }.domain-list span { color: var(--color-muted); text-transform: capitalize; }.domain-list strong { color: var(--color-primary-deep); }
 :root {
   --color-bg: #fbf8f1;
   --color-surface: #fffdf8;
