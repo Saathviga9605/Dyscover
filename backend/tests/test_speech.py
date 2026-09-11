@@ -55,7 +55,6 @@ def test_speech_session_stores_reference_metadata_without_audio():
         fetched = client.get(f"/api/speech/sessions/{response.json()['id']}")
         assert fetched.status_code == 200
 
-
 def test_speech_api_exposes_explicit_unavailable_state():
     client = TestClient(app)
     with client:
