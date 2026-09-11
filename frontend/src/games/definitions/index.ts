@@ -1,0 +1,12 @@
+export { letterDetective } from './letterDetective';
+export { mirrorMatch } from './mirrorMatch';
+export { wordFlash } from './wordFlash';
+export { sequenceQuest } from './sequenceQuest';
+export { wordMaze } from './wordMaze';
+import type { GameDefinition } from '../engine';
+import { letterDetective } from './letterDetective';
+import { mirrorMatch } from './mirrorMatch';
+import { wordFlash } from './wordFlash';
+import { sequenceQuest } from './sequenceQuest';
+import { wordMaze } from './wordMaze';
+export const assessmentPlan: Array<GameDefinition<any>> = [letterDetective, mirrorMatch, wordFlash, sequenceQuest, wordMaze];

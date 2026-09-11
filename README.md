@@ -1,93 +1,77 @@
-# Dyscover   
-### An AI-Powered Gamified Dyslexia Screening Platform for Children
+# Dyscover
 
-Dyscover is a web-based, AI-driven, gamified dyslexia screening tool designed for early childhood (ages 4–10). The platform focuses on **early detection**, **severity classification**, and **personalized support** for dyslexia using engaging games, voice & text analysis, and machine learning models.
+Dyscover is an AI-assisted, gamified early screening and support platform concept for children approximately ages 4-10. It uses interactive activities to observe learning-related interaction patterns. Dyscover is **not a diagnostic or clinical system**.
 
----
+## Stage 1 status
 
-## Problem Statement
+Stage 1 establishes the product foundation without inventing clinical results: a React/TypeScript/Vite frontend, FastAPI backend, SQLAlchemy/PostgreSQL-ready data layer, typed assessment contracts, modular game definitions, gaze interfaces, API contracts, and route-level UX shells.
 
-Dyslexia often goes undetected in early childhood due to the lack of accessible, engaging, and scalable screening tools. Traditional assessments are time-consuming, non-interactive, and require expert supervision, making early diagnosis difficult for many parents and schools.
+## Run locally
 
----
+### Frontend
 
-## Solution Overview
+Requires Node.js 20+.
 
-Dyscover addresses this gap by providing:
-- **Game-based assessments** instead of clinical tests  
-- **AI-powered analysis** of learning patterns  
-- **Early alerts** for parents and educators  
-- **Personalized recommendations** based on detected severity  
+```powershell
+cd frontend
+npm install
+npm run dev
+```
 
-The platform transforms dyslexia screening into a fun, stress-free experience for children while delivering meaningful insights to parents.
+Set `VITE_API_URL` when the API is not at `http://localhost:8000/api`.
 
----
+### Backend
 
-## Key Features
+Requires Python 3.11+.
 
-### Gamified Screening Modules
-- Visual discrimination
-- Mirror confusion (b/d, p/q reversals)
-- Word recognition & reading comprehension
-- Progressive difficulty levels with scoring logic
+```powershell
+cd backend
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+```
 
-### AI & Machine Learning
-- Symptom-based classification of dyslexia severity
-- Pattern recognition from gameplay and responses
-- Adaptive evaluation across age groups
+The default local database is SQLite. PostgreSQL is supported through `DATABASE_URL`; copy `.env.example` to `.env` and set the connection string. `CORS_ORIGINS` accepts a comma-separated list.
 
-### Voice & Text Analysis
-- Pronunciation and fluency analysis
-- Speech-to-text evaluation
-- Detection of reading hesitation and errors
+## Routes
 
-###  Parent Dashboard
-- Progress tracking and reports
-- Personalized suggestions and activities
-- Early warning alerts based on performance trends
+Frontend public routes: `/`, `/about`, `/how-it-works`, `/research`, `/contact`.
 
-### Interactive Chatbot
-- Child-friendly guidance during games
-- Parent support and FAQs
-- Continuous engagement and feedback
+Structural product routes: `/child/home`, `/child/assessment`, and `/parent/dashboard`.
 
----
+Backend routes: `/api/health`, `/api/version`, child profiles, assessment sessions, game sessions, trials, interaction events, and child assessment history. See `docs/architecture/backend.md`.
 
-##  Tech Stack
+## Architecture
 
-**Frontend**
-- HTML, CSS, JavaScript
-- Gamified UI with animations and child-friendly design
+- `frontend/src/games/registry.ts` defines a reusable `GameDefinition`, `GameInstance`, and callback contract.
+- `frontend/src/gaze/types.ts` isolates providers such as WebGazer from games.
+- `backend/app/models.py` stores users, child profiles, assessment sessions, game sessions, trials, events, gaze samples, fixations, and feature vectors.
+- `backend/app/assessment.py` defines assessment domains and research feature names.
+- API boundary data is validated with Pydantic; frontend requests go through `services/apiClient.ts`.
 
-**Backend**
-- Python (Flask / FastAPI)
-- REST APIs for assessment and scoring
+## Privacy and limitations
 
-**Machine Learning**
-- Scikit-learn
-- NLP for text analysis
-- Speech processing for voice evaluation
+Stage 1 does not load WebGazer, collect camera/audio data, run ML, calculate dyslexia probabilities, or produce clinical predictions. Gaze fields and feature vectors are storage contracts for future, consent-based research work. Do not place secrets or personal child data in frontend code or URLs.
 
+## Legacy migration
 
----
+The original HTML prototype remains in the repository as a reference surface. Its visual letter confusion, mirror matching, rapid word recognition, sequencing, word maze, speech interaction, gaze calibration, fixation metrics, and CSV column concepts are documented in `docs/architecture/legacy-migration.md`. The new routes do not load the legacy scripts or external Tenor/WebGazer/Chart.js assets.
 
-##  Scoring & Evaluation
+## Development checks
 
-- Each game has a fixed maximum score
-- Real-time scoring with validation
-- Aggregate performance used for severity classification
-- No score overflow or bias across modules
+```powershell
+cd backend
+pytest
+python -m compileall -q app tests
 
----
+cd ..\frontend
+npm run build
+npm run test
+```
 
+The frontend checks require Node.js. The current workspace may not have Node installed.
 
-##  Future Enhancements
+## Next stage
 
-- Multilingual dyslexia screening
-- School & educator dashboards
-- Longitudinal progress tracking
-- Mobile app version
-- Therapist integration
-
----
-
+Stage 2 should implement one accessible activity end to end, consent and session lifecycle, server-side event ingestion, validated scoring descriptors, and focused usability/research instrumentation. It should not introduce diagnosis or unsupported probabilities.
