@@ -42,13 +42,18 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     yield
 
 
+def _ensure_sqlite_column(connection, table: str, column: str, ddl: str) -> None:
+    columns = {column["name"] for column in inspect(engine).get_columns(table)}
+    if column not in columns:
+        connection.execute(text(f"ALTER TABLE {table} ADD COLUMN {ddl}"))
+
+
 def initialize_database() -> None:
     Base.metadata.create_all(bind=engine)
     if engine.url.get_backend_name() == "sqlite":
-        columns = {column["name"] for column in inspect(engine).get_columns("speech_sessions")}
-        if "expected_text" not in columns:
-            with engine.begin() as connection:
-                connection.execute(text("ALTER TABLE speech_sessions ADD COLUMN expected_text TEXT NOT NULL DEFAULT ''"))
+        with engine.begin() as connection:
+            _ensure_sqlite_column(connection, "speech_sessions", "expected_text", "expected_text TEXT NOT NULL DEFAULT ''")
+            _ensure_sqlite_column(connection, "assessment_sessions", "created_at", "created_at DATETIME")
 
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)

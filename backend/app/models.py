@@ -32,6 +32,7 @@ class AssessmentSession(Base):
     child_id: Mapped[UUID] = mapped_column(ForeignKey("child_profiles.id"), index=True)
     status: Mapped[str] = mapped_column(String(24), default="planned")
     version: Mapped[str] = mapped_column(String(32), default="stage-1")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     started_at: Mapped[datetime | None] = mapped_column(DateTime)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
     child: Mapped[ChildProfile] = relationship(back_populates="assessments")

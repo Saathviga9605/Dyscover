@@ -53,6 +53,18 @@ def test_child_assessment_contract(client: TestClient) -> None:
     assert assessment.json()["status"] == "planned"
 
 
+def test_list_child_assessments_is_deterministic_and_terminates(client: TestClient) -> None:
+    child = client.post("/api/children", json={"display_name": "Explorer", "birth_year": 2018}).json()
+    client.post("/api/assessments", json={"child_id": child["id"]}).json()
+    client.post("/api/assessments", json={"child_id": child["id"]}).json()
+    first = client.get(f"/api/children/{child['id']}/assessments")
+    assert first.status_code == 200
+    second = client.get(f"/api/children/{child['id']}/assessments")
+    assert second.status_code == 200
+    assert [item["id"] for item in first.json()] == [item["id"] for item in second.json()]
+    assert len(first.json()) == 2
+
+
 def test_structured_trial_event_and_summary_contract(client: TestClient) -> None:
     child = client.post("/api/children", json={"display_name": "Explorer", "birth_year": 2018}).json()
     assessment = client.post("/api/assessments", json={"child_id": child["id"], "version": "stage-2.0"}).json()
