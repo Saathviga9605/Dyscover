@@ -56,10 +56,9 @@ def child_difficulty(
 
 
 @router.get("/children/{child_id}/recommendations", response_model=RecommendationsResponse)
-def child_recommendations(child_id: str, db: Session = Depends(get_db)):
+def child_recommendations(child_id: str, language: str | None = None, db: Session = Depends(get_db)):
     _require_child(db, child_id)
-    data = build_child_recommendations(db, child_id)
-    return data
+    return build_child_recommendations(db, child_id, language=language)
 
 
 @router.get("/children/{child_id}/progress", response_model=ProgressResponse)

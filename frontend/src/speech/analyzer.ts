@@ -34,14 +34,17 @@ declare global {
 export class SpeechSignalAnalyzer {
   private readonly providerVersion: string;
   private readonly audioContext: AudioContext | null;
+  private readonly lang: string;
 
-  constructor(private readonly capabilities: SpeechCapabilities) {
+  constructor(private readonly capabilities: SpeechCapabilities, options: { lang?: string } = {}) {
     this.audioContext = createAudioContextSafe();
+    this.lang = options.lang ?? 'en-US';
     this.providerVersion = capabilities.recognition ? 'webkit-speech-v1' : 'webaudio-v1';
   }
 
   async observe(task: ReadingTask, signal: AbortSignal): Promise<SpeechAnalysisResult> {
     const expected = task.expected_text;
+    const language = task.language || 'en';
     const startedAt = performance.now();
     const rmsHistory: number[] = [];
     let transcription = '';
@@ -64,7 +67,7 @@ export class SpeechSignalAnalyzer {
     const amplitudeFeatures = this.amplitudeFeatures(mean, peak);
 
     const heardText = transcription || expected;
-    const similarity = similarityRatio(heardText, expected);
+    const similarity = similarityRatio(heardText, expected, language);
     const correct = decideCorrectness(similarity, task.difficulty);
 
     return {
@@ -85,7 +88,7 @@ export class SpeechSignalAnalyzer {
     const RecognitionCtor = window.SpeechRecognition ?? window.webkitSpeechRecognition;
     if (!RecognitionCtor || !this.capabilities.recognition) return null;
     const recognition = new RecognitionCtor();
-    recognition.lang = 'en-US';
+    recognition.lang = this.lang;
     recognition.continuous = false;
     recognition.interimResults = true;
     recognition.maxAlternatives = 1;

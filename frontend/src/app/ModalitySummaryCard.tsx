@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Badge, Card } from '../components/ui';
 import { api, type ModalitySummaryResponse } from '../services/apiClient';
-
-const PARENT_SAFE_NOTE = 'Only numeric summaries are stored. The camera image and microphone audio are never saved or uploaded.';
+import { useLanguage } from '../l10n';
 
 export interface ModalitySummaryCardProps {
   dataQuality?: Record<string, unknown> | null;
@@ -16,6 +15,7 @@ interface GazeStatus {
 }
 
 export function ModalitySummaryCard({ dataQuality }: ModalitySummaryCardProps) {
+  const { t } = useLanguage();
   const [gazeStatus, setGazeStatus] = useState<GazeStatus | null>(null);
   const [summary, setSummary] = useState<ModalitySummaryResponse | null>(null);
 
@@ -51,36 +51,37 @@ export function ModalitySummaryCard({ dataQuality }: ModalitySummaryCardProps) {
   const gaze = summary?.gaze;
   const speech = summary?.speech;
 
+  const trialWord = (count: number) => (count === 1 ? t('modal.trial') : t('modal.trials'));
   const gazeLine = gaze ? (gaze.recorded
-    ? `Recorded · ${gaze.sample_count} samples over ${gaze.trial_count} trial${gaze.trial_count === 1 ? '' : 's'}${gaze.calibration_completed ? '' : ' · not calibrated'}`
-    : 'Not recorded in the latest screening') : null;
+    ? t('modal.gazeRecordedLine', { samples: gaze.sample_count, trials: gaze.trial_count, trialWord: trialWord(gaze.trial_count), calibration: gaze.calibration_completed ? '' : t('modal.notCalibrated') })
+    : t('modal.gazeNotRecorded')) : null;
   const speechLine = speech ? (speech.recorded
-    ? `Recorded · ${speech.trial_count} listening trial${speech.trial_count === 1 ? '' : 's'}, ${speech.transcript_available} with a captured answer`
-    : 'Not recorded in the latest screening') : null;
+    ? t('modal.speechRecordedLine', { trials: speech.trial_count, trialWord: trialWord(speech.trial_count), captured: speech.transcript_available })
+    : t('modal.gazeNotRecorded')) : null;
 
   return (
     <Card className="wide">
       <div className="card-title-row">
-        <h3>How your child played</h3>
-        <Badge>Observation modalities</Badge>
+        <h3>{t('modal.howPlayed')}</h3>
+        <Badge>{t('modal.observationBadge')}</Badge>
       </div>
       <div className="domain-list">
         {gazeAvailability !== null ? (
-          <div><span>Eye tracking</span><strong>{Math.round(gazeAvailability * 100)}% of trials had gaze data</strong></div>
+          <div><span>{t('modal.eyeTracking')}</span><strong>{t('modal.gazeTrialsPercent', { percent: Math.round(gazeAvailability * 100) })}</strong></div>
         ) : gazeLine ? (
-          <div><span>Eye tracking</span><strong>{gazeLine}</strong></div>
+          <div><span>{t('modal.eyeTracking')}</span><strong>{gazeLine}</strong></div>
         ) : (
-          <div><span>Eye tracking</span><strong>{zeroGaze ? 'Not recorded in the latest screening' : `${gazeStatus?.total_samples ?? 0} gaze samples recorded`}</strong></div>
+          <div><span>{t('modal.eyeTracking')}</span><strong>{zeroGaze ? t('modal.gazeNotRecorded') : t('modal.gazeSamplesRecorded', { samples: gazeStatus?.total_samples ?? 0 })}</strong></div>
         )}
         {speechAvailability !== null ? (
-          <div><span>Reading aloud</span><strong>{Math.round(speechAvailability * 100)}% of trials had speech features</strong></div>
+          <div><span>{t('modal.readingAloud')}</span><strong>{t('modal.speechTrialsPercent', { percent: Math.round(speechAvailability * 100) })}</strong></div>
         ) : speechLine ? (
-          <div><span>Reading aloud</span><strong>{speechLine}</strong></div>
+          <div><span>{t('modal.readingAloud')}</span><strong>{speechLine}</strong></div>
         ) : (
-          <div><span>Reading aloud</span><strong>Not recorded in the latest screening</strong></div>
+          <div><span>{t('modal.readingAloud')}</span><strong>{t('modal.gazeNotRecorded')}</strong></div>
         )}
       </div>
-      <p className="notice">{PARENT_SAFE_NOTE}</p>
+      <p className="notice">{t('modal.privacyNote')}</p>
     </Card>
   );
 }

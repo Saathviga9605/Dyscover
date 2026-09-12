@@ -62,15 +62,20 @@ CONTENT: dict[str, dict[str, object]] = {
 }
 
 
-def speech_tasks(activity_id: str, count: int = 5, seed: int = 0) -> list[dict]:
+def speech_tasks(activity_id: str, count: int = 5, seed: int = 0, language: str = "en") -> list[dict]:
     """Deterministic reading-aloud tasks derived from curated word pools.
 
     Produces ``ReadingTask``-shaped dicts used by the speech practice
     adapter.  Selection is reproducible for a given ``seed``.
+    Returns an empty list when no curated content exists for the requested
+    language — never fabricates tasks in a language we have not curated.
     """
     from app.speech.schemas import ReadingTask
 
     from .catalog import get_activity
+
+    if language != "en":
+        return []
 
     activity = get_activity(activity_id)
     if activity is None or activity.activity_type != "speech":
@@ -98,6 +103,8 @@ def speech_tasks(activity_id: str, count: int = 5, seed: int = 0) -> list[dict]:
 
 def content_summary() -> dict:
     """Stable, parent-safe summary of the curated content pools."""
+    from app.l10n import languages_for_activity
+
     labels = {
         "symbol-match": "shapes and symbols",
         "word-builder": "letters and short words",
@@ -113,6 +120,7 @@ def content_summary() -> dict:
             {
                 "activity_id": activity_id,
                 "family": labels.get(activity_id, activity_id),
+                "languages": sorted(languages_for_activity(activity_id)),
                 "pool_sizes": {k: len(v) for k, v in pools.items() if isinstance(v, tuple)},
             }
             for activity_id, pools in CONTENT.items()

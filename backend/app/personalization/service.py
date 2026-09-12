@@ -13,6 +13,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import AssessmentSession, GameSession, Trial
+from app.l10n import is_activity_available
 
 from . import PERSONALIZATION_ENGINE_VERSION, PERSONALIZATION_SCHEMA_VERSION, MODE
 from .config import PERSONALIZATION_CONFIG, config_summary
@@ -137,10 +138,14 @@ def build_game_difficulty(db: Session, child_id: str, game_id: str, current_leve
     return decide(game_id, game_trials, PERSONALIZATION_CONFIG.difficulty, current_level)
 
 
-def build_child_recommendations(db: Session, child_id: str) -> dict:
+def build_child_recommendations(db: Session, child_id: str, language: str | None = None) -> dict:
     trials = _child_trials(db, child_id)
     skills = build_profile(trials, PERSONALIZATION_CONFIG)
     recommendations = build_recommendations(skills, PERSONALIZATION_CONFIG)
+    # The child may only be recommended activities with genuinely available
+    # content in their language (deterministic rules otherwise unchanged).
+    if language is not None:
+        recommendations = [rec for rec in recommendations if rec.game_id is None or is_activity_available(rec.game_id, language)]
     for rec in recommendations:
         if rec.game_id is not None:
             decision = build_game_difficulty(db, child_id, rec.game_id)
@@ -149,6 +154,7 @@ def build_child_recommendations(db: Session, child_id: str) -> dict:
         "child_id": child_id,
         "engine_version": PERSONALIZATION_ENGINE_VERSION,
         "mode": MODE,
+        "language": language,
         "recommendations": [to_dict(rec) for rec in recommendations],
     }
 

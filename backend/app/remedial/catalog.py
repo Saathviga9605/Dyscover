@@ -11,6 +11,8 @@ session, or telemetry code.
 
 from dataclasses import dataclass
 
+from app.l10n import is_activity_available, languages_for_activity
+
 from .config import REMEDIAL_CONFIG
 
 SUPPORTING_GAMES = {
@@ -53,6 +55,7 @@ class ActivityDefinition:
             "required_capabilities": list(self.required_capabilities),
             "version": self.version,
             "enabled": self.enabled,
+            "languages": sorted(languages_for_activity(self.activity_id)),
         }
 
 
@@ -171,13 +174,15 @@ def get_activity(activity_id: str) -> ActivityDefinition | None:
     return _by_id.get(activity_id)
 
 
-def available_activities(age: int | None = None, capabilities: tuple[str, ...] | None = None) -> tuple[ActivityDefinition, ...]:
-    """Enabled activities appropriate for *age* and *capabilities*, when known."""
+def available_activities(age: int | None = None, capabilities: tuple[str, ...] | None = None, language: str | None = None) -> tuple[ActivityDefinition, ...]:
+    """Enabled activities appropriate for *age*, *capabilities*, and *language*."""
     result = [a for a in ACTIVITIES if a.enabled]
     if capabilities is not None:
         result = [a for a in result if set(a.required_capabilities).issubset(set(capabilities))]
     if age is not None:
         result = [a for a in result if a.age_min <= age <= a.age_max]
+    if language is not None:
+        result = [a for a in result if is_activity_available(a.activity_id, language)]
     return tuple(result)
 
 

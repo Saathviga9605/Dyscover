@@ -1,5 +1,7 @@
 from typing import Any
 
+from app.l10n import language_name
+
 LIMITATIONS = ["This is a screening-oriented observation system, not a diagnostic assessment.", "Results can be influenced by attention, fatigue, familiarity, environment, device, language background, and other factors.", "Professional evaluation may be appropriate when concerns persist."]
 
 _MODALITY_OBSERVATIONS = {
@@ -8,7 +10,7 @@ _MODALITY_OBSERVATIONS = {
     "text": ["Recognized-speech words were retained as text features while audio itself was not stored."],
 }
 
-def build_profile(session_id: str, features: dict[str, dict[str, Any]], quality: dict[str, Any]) -> dict[str, Any]:
+def build_profile(session_id: str, features: dict[str, dict[str, Any]], quality: dict[str, Any], language: str | None = None, locale: str | None = None) -> dict[str, Any]:
     domains: dict[str, dict[str, Any]] = {}
     observations: list[str] = []
     for name, feature in features.items():
@@ -19,6 +21,14 @@ def build_profile(session_id: str, features: dict[str, dict[str, Any]], quality:
     if accuracy is not None: observations.append("Activity accuracy was recorded across completed trials.")
     if reaction is not None: observations.append("Response timing was recorded for trials with available timing data.")
 
+    # Language is recorded as observable context only - it is never combined
+    # with behavioural features into a language-adjusted score or prediction.
+    resolved_language = language or "en"
+    if language:
+        observations.append(f"Observations were recorded during the child's {language_name(language).lower()}-language activities.")
+    elif locale:
+        observations.append(f"Observations were recorded during {language_name(resolved_language).lower()}-language activities.")
+
     available_modalities = sorted(_available_modalities(features))
     for modality in available_modalities:
         observations.extend(_MODALITY_OBSERVATIONS.get(modality, []))
@@ -27,7 +37,7 @@ def build_profile(session_id: str, features: dict[str, dict[str, Any]], quality:
         observations.append("Voice input was offered, but no recognized speech was captured.")
 
     if not observations: observations.append("There is not enough completed activity data to describe observed patterns yet.")
-    return {"session_id": session_id, "assessment_id": session_id, "subject_id": None, "trial_count": quality.get("trial_count", 0), "feature_schema_version": quality.get("feature_schema_version", "1.0"), "available_modalities": available_modalities, "missing_features": [name for name, item in features.items() if not item.get("available")], "mode": "OBSERVATION_ONLY", "domains": domains, "observations": observations, "data_quality": quality, "model": {"status": "unavailable", "model_state": "unavailable", "mode": "UNAVAILABLE", "model": None, "prediction": None, "limitations": ["No validated model is available for this installation."]}, "limitations": LIMITATIONS}
+    return {"session_id": session_id, "assessment_id": session_id, "subject_id": None, "trial_count": quality.get("trial_count", 0), "feature_schema_version": quality.get("feature_schema_version", "1.0"), "available_modalities": available_modalities, "missing_features": [name for name, item in features.items() if not item.get("available")], "mode": "OBSERVATION_ONLY", "language": resolved_language, "locale": locale or "en-US", "domains": domains, "observations": observations, "data_quality": quality, "model": {"status": "unavailable", "model_state": "unavailable", "mode": "UNAVAILABLE", "model": None, "prediction": None, "limitations": ["No validated model is available for this installation."]}, "limitations": LIMITATIONS}
 
 
 def _available_modalities(features: dict[str, dict[str, Any]]) -> set[str]:

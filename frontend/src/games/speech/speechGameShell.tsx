@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Mascot, MascotBubble } from '../../components/ui';
+import { getStoredLocale } from '../../l10n/languages';
 import { SpeechRecognitionController, type SpeechRecognitionResult } from './speechRecognition';
 
 export type SpeechListenPhase = 'idle' | 'listening' | 'done' | 'error';
@@ -27,6 +28,7 @@ export function SpeechRound({ title, levelName, levelSubtitle, promptText, child
     setListening(true);
     setInterim('');
     const controller = new SpeechRecognitionController({
+      lang: getStoredLocale(),
       onInterim: text => {
         setInterim(text);
         onInterim?.(text);

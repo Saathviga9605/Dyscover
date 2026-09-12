@@ -75,6 +75,7 @@ class SpeechSessionCreate(BaseModel):
     trial_id: UUID | None = None
     task: ReadingTask
     language: str = "en"
+    locale: str | None = None
     provider: str = "unconfigured"
     provider_version: str = "unknown"
     audio_available: bool = False
@@ -87,6 +88,7 @@ class SpeechSessionResponse(BaseModel):
     trial_id: UUID | None = None
     task: ReadingTask
     language: str
+    locale: str
     provider: str
     provider_version: str
     audio_available: bool

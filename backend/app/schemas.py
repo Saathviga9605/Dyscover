@@ -24,6 +24,9 @@ class ChildResponse(ChildCreate):
 class AssessmentCreate(BaseModel):
     child_id: UUID
     version: str = "stage-1"
+    language: str = "en"
+    locale: str | None = None
+    content_version: str | None = None
 
 
 class AssessmentResponse(AssessmentCreate):
@@ -37,6 +40,8 @@ class AssessmentResponse(AssessmentCreate):
 class GameCreate(BaseModel):
     game_id: str = Field(min_length=1, max_length=80)
     game_version: str = "1.0.0"
+    language: str = "en"
+    content_version: str = "1.0"
 
 
 class GameResponse(GameCreate):
@@ -53,6 +58,8 @@ class TrialCreate(BaseModel):
     expected_response: Any = None
     actual_response: Any = None
     game_version: str = "1.0.0"
+    language: str = "en"
+    content_version: str = "1.0"
     domain: str | None = None
     difficulty: int = Field(default=1, ge=1, le=5)
     score: float = Field(default=0, ge=0)
@@ -83,6 +90,7 @@ class EventCreate(BaseModel):
     performance_time: float | None = None
     sequence_number: int | None = Field(default=None, ge=1)
     schema_version: str = "2.0"
+    language: str = "en"
     payload: dict = Field(default_factory=dict)
 
 

@@ -37,7 +37,8 @@ function phoneticKey(text: string): string {
   return normalizeText(text).replace(/[^a-z]/g, '');
 }
 
-export function phoneticSimilarity(a: string, b: string): number {
+export function phoneticSimilarity(a: string, b: string, language = 'en'): number {
+  if (language !== 'en') return -1;
   const x = phoneticKey(a);
   const y = phoneticKey(b);
   if (!x.length || !y.length) return 0;
@@ -49,7 +50,8 @@ export function phoneticSimilarity(a: string, b: string): number {
   return matches / Math.max(x.length, y.length);
 }
 
-function aliasOptions(expected: string, kind: SpeechPromptKind): string[] {
+function aliasOptions(expected: string, kind: SpeechPromptKind, language = 'en'): string[] {
+  if (language !== 'en') return [normalizeText(expected, language)].filter(Boolean);
   const options = new Set<string>();
   const key = normalizeText(expected);
   if (key && key.split(' ').length === 1) {
@@ -64,14 +66,18 @@ function aliasOptions(expected: string, kind: SpeechPromptKind): string[] {
   return [...options].filter(Boolean);
 }
 
-function tokenize(text: string): string[] {
-  const value = normalizeText(text);
+function tokenize(text: string, language = 'en'): string[] {
+  const value = normalizeText(text, language);
   return value ? value.split(' ') : [];
 }
 
-function matchesOption(heard: string, option: string): boolean {
+function matchesOption(heard: string, option: string, language = 'en'): boolean {
   if (!heard || !option) return false;
-  if (heard === option || heard.includes(option) || option.includes(heard)) return true;
+  if (heard === option) return true;
+  const hasNonAscii = /[^\u0000-\u007f]/.test(heard + option);
+  if (hasNonAscii && (heard.includes(option) || option.includes(heard))) return true;
+  if (language === 'en' && (heard.includes(option) || option.includes(heard))) return true;
+  if (language !== 'en') return similarityRatio(heard, option, language) >= 0.72;
   return similarityRatio(heard, option) >= 0.72 || phoneticSimilarity(heard, option) >= 0.72;
 }
 
@@ -91,18 +97,21 @@ const RAN_SIMILARITY_THRESHOLD = 0.6;
 const WORD_MATCH_THRESHOLD = 0.6;
 const WORD_COVERAGE_THRESHOLD = 0.6;
 
-export function gradeSpeechResponse(expectedText: string, kind: SpeechPromptKind, transcript: string): SpeechGrade {
-  const heard = normalizeText(transcript);
-  const expected = normalizeText(expectedText);
-  const options = aliasOptions(expectedText, kind);
+export function gradeSpeechResponse(expectedText: string, kind: SpeechPromptKind, transcript: string, language = 'en'): SpeechGrade {
+  const heard = normalizeText(transcript, language);
+  const expected = normalizeText(expectedText, language);
+  const options = aliasOptions(expectedText, kind, language);
 
-  const transcriptSimilarity = similarityRatio(heard, expected);
-  let phonetic = phoneticSimilarity(heard, expected);
-  for (const option of options) phonetic = Math.max(phonetic, phoneticSimilarity(heard, option));
+  const transcriptSimilarity = similarityRatio(heard, expected, language);
+  let phonetic = language === 'en' ? phoneticSimilarity(heard, expected) : -1;
+  for (const option of options) {
+    const similarity = language === 'en' ? phoneticSimilarity(heard, option) : -1;
+    phonetic = Math.max(phonetic, similarity);
+  }
 
-  const optionsMatch = options.some(option => matchesOption(heard, option));
-  const letterNameMatch = options.some(option => option && (heard === option || heard.includes(option)));
-  const wholeSimilarity = Math.max(transcriptSimilarity, ...options.map(option => similarityRatio(heard, option)));
+  const optionsMatch = options.some(option => matchesOption(heard, option, language));
+  const letterNameMatch = language === 'en' && options.some(option => option && (heard === option || heard.includes(option)));
+  const wholeSimilarity = Math.max(transcriptSimilarity, ...options.map(option => similarityRatio(heard, option, language)));
   const threshold = kind === 'word' ? WORD_SIMILARITY_THRESHOLD : kind === 'sentence' ? SENTENCE_SIMILARITY_THRESHOLD : RAN_SIMILARITY_THRESHOLD;
 
   if (kind === 'letter') {
@@ -118,11 +127,11 @@ export function gradeSpeechResponse(expectedText: string, kind: SpeechPromptKind
   }
 
   if (kind === 'letter-pair') {
-    const targetLetters = tokenize(expected);
-    const heardWords = tokenize(heard);
+    const targetLetters = tokenize(expected, language);
+    const heardWords = tokenize(heard, language);
     const matchedLetters = targetLetters.filter(letter => {
-      const aliases = aliasOptions(letter, 'letter');
-      return heardWords.some(item => aliases.some(alias => matchesOption(item, alias)));
+      const aliases = aliasOptions(letter, 'letter', language);
+      return heardWords.some(item => aliases.some(alias => matchesOption(item, alias, language)));
     }).length;
     const matched = matchedLetters >= targetLetters.length || optionsMatch;
     return {
@@ -137,9 +146,9 @@ export function gradeSpeechResponse(expectedText: string, kind: SpeechPromptKind
   }
 
   if (kind === 'sentence' || kind === 'ran') {
-    const expectedWords = kind === 'ran' ? tokenize(expected) : tokenize(expected);
-    const heardWords = tokenize(heard);
-    const covered = expectedWords.filter(word => heardWords.some(item => similarityRatio(item, word) >= WORD_MATCH_THRESHOLD || phoneticSimilarity(item, word) >= WORD_MATCH_THRESHOLD)).length;
+    const expectedWords = tokenize(expected, language);
+    const heardWords = tokenize(heard, language);
+    const covered = expectedWords.filter(word => heardWords.some(item => similarityRatio(item, word, language) >= WORD_MATCH_THRESHOLD || (language === 'en' && phoneticSimilarity(item, word) >= WORD_MATCH_THRESHOLD))).length;
     const coverage = expectedWords.length ? covered / expectedWords.length : 0;
     if (coverage >= WORD_COVERAGE_THRESHOLD) {
       return {
@@ -167,7 +176,8 @@ export function gradeSpeechResponse(expectedText: string, kind: SpeechPromptKind
   };
 }
 
-export function singleLetterName(promptText: string): string | null {
+export function singleLetterName(promptText: string, language = 'en'): string | null {
+  if (language !== 'en') return null;
   const key = normalizeText(promptText);
   if (key.length !== 1) return null;
   return LETTER_NAME_ALIASES[key]?.[1] ?? key;
@@ -182,7 +192,7 @@ export function speechGradeError(errorType?: string): string | null {
   return errorType;
 }
 
-export function gradeFromRecognition(expectedText: string, kind: SpeechPromptKind, result: SpeechRecognitionResult): SpeechGrade & { errorType?: string } {
+export function gradeFromRecognition(expectedText: string, kind: SpeechPromptKind, result: SpeechRecognitionResult, language = 'en'): SpeechGrade & { errorType?: string } {
   if (result.errorType) {
     return {
       transcript: '',
@@ -195,5 +205,5 @@ export function gradeFromRecognition(expectedText: string, kind: SpeechPromptKin
       errorType: result.errorType,
     };
   }
-  return gradeSpeechResponse(expectedText, kind, result.transcript);
+  return gradeSpeechResponse(expectedText, kind, result.transcript, language);
 }

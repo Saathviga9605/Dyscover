@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { normalizeText } from '../../speech/types';
 import { gradeSpeechResponse, phoneticSimilarity, singleLetterName } from './speechMatching';
 
 describe('phonetic similarity', () => {
@@ -72,5 +73,42 @@ describe('gradeSpeechResponse', () => {
   it('handles an empty transcript without throwing', () => {
     const grade = gradeSpeechResponse('cat', 'word', '');
     expect(grade.correct).toBe(false);
+  });
+});
+
+describe('non-English language guard', () => {
+  it('disables phonetic similarity outside English', () => {
+    expect(phoneticSimilarity('pat', 'bat')).toBe(1);
+    expect(phoneticSimilarity('pat', 'bat', 'ta')).toBe(-1);
+  });
+
+  it('keeps Tamil script intact when normalizing', () => {
+    expect(normalizeText('கண்ணாடி', 'ta')).toBe('கண்ணாடி');
+  });
+
+  it('does not reduce Tamil to empty text under the English filter', () => {
+    expect(normalizeText('கண்ணாடி', 'en')).toBe('');
+  });
+
+  it('strips diacritics in English normalization', () => {
+    expect(normalizeText('café', 'en')).toBe('cafe');
+    expect(normalizeText('café', 'ta')).toBe('café');
+  });
+
+  it('does not apply English letter-name aliases to non-English prompts', () => {
+    expect(singleLetterName('b')).toBe('bee');
+    expect(singleLetterName('b', 'ta')).toBeNull();
+  });
+
+  it('rejects a letter name that only matches via English phonetics', () => {
+    const grade = gradeSpeechResponse('b', 'letter', 'bee', 'ta');
+    expect(grade.correct).toBe(false);
+    expect(grade.matchedVia).toBe('none');
+  });
+
+  it('matches Tamil prompts via exact normalized similarity', () => {
+    const grade = gradeSpeechResponse('கண்ணாடி', 'word', 'கண்ணாடி', 'ta');
+    expect(grade.correct).toBe(true);
+    expect(grade.matchedVia).toBe('exact');
   });
 });

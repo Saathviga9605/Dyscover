@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Mascot, MascotBubble } from '../components/ui';
+import { useLanguage } from '../l10n';
+import { getStoredLocale } from '../l10n/languages';
 import { SpeechSignalAnalyzer } from './analyzer';
 import type { ReadingTask, SpeechAnalysisResult, SpeechCapabilities, SpeechProviderPhase } from './types';
 
@@ -18,6 +20,7 @@ export interface SpeechPracticeViewProps {
 export const SPEECH_CONSENT_KEY = 'dyscover-speech-consent';
 
 export function SpeechPracticeView({ activityName, activityDescription, tasks, capabilities, difficulty, onResult, onComplete, onAbandon, onPhaseChange }: SpeechPracticeViewProps) {
+  const { t } = useLanguage();
   const [index, setIndex] = useState(0);
   const [listening, setListening] = useState(false);
   const [phase, setPhase] = useState<SpeechProviderPhase>('NOT_CONFIGURED');
@@ -27,7 +30,7 @@ export function SpeechPracticeView({ activityName, activityDescription, tasks, c
   const timerRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
-    analyzerRef.current = new SpeechSignalAnalyzer(capabilities);
+    analyzerRef.current = new SpeechSignalAnalyzer(capabilities, { lang: getStoredLocale() });
     setPhase('READY');
     onPhaseChange?.('READY');
     return () => {
@@ -68,28 +71,28 @@ export function SpeechPracticeView({ activityName, activityDescription, tasks, c
     }
   }, [index, listening, tasks, onResult, onComplete, onPhaseChange]);
 
-  if (!tasks.length) return <div className="empty-state" role="status">Getting a listening activity ready…</div>;
+  if (!tasks.length) return <div className="empty-state" role="status">{t('speech.launchEmpty')}</div>;
 
   const task = tasks[index];
 
   return (
     <div className="game-shell speech-practice">
       <div className="game-topbar">
-        <button className="game-back" onClick={onAbandon} aria-label="Leave practice">←</button>
+        <button className="game-back" onClick={onAbandon} aria-label={t('practice.abandon')}>←</button>
         <div className="game-title"><span className="game-mascot-dot">✦</span><strong>{activityName}</strong></div>
       </div>
-      <div className="game-progress-row"><span>Say {index + 1} of {tasks.length}</span><div className="game-progress"><span style={{ width: `${Math.round((index / tasks.length) * 100)}%` }} /></div><span>{Math.round((index / tasks.length) * 100)}%</span></div>
+      <div className="game-progress-row"><span>{t('speech.count', { index: index + 1, total: tasks.length })}</span><div className="game-progress"><span style={{ width: `${Math.round((index / tasks.length) * 100)}%` }} /></div><span>{Math.round((index / tasks.length) * 100)}%</span></div>
       <main className="game-stage">
         <div className="speech-prompt" key={task.task_id}>
           <span className="child-kicker">{activityDescription}</span>
           <Mascot mood={listening ? 'thinking' : 'happy'} size="medium" />
           <p className="speech-target">{task.expected_text}</p>
           <button className="child-start speech-mic-button" onClick={() => void listen()} disabled={listening || phase === 'ERROR'}>
-            {listening ? 'Listening…' : 'Tap here, then say it'}
+            {listening ? t('speech.listening') : t('speech.tapToSay')}
           </button>
-          {phase === 'ERROR' && <p>We could not hear the microphone. Please check that it is allowed and try again.</p>}
-          {phase === 'LISTENING' && <MascotBubble mood="thinking">I’m listening…</MascotBubble>}
-          {lastResult && <div className="speech-feedback" role="status">{lastResult.correct ? 'Great job!' : 'Almost! Let’s try the next one.'}</div>}
+          {phase === 'ERROR' && <p>{t('speech.errorListening')}</p>}
+          {phase === 'LISTENING' && <MascotBubble mood="thinking">{t('speech.listeningBubble')}</MascotBubble>}
+          {lastResult && <div className="speech-feedback" role="status">{lastResult.correct ? t('game.shell.feedbackGreat') : t('speech.feedbackAlmost')}</div>}
         </div>
       </main>
     </div>

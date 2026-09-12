@@ -1,4 +1,5 @@
 import type { AssessmentDomain } from '../../types/assessment';
+import { getStoredLanguage } from '../../l10n/languages';
 import type { GameDefinition, Trial, TrialEvaluation } from '../engine';
 import { gradeFromRecognition } from './speechMatching';
 import { buildSpeechEvidence, numericFeatures, responseSubmittedPayload, speechFeaturesEventPayload, type SpeechTrialEvidence } from './speechTelemetry';
@@ -109,7 +110,7 @@ function evaluateSpeechTrial(trial: SpeechTrial, response: SpeechResponseRecord)
     retriedNoSpeech: response.retriedNoSpeech ?? 0,
     provider: response.provider,
     errorType: response.errorType,
-  } as SpeechRecognitionResult);
+  } as SpeechRecognitionResult, getStoredLanguage());
 
   const evidence = buildSpeechEvidence(
     { taskId: stimulus.taskId, expectedText: stimulus.promptText, kind: stimulus.kind, level: stimulus.level },

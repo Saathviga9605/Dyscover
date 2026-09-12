@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.database import Base, engine, get_db
+from app.l10n import L10N_CONTENT_VERSION, locale_for
 from app.models import AssessmentSession, AssessmentSummary, ChildProfile, Fixation, GameSession, GazeSample, InteractionEvent, SpeechSession, Trial
 from app.gaze.routes import router as gaze_router
 from app.schemas import (
@@ -62,6 +63,16 @@ def initialize_database() -> None:
             _ensure_sqlite_column(connection, "gaze_samples", "provider", "provider VARCHAR(80)")
             _ensure_sqlite_column(connection, "gaze_samples", "viewport_width", "viewport_width INTEGER")
             _ensure_sqlite_column(connection, "gaze_samples", "viewport_height", "viewport_height INTEGER")
+            _ensure_sqlite_column(connection, "assessment_sessions", "language", "language VARCHAR(16) DEFAULT 'en'")
+            _ensure_sqlite_column(connection, "assessment_sessions", "locale", "locale VARCHAR(16) DEFAULT 'en-US'")
+            _ensure_sqlite_column(connection, "assessment_sessions", "content_version", "content_version VARCHAR(16) DEFAULT '1.0'")
+            _ensure_sqlite_column(connection, "game_sessions", "language", "language VARCHAR(16) DEFAULT 'en'")
+            _ensure_sqlite_column(connection, "game_sessions", "content_version", "content_version VARCHAR(16) DEFAULT '1.0'")
+            _ensure_sqlite_column(connection, "trials", "language", "language VARCHAR(16) DEFAULT 'en'")
+            _ensure_sqlite_column(connection, "trials", "content_version", "content_version VARCHAR(16) DEFAULT '1.0'")
+            _ensure_sqlite_column(connection, "interaction_events", "language", "language VARCHAR(16) DEFAULT 'en'")
+            _ensure_sqlite_column(connection, "speech_sessions", "locale", "locale VARCHAR(16) DEFAULT 'en-US'")
+            _ensure_sqlite_column(connection, "practice_sessions", "language", "language VARCHAR(16) DEFAULT 'en'")
 
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
@@ -114,7 +125,12 @@ def get_child(child_id: UUID, db: Session = Depends(get_db)) -> ChildProfile:
 def create_assessment(payload: AssessmentCreate, db: Session = Depends(get_db)) -> AssessmentSession:
     if db.get(ChildProfile, payload.child_id) is None:
         raise HTTPException(status_code=404, detail="Child profile not found")
-    assessment = AssessmentSession(**payload.model_dump())
+    values = payload.model_dump(exclude_none=True)
+    # The server canonicalizes locale/content version from the language so
+    # persisted records are always interpretable.
+    values["locale"] = values.get("locale") or locale_for(values["language"])
+    values["content_version"] = values.get("content_version") or L10N_CONTENT_VERSION
+    assessment = AssessmentSession(**values)
     db.add(assessment)
     db.commit()
     db.refresh(assessment)
@@ -133,7 +149,8 @@ def get_assessment(assessment_id: UUID, db: Session = Depends(get_db)) -> Assess
 def create_game(assessment_id: UUID, payload: GameCreate, db: Session = Depends(get_db)) -> GameSession:
     if db.get(AssessmentSession, assessment_id) is None:
         raise HTTPException(status_code=404, detail="Assessment session not found")
-    game = GameSession(assessment_session_id=assessment_id, game_id=payload.game_id, game_version=payload.game_version)
+    values = payload.model_dump()
+    game = GameSession(assessment_session_id=assessment_id, **values)
     db.add(game)
     db.commit()
     db.refresh(game)
@@ -159,7 +176,7 @@ def create_assessment_trial(assessment_id: UUID, game_id: str, payload: TrialCre
         raise HTTPException(status_code=404, detail="Assessment session not found")
     game = db.scalar(select(GameSession).where(GameSession.assessment_session_id == assessment_id, GameSession.game_id == game_id))
     if game is None:
-        game = GameSession(assessment_session_id=assessment_id, game_id=game_id, game_version=payload.game_version)
+        game = GameSession(assessment_session_id=assessment_id, game_id=game_id, game_version=payload.game_version, language=payload.language, content_version=payload.content_version)
         db.add(game)
         db.flush()
     values = payload.model_dump()
@@ -223,6 +240,13 @@ def assessment_modality_summary(assessment_id: UUID, db: Session = Depends(get_d
     if db.get(AssessmentSession, assessment_id) is None:
         raise HTTPException(status_code=404, detail="Assessment session not found")
 
+    assessment = db.get(AssessmentSession, assessment_id)
+    language_context = {
+        "language": assessment.language,
+        "locale": assessment.locale,
+        "content_version": assessment.content_version,
+    }
+
     game_ids = list(db.scalars(select(GameSession.id).where(GameSession.assessment_session_id == assessment_id)))
     trial_ids: list[UUID] = []
     trials = list(db.scalars(select(Trial).where(Trial.game_session_id.in_(game_ids)))) if game_ids else []
@@ -232,6 +256,9 @@ def assessment_modality_summary(assessment_id: UUID, db: Session = Depends(get_d
     if not trial_ids:
         return {
             "assessment_id": str(assessment_id),
+            "language": language_context["language"],
+            "locale": language_context["locale"],
+            "content_version": language_context["content_version"],
             "gaze": {"recorded": False, "calibration_completed": False, "trial_count": 0, "sample_count": 0, "fixation_count": 0, "trial_coverage": 0.0, "aoi_coverage": 0.0},
             "speech": {"recorded": False, "trial_count": 0, "trial_coverage": 0.0, "transcript_available": 0, "response_timing_available": 0, "asr_available": 0},
         }
@@ -257,6 +284,9 @@ def assessment_modality_summary(assessment_id: UUID, db: Session = Depends(get_d
 
     return {
         "assessment_id": str(assessment_id),
+        "language": language_context["language"],
+        "locale": language_context["locale"],
+        "content_version": language_context["content_version"],
         "gaze": {
             "recorded": bool(gaze_sample_count or fixations),
             "calibration_completed": bool(calibration_completed),

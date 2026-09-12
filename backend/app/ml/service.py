@@ -66,4 +66,4 @@ def extract_profile(db: Session, session_id: UUID):
         stored.features = serialized
         stored.quality = quality
     db.commit()
-    return features, quality, build_profile(str(session_id), features, quality)
+    return features, quality, build_profile(str(session_id), features, quality, language=session.language, locale=session.locale)

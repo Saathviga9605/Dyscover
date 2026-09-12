@@ -1,5 +1,6 @@
 import { api, request, type SpeechSessionCreatePayload } from '../services/apiClient';
 import type { GazeBatchPayload } from '../services/apiClient';
+import { CONTENT_VERSION, getStoredLanguage, getStoredLocale } from '../l10n/languages';
 import { enqueue, flushQueue, readTrialIdMap, updateTrialIdMap, type PersistedItem } from './engine';
 import type { AssessmentEvent, AssessmentSession, GameResult, Trial } from './engine';
 import type { SpeechTrial } from './speech/speechDefinitions';
@@ -30,7 +31,7 @@ export async function ensureAssessmentSession(): Promise<AssessmentSession> {
     childId = child.id;
     localStorage.setItem(childKey, childId);
   }
-  const assessment = await api.createAssessment({ child_id: childId, version: 'stage-2.0' });
+  const assessment = await api.createAssessment({ child_id: childId, version: 'stage-2.0', language: getStoredLanguage(), locale: getStoredLocale(), content_version: CONTENT_VERSION });
   localStorage.setItem(assessmentKey, assessment.id);
   return {
     sessionId: assessment.id,
@@ -142,18 +143,19 @@ export async function persistSpeechAssessmentTrial(assessmentId: string, trial: 
   const features = trial.metadata.features;
   if (!evidence || !features) return;
   const taskId = trial.stimulus.taskId;
+  const language = getStoredLanguage();
   const recordPayload = {
     session_id: assessmentId,
     trial_id: backendTrialId,
     task: {
       task_id: taskId,
       expected_text: trial.expectedResponse as string,
-      language: 'en',
+      language,
       difficulty: trial.difficulty,
       content_type: contentTypeFor(evidence.kind),
       version: trial.gameVersion,
     },
-    language: 'en',
+    language,
     provider: 'webkit-speech-v1',
     provider_version: '1.0',
     audio_available: false,

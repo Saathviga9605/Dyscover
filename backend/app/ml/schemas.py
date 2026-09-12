@@ -74,6 +74,8 @@ class ScreeningProfileResponse(BaseModel):
     assessment_id: UUID | None = None
     trial_count: int = 0
     feature_schema_version: str = "1.0"
+    language: str = "en"
+    locale: str = "en-US"
     available_modalities: list[str] = Field(default_factory=lambda: ["behavior"])
     missing_features: list[str] = Field(default_factory=list)
     domains: dict[str, dict[str, Any]]

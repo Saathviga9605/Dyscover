@@ -84,7 +84,7 @@ export interface ProgressResponse {
 export const api = {
   health: () => request<{ status: string; version: string }>('/health'),
   createChild: (payload: { display_name: string }) => request<{ id: string; display_name: string; created_at: string }>('/children', { method: 'POST', body: JSON.stringify(payload) }),
-  createAssessment: (payload: { child_id: string; version: string }) => request<{ id: string; child_id: string; version: string; status: string; started_at?: string }>('/assessments', { method: 'POST', body: JSON.stringify(payload) }),
+  createAssessment: (payload: { child_id: string; version: string; language?: string; locale?: string; content_version?: string }) => request<{ id: string; child_id: string; version: string; status: string; started_at?: string }>('/assessments', { method: 'POST', body: JSON.stringify(payload) }),
   createTrial: (assessmentId: string, gameId: string, trial: Record<string, unknown>) => request<{ id: string }>(`/assessments/${assessmentId}/games/${gameId}/trials`, { method: 'POST', body: JSON.stringify(trial) }),
   createEvent: (trialId: string, event: Record<string, unknown>) => request(`/trials/${trialId}/events`, { method: 'POST', body: JSON.stringify(event) }),
   createSummary: (assessmentId: string, summary: Record<string, unknown>) => request(`/assessments/${assessmentId}/summary`, { method: 'POST', body: JSON.stringify(summary) }),
@@ -93,13 +93,13 @@ export const api = {
 
   getPersonalizationProfile: (childId: string) => request<PersonalizationProfile>(`/personalization/children/${childId}/profile`),
   getPersonalizationDifficulty: (childId: string, gameId: string) => request<DifficultyDecision>(`/personalization/children/${childId}/difficulty/${gameId}`),
-  getPersonalizationRecommendations: (childId: string) => request<PersonalizationRecommendations>(`/personalization/children/${childId}/recommendations`),
+  getPersonalizationRecommendations: (childId: string, language?: string) => request<PersonalizationRecommendations>(`/personalization/children/${childId}/recommendations${language ? `?language=${language}` : ''}`),
   getPersonalizationProgress: (childId: string) => request<ProgressResponse>(`/personalization/children/${childId}/progress`),
 
-  listRemedialActivities: (childId?: string) => request<PracticeActivity[]>(`/remedial/activities${childId ? `?child_id=${childId}` : ''}`),
-  getNextPracticeActivity: (childId: string, capabilitiesOverride?: string) => request<NextPracticeActivity>(`/remedial/children/${childId}/next-activity${capabilitiesOverride ? `?capabilities=${capabilitiesOverride}` : ''}`),
-  getSpeechTasks: (activityId: string, count = 5, seed = 0) => request<SpeechTasksResponse>(`/remedial/activities/${activityId}/speech-tasks?count=${count}&seed=${seed}`),
-  createPracticeSession: (payload: { child_id: string; activity_id: string; difficulty?: number | null }) => request<PracticeSessionStatus>('/remedial/sessions', { method: 'POST', body: JSON.stringify(payload) }),
+  listRemedialActivities: (childId?: string, language?: string) => request<PracticeActivity[]>(`/remedial/activities${[childId && `child_id=${childId}`, language && `language=${language}`].filter(Boolean).join('&') ? `?${[childId && `child_id=${childId}`, language && `language=${language}`].filter(Boolean).join('&')}` : ''}`),
+  getNextPracticeActivity: (childId: string, language?: string, capabilitiesOverride?: string) => request<NextPracticeActivity>(`/remedial/children/${childId}/next-activity${[language && `language=${language}`, capabilitiesOverride && `capabilities=${capabilitiesOverride}`].filter(Boolean).join('&') ? `?${[language && `language=${language}`, capabilitiesOverride && `capabilities=${capabilitiesOverride}`].filter(Boolean).join('&')}` : ''}`),
+  getSpeechTasks: (activityId: string, count = 5, seed = 0, language?: string) => request<SpeechTasksResponse>(`/remedial/activities/${activityId}/speech-tasks?count=${count}&seed=${seed}${language ? `&language=${language}` : ''}`),
+  createPracticeSession: (payload: { child_id: string; activity_id: string; difficulty?: number | null; language?: string }) => request<PracticeSessionStatus>('/remedial/sessions', { method: 'POST', body: JSON.stringify(payload) }),
   startPracticeSession: (sessionId: string) => request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/start`, { method: 'POST' }),
   recordPracticeEvent: (sessionId: string, event: { event_type: string; payload: Record<string, unknown> }) => request<Record<string, unknown>>(`/remedial/sessions/${sessionId}/events`, { method: 'POST', body: JSON.stringify(event) }),
   completePracticeSession: (sessionId: string) => request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/complete`, { method: 'POST' }),

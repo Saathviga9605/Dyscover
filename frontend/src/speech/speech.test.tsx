@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
+import { LanguageProvider } from '../l10n';
 import { SpeechSignalAnalyzer } from './analyzer';
 import { SpeechConsentCard } from './SpeechConsentCard';
 import { SpeechPracticeView } from './SpeechPracticeView';
@@ -101,13 +102,14 @@ describe('speech consent card (parent gated)', () => {
   afterEach(cleanup);
 
   it('explains the microphone promise when capabilities exist', () => {
-    render(<SpeechConsentCard capabilities={{ recognition: true, audio: true, secureContext: true }} consented={false} phase="NOT_CONFIGURED" onEnable={() => undefined} onDisable={() => undefined} />);
+    render(<LanguageProvider><SpeechConsentCard capabilities={{ recognition: true, audio: true, secureContext: true }} consented={false} phase="NOT_CONFIGURED" onEnable={() => undefined} onDisable={() => undefined} /></LanguageProvider>);
     expect(screen.getByText(/microphone/i)).toBeTruthy();
   });
 
   it('shows a skip message when no microphone is present', () => {
-    render(<SpeechConsentCard capabilities={{ recognition: false, audio: false, secureContext: false }} consented={false} phase="UNAVAILABLE" onEnable={() => undefined} onDisable={() => undefined} />);
-    expect(screen.getByText(/not available on this device/i)).toBeTruthy();
+    render(<LanguageProvider><SpeechConsentCard capabilities={{ recognition: false, audio: false, secureContext: false }} consented={false} phase="UNAVAILABLE" onEnable={() => undefined} onDisable={() => undefined} /></LanguageProvider>);
+    expect(screen.getByRole('heading', { name: /read aloud practice/i })).toBeTruthy();
+    expect(screen.getByText(/microphone is not available on this device/i)).toBeTruthy();
   });
 });
 
@@ -124,7 +126,7 @@ describe('speech practice view order', () => {
       { ...task, task_id: 'b-dog', expected_text: 'dog' },
       { ...task, task_id: 'c-sun', expected_text: 'sun' },
     ];
-    render(<SpeechPracticeView activityName="Sound Quest" activityDescription="Read each word aloud" tasks={tasks} capabilities={{ recognition: false, audio: false, secureContext: true }} difficulty={3} onResult={() => undefined} onComplete={() => undefined} onAbandon={() => undefined} />);
+    render(<LanguageProvider><SpeechPracticeView activityName="Sound Quest" activityDescription="Read each word aloud" tasks={tasks} capabilities={{ recognition: false, audio: false, secureContext: true }} difficulty={3} onResult={() => undefined} onComplete={() => undefined} onAbandon={() => undefined} /></LanguageProvider>);
     expect(screen.getByText('cat')).toBeTruthy();
     expect(screen.getByText(/1 of 3/i)).toBeTruthy();
     expect(screen.queryByText('dog')).toBeNull();
@@ -132,7 +134,7 @@ describe('speech practice view order', () => {
 
   it('includes only the words to say aloud, never an audio recording link', () => {
     const tasks: ReadingTask[] = [{ ...task, task_id: 'a-cat', expected_text: 'cat' }];
-    render(<SpeechPracticeView activityName="Sound Quest" activityDescription="Read each word aloud" tasks={tasks} capabilities={{ recognition: false, audio: false, secureContext: true }} difficulty={3} onResult={() => undefined} onComplete={() => undefined} onAbandon={() => undefined} />);
+    render(<LanguageProvider><SpeechPracticeView activityName="Sound Quest" activityDescription="Read each word aloud" tasks={tasks} capabilities={{ recognition: false, audio: false, secureContext: true }} difficulty={3} onResult={() => undefined} onComplete={() => undefined} onAbandon={() => undefined} /></LanguageProvider>);
     expect(screen.queryByText(/recording/i)).toBeNull();
     expect(screen.queryByRole('link', { name: /download/i })).toBeNull();
   });

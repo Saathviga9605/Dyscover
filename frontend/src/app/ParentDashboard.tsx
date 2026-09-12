@@ -6,8 +6,10 @@ import { api, type PersonalizationProfile, type PersonalizationRecommendations, 
 import { progressMessage, recommendationLabel } from '../services/childPersonalization';
 import { comparisonRows, dedupeRecommendations, domainLabel, formatPercent } from './dashboardUI';
 import { ModalitySummaryCard } from './ModalitySummaryCard';
+import { useLanguage } from '../l10n';
 
 export function ParentDashboard() {
+	const { t, language } = useLanguage();
 	const [profile, setProfile] = useState<Awaited<ReturnType<typeof api.getProfile>> | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [personalization, setPersonalization] = useState<{ profile: PersonalizationProfile | null; recommendations: PersonalizationRecommendations | null; progress: ProgressResponse | null }>({ profile: null, recommendations: null, progress: null });
@@ -38,14 +40,14 @@ export function ParentDashboard() {
 			.getPersonalizationProfile(childId)
 			.then(profile =>
 				api
-					.getPersonalizationRecommendations(childId)
+					.getPersonalizationRecommendations(childId, language)
 					.then(recommendations =>
 						api.getPersonalizationProgress(childId).then(progress => setPersonalization({ profile, recommendations, progress })),
 					)
 					.catch(() => setPersonalization({ profile, recommendations: null, progress: null })),
 			)
 			.catch(() => setPersonalization({ profile: null, recommendations: null, progress: null }));
-	}, []);
+	}, [language]);
 
 	const hasObservedData = Boolean(profile?.observations.length);
 	const observedDomains = profile && Object.keys(profile.domains).length ? Object.entries(profile.domains).map(([domain, value]) => ({ label: domainLabel(domain), accuracy: value.accuracy })) : [];
@@ -56,62 +58,62 @@ export function ParentDashboard() {
 	return (
 		<div className="parent-space">
 			<div className="parent-topline">
-				<span className="eyebrow">Parent space {profile ? `· ${profile.mode} mode` : '· Research mode'}</span>
-				<Link className="text-link" to="/">Back to Dyscover <span>↗</span></Link>
+				<span className="eyebrow">{t('parent.space')}{profile ? t('parent.modeSuffix', { mode: profile.mode }) : t('parent.researchMode')}</span>
+				<Link className="text-link" to="/">{t('parent.backLink')} <span>↗</span></Link>
 			</div>
-			<PageHeader eyebrow="Good morning, Alex's parent" title="A quiet place to see what was observed.">
-				<p className="page-lede">Observed activity data is shown carefully and never treated as a diagnosis.</p>
+			<PageHeader eyebrow={t('parent.headerEyebrow')} title={t('parent.headerTitle')}>
+				<p className="page-lede">{t('parent.headerLede')}</p>
 			</PageHeader>
 			<div className="dashboard">
 				<Card className="wide parent-welcome">
 					<div>
-						<Badge>{profile ? 'Latest screening profile' : 'Ready to explore'}</Badge>
-						<h2>{profile ? 'Here is what the activity recorded.' : 'The map is ready when you are.'}</h2>
-						<p>{profile ? 'This research-mode profile contains structured observations from completed activities.' : 'Start with a playful session, then return here to explore what was observed.'}</p>
-						<Link className="button" to="/child/home">{profile ? 'Run another session' : 'Start a session'} <span>→</span></Link>
+						<Badge>{profile ? t('parent.welcomeBadge') : t('parent.readyBadge')}</Badge>
+						<h2>{profile ? t('parent.welcomeTitle') : t('parent.welcomeReadyTitle')}</h2>
+						<p>{profile ? t('parent.welcomeCopy') : t('parent.welcomeReadyCopy')}</p>
+						<Link className="button" to="/child/home">{profile ? t('parent.runAnother') : t('parent.startSession')} <span>→</span></Link>
 					</div>
 					<div className="dashboard-map"><span>✦</span><span>✦</span><span>✦</span><span>✦</span><i /></div>
 				</Card>
 
 				<Card>
-					<div className="card-title-row"><h3>Assessment profile</h3><span className="soft-icon">◌</span></div>
+					<div className="card-title-row"><h3>{t('parent.profileCard')}</h3><span className="soft-icon">◌</span></div>
 					{loading ? (
-						<EmptyState>Loading observed activity data...</EmptyState>
+						<EmptyState>{t('parent.loading')}</EmptyState>
 					) : hasObservedData ? (
 						<div className="observed-list">{profile?.observations.map(observation => <p key={observation}>{observation}</p>)}</div>
 					) : (
-						<EmptyState><strong>No completed profile yet.</strong><br />The first Dyscover adventure will appear here.</EmptyState>
+						<EmptyState><strong>{t('parent.noProfileYet')}</strong><br />{t('parent.noProfileHint')}</EmptyState>
 					)}
 				</Card>
 
 				<Card>
-					<div className="card-title-row"><h3>Observed areas</h3><span className="soft-icon">✦</span></div>
+					<div className="card-title-row"><h3>{t('parent.observedTitle')}</h3><span className="soft-icon">✦</span></div>
 					{observedDomains.length ? (
 						<div className="domain-list">
 							{observedDomains.map(({ label, accuracy }) => (
-								<div key={label}><span>{label}</span><strong>Activity accuracy · {formatPercent(accuracy)}</strong></div>
+								<div key={label}><span>{label}</span><strong>{t('parent.accuracyFormat', { percent: formatPercent(accuracy) })}</strong></div>
 							))}
 						</div>
 					) : (
-						<div className="empty-profile"><span>--</span><p>No domain observations available yet.</p></div>
+						<div className="empty-profile"><span>--</span><p>{t('parent.noDomains')}</p></div>
 					)}
 				</Card>
 
 				<Card className="wide">
-					<div className="card-title-row"><h3>Model status</h3><Badge>{profile?.model.status ?? 'Unavailable'}</Badge></div>
-					<div className="notice">No validated ML model is registered. Activity observations remain available and are not converted into a clinical prediction.</div>
+					<div className="card-title-row"><h3>{t('parent.modelStatus')}</h3><Badge>{profile?.model.status ?? t('parent.modelUnavailable')}</Badge></div>
+					<div className="notice">{t('parent.modelNotice')}</div>
 				</Card>
 
 				<Card className="wide recommendation-card">
 					<Mascot mood="happy" size="small" />
 					<div>
-						<div className="card-title-row"><h3>Practice suggestions</h3>{personalization.profile && <Badge>Stage 5 personalization</Badge>}</div>
+						<div className="card-title-row"><h3>{t('parent.suggestionsTitle')}</h3>{personalization.profile && <Badge>{t('parent.stage5Badge')}</Badge>}</div>
 						{recommendations.length ? (
 							<div className="observed-list">
-								{recommendations.map(rec => <p key={rec.reason}><strong>{rec.kind === 'neutral' ? 'A starting point' : recommendationLabel(rec)}</strong><br />{rec.reason}</p>)}
+								{recommendations.map(rec => <p key={rec.reason}><strong>{rec.kind === 'neutral' ? t('parent.startingPoint') : recommendationLabel(rec)}</strong><br />{rec.reason}</p>)}
 							</div>
 						) : (
-							<p className="notice">Activity suggestions will appear here once enough observations have been gathered.</p>
+							<p className="notice">{t('parent.suggestionsNone')}</p>
 						)}
 					</div>
 				</Card>
@@ -119,7 +121,7 @@ export function ParentDashboard() {
 				<Card className="wide recommendation-card">
 					<Mascot mood="thinking" size="small" />
 					<div>
-						<div className="card-title-row"><h3>Progress</h3>{personalization.profile && <Badge>Cumulative</Badge>}</div>
+						<div className="card-title-row"><h3>{t('parent.progressTitle')}</h3>{personalization.profile && <Badge>{t('parent.cumulativeBadge')}</Badge>}</div>
 						{progressRows.length ? (
 							<div className="domain-list">
 								{progressRows.map(row => <div key={row.label}><span>{row.label}</span><span>{row.deltaText}</span></div>)}

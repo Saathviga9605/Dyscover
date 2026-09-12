@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mascot, MascotBubble } from '../../components/ui';
 import { GameEngine, type GameState, type Trial } from '../engine';
@@ -9,13 +9,18 @@ import type { WordFlashTrial } from '../definitions/wordFlash';
 import type { MazeTrial } from '../definitions/wordMaze';
 import { api, type NextPracticeActivity, type PracticeSessionStatus, type SpeechTasksResponse } from '../../services/apiClient';
 import { MIRRORED_PRACTICE_EVENTS, practiceGameFor, seedForSessionId, toPracticeEvent } from './practice';
-import { PRACTICE_COPY } from './practiceCopy';
 import { probeSpeechCapabilities, SpeechConsentCard, SpeechPracticeView, SPEECH_CONSENT_KEY } from '../../speech';
+import { useLanguage } from '../../l10n';
+import { isActivityAvailable } from '../../l10n/languages';
 
 type Stage = 'loading' | 'intro' | 'playing' | 'speech-intro' | 'speech-playing' | 'done' | 'error';
 
+const SPEECH_PRACTICE_IDS = ['sound-quest-adventure', 'letter-bubble-pop', 'maze-runner-rush'] as const;
+
 export function PracticeRunner() {
   const navigate = useNavigate();
+  const { t, language } = useLanguage();
+  const hasSpeechAvailable = SPEECH_PRACTICE_IDS.some(id => isActivityAvailable(id, language));
   const [stage, setStage] = useState<Stage>('loading');
   const [recommendation, setRecommendation] = useState<NextPracticeActivity | null>(null);
   const [practiceSession, setPracticeSession] = useState<PracticeSessionStatus | null>(null);
@@ -41,16 +46,16 @@ export function PracticeRunner() {
     const childId = window.localStorage.getItem('dyscover-stage2-child-id');
     if (!childId) {
       setStage('error');
-      setError('Let’s set up an explorer first.');
+      setError(t('practice.setupFirst'));
       return;
     }
     let active = true;
     api
-      .getNextPracticeActivity(childId)
-      .then(value => { if (!active) return; setRecommendation(value); setStage(value.activity ? 'intro' : 'error'); if (!value.activity) setError('There are no practice activities available just yet.'); })
-      .catch(() => { if (!active) return; setStage('error'); setError('We could not reach the practice area. Please try again in a moment.'); });
+      .getNextPracticeActivity(childId, language)
+      .then(value => { if (!active) return; setRecommendation(value); setStage(value.activity ? 'intro' : 'error'); if (!value.activity) setError(t('practice.noneYet')); })
+      .catch(() => { if (!active) return; setStage('error'); setError(t('practice.unreachable')); });
     return () => { active = false; window.clearTimeout(presentationTimer.current); window.clearTimeout(advanceTimer.current); };
-  }, []);
+  }, [t, language]);
 
   const flushPracticeEvents = async () => {
     const engine = engineRef.current;
@@ -91,7 +96,7 @@ export function PracticeRunner() {
     if (!engine || !trial || state !== 'PLAYING' || presentation) return;
     const updated = engine.recordResponse(trial, response);
     engine.completeTrial(updated);
-    setFeedback(updated.correct ? PRACTICE_COPY.goodFeedback : PRACTICE_COPY.nextFeedback);
+    setFeedback(updated.correct ? t('game.shell.feedbackGreat') : t('practice.nextFeedback'));
     setState('FEEDBACK');
     void flushPracticeEvents();
     advanceTimer.current = window.setTimeout(() => {
@@ -113,11 +118,12 @@ export function PracticeRunner() {
       child_id: childId,
       activity_id: recommendation.activity.activity_id,
       difficulty: recommendation.difficulty_level ?? undefined,
+      language,
     });
     const started = await api.startPracticeSession(created.id);
     setPracticeSession(started);
     const definition = practiceGameFor(recommendation.activity.activity_id);
-    if (!definition) { setStage('error'); setError('That activity is not available just yet.'); return; }
+    if (!definition) { setStage('error'); setError(t('practice.notAvailableYet')); return; }
     const engine = new GameEngine(definition, undefined, seedForSessionId(started.id), started.difficulty);
     engineRef.current = engine;
     engine.start();
@@ -129,13 +135,13 @@ export function PracticeRunner() {
   const beginSpeech = async () => {
     const childId = window.localStorage.getItem('dyscover-stage2-child-id');
     if (!childId) return;
-    const next = await api.getNextPracticeActivity(childId, 'microphone');
-    if (!next.activity) { setStage('error'); setError('No speech activity is available just now.'); return; }
-    const created = await api.createPracticeSession({ child_id: childId, activity_id: next.activity.activity_id, difficulty: next.difficulty_level ?? undefined });
+    const next = await api.getNextPracticeActivity(childId, language, 'microphone');
+    if (!next.activity) { setStage('error'); setError(t('practice.noSpeechNow')); return; }
+    const created = await api.createPracticeSession({ child_id: childId, activity_id: next.activity.activity_id, difficulty: next.difficulty_level ?? undefined, language });
     const started = await api.startPracticeSession(created.id);
     speechSession.current = started;
-    const tasks = await api.getSpeechTasks(next.activity.activity_id, 5, seedForSessionId(started.id)).catch(() => null);
-    if (!tasks?.tasks?.length) { setStage('error'); setError('That speech activity is not ready just yet.'); return; }
+    const tasks = await api.getSpeechTasks(next.activity.activity_id, 5, seedForSessionId(started.id), language).catch(() => null);
+    if (!tasks?.tasks?.length) { setStage('error'); setError(t('practice.speechNotReady')); return; }
     speechTasks.current = tasks;
     speechFeatures.current = {};
     setStage('speech-playing');
@@ -177,29 +183,29 @@ export function PracticeRunner() {
 
   const activity = recommendation?.activity;
 
-  if (stage === 'loading') return <div className="game-loading"><span className="loading-path">✦ · ✦ · ✦</span><p>Getting your practice ready...</p></div>;
-  if (stage === 'error') return <div className="game-error"><h1>We could not start practice.</h1><p>{error}</p><button className="button" onClick={() => navigate('/child/home')}>Back to the explorer space</button></div>;
+  if (stage === 'loading') return <div className="game-loading"><span className="loading-path">âœ¦ Â· âœ¦ Â· âœ¦</span><p>{t('practice.loading')}</p></div>;
+  if (stage === 'error') return <div className="game-error"><h1>{t('practice.errorTitle')}</h1><p>{error}</p><button className="button" onClick={() => navigate('/child/home')}>{t('practice.backToChild')}</button></div>;
   if (!activity) return null;
 
   if (stage === 'intro') return (
     <div className="child-space">
       <section className="child-welcome">
         <div className="child-copy">
-          <span className="child-kicker">✦ practice zone ✦</span>
-          <h1>{PRACTICE_COPY.introTitle}</h1>
-          <p>{PRACTICE_COPY.introBody}</p>
+          <span className="child-kicker">{t('practice.introKicker')}</span>
+          <h1>{t('practice.introTitle')}</h1>
+          <p>{t('practice.introBody')}</p>
           <MascotBubble mood="happy">{activity.display_name}: {activity.description}</MascotBubble>
-          <button className="child-start" onClick={() => void begin()}>Start practice <span>→</span></button>
-          <Link className="child-exit" to="/child/home">Not now</Link>
+          <button className="child-start" onClick={() => void begin()}>{t('practice.start')} <span>â†’</span></button>
+          <Link className="child-exit" to="/child/home">{t('practice.notNow')}</Link>
         </div>
         <div className="child-scene"><div className="child-cloud cloud-one" /><div className="child-ground" /><Mascot mood="excited" size="large" /></div>
       </section>
-      {hasSpeechMic && (
+      {hasSpeechMic && hasSpeechAvailable && (
         <section className="child-welcome speech-intro-card">
           <div className="child-copy">
-            <span className="child-kicker">✦ read-aloud practice ✦</span>
-            <h2>Say it out loud</h2>
-            <p>Optional activities where your child reads a word or letter aloud. Choose this when you would like to practice speech together.</p>
+            <span className="child-kicker">{t('practice.speechKicker')}</span>
+            <h2>{t('practice.speechTitle')}</h2>
+            <p>{t('practice.speechIntroCopy')}</p>
             {!speechConsented ? (
               <SpeechConsentCard
                 capabilities={speechCapabilities.current}
@@ -215,8 +221,8 @@ export function PracticeRunner() {
               />
             ) : (
               <div>
-                <p>Microphone permission is on for this activity. Say each prompt aloud when it appears — the audio is used only for the moment.</p>
-                <button className="child-start" onClick={() => void beginSpeech()}>Start read-aloud practice <span>→</span></button>
+                <p>{t('practice.speechConsentedCopy')}</p>
+                <button className="child-start" onClick={() => void beginSpeech()}>{t('practice.speechStart')} <span>â†’</span></button>
               </div>
             )}
           </div>
@@ -227,7 +233,7 @@ export function PracticeRunner() {
   );
 
   if (stage === 'done') return (
-    <div className="game-overlay-page"><div className="game-complete"><Mascot mood="excited" size="large" /><span className="child-kicker">practice complete</span><h1>{PRACTICE_COPY.doneTitle}</h1><p>{PRACTICE_COPY.doneBody}</p><button className="button" onClick={() => navigate('/child/home')}>Back to the explorer space <span>→</span></button></div></div>
+    <div className="game-overlay-page"><div className="game-complete"><Mascot mood="excited" size="large" /><span className="child-kicker">{t('practice.doneKicker')}</span><h1>{t('practice.doneTitle')}</h1><p>{t('practice.doneBody')}</p><button className="button" onClick={() => navigate('/child/home')}>{t('practice.backToChild')} <span>â†’</span></button></div></div>
   );
 
   if (stage === 'speech-playing') {
@@ -255,16 +261,16 @@ export function PracticeRunner() {
   return (
     <div className="game-shell">
       <div className="game-topbar">
-        <button className="game-back" onClick={abandonAndLeave} aria-label="Leave practice">←</button>
-        <div className="game-title"><span className="game-mascot-dot">✦</span><strong>{activity.display_name}</strong></div>
+        <button className="game-back" onClick={abandonAndLeave} aria-label={t('practice.abandon')}>â†</button>
+        <div className="game-title"><span className="game-mascot-dot">âœ¦</span><strong>{activity.display_name}</strong></div>
         <div className="game-actions">
-          <button className="game-icon-button" onClick={() => window.alert(`${PRACTICE_COPY.introTitle} ${activity.description}`)} aria-label="Show instructions">?</button>
-          <button className="game-icon-button" onClick={pause} aria-label={state === 'PAUSED' ? 'Resume practice' : 'Pause practice'}>{state === 'PAUSED' ? '▶' : 'Ⅱ'}</button>
+          <button className="game-icon-button" onClick={() => window.alert(`${activity.display_name}: ${activity.description}`)} aria-label={t('practice.instructionsAria')}>?</button>
+          <button className="game-icon-button" onClick={pause} aria-label={state === 'PAUSED' ? t('practice.resumeAria') : t('practice.pauseAria')}>{state === 'PAUSED' ? 'â–¶' : 'â…¡'}</button>
         </div>
       </div>
-      <div className="game-progress-row"><span>Practice {engine.trials.length} of {definition.totalTrials}</span><div className="game-progress"><span style={{ width: `${Math.round((engine.trials.length / definition.totalTrials) * 100)}%` }} /></div><span>{Math.round((engine.trials.length / definition.totalTrials) * 100)}%</span></div>
-      <main className="game-stage"><div className="game-intro"><span className="child-kicker">{state === 'PAUSED' ? 'paused for a moment' : 'take your time'}</span><h1>{activity.display_name}</h1><p>{activity.description}</p></div>{view}{feedback && <div className="game-feedback" role="status"><Mascot mood={feedback === PRACTICE_COPY.goodFeedback ? 'happy' : 'thinking'} size="small" /><strong>{feedback}</strong></div>}</main>
-      {state === 'PAUSED' && <div className="game-pause-overlay" role="dialog" aria-modal="true" aria-label="Practice paused"><Mascot mood="thinking" size="medium" /><span className="child-kicker">a small pause</span><h2>{PRACTICE_COPY.pausedHeading}</h2><p>{PRACTICE_COPY.pausedBody}</p><button className="child-start" onClick={pause}>{PRACTICE_COPY.continue} <span>→</span></button></div>}
+      <div className="game-progress-row"><span>{t('practice.progress', { current: engine.trials.length, total: definition.totalTrials })}</span><div className="game-progress"><span style={{ width: `${Math.round((engine.trials.length / definition.totalTrials) * 100)}%` }} /></div><span>{Math.round((engine.trials.length / definition.totalTrials) * 100)}%</span></div>
+      <main className="game-stage"><div className="game-intro"><span className="child-kicker">{state === 'PAUSED' ? t('game.shell.kickerPaused') : t('game.shell.kickerPlaying')}</span><h1>{activity.display_name}</h1><p>{activity.description}</p></div>{view}{feedback && <div className="game-feedback" role="status"><Mascot mood={feedback === t('game.shell.feedbackGreat') ? 'happy' : 'thinking'} size="small" /><strong>{feedback}</strong></div>}</main>
+      {state === 'PAUSED' && <div className="game-pause-overlay" role="dialog" aria-modal="true" aria-label={t('practice.pausedAria')}><Mascot mood="thinking" size="medium" /><span className="child-kicker">{t('game.shell.pauseKicker')}</span><h2>{t('game.shell.pauseTitle')}</h2><p>{t('game.shell.pauseCopy')}</p><button className="child-start" onClick={pause}>{t('practice.continue')} <span>â†’</span></button></div>}
     </div>
   );
 }

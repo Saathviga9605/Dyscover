@@ -69,6 +69,7 @@ class RecommendationsResponse(BaseModel):
     child_id: str
     engine_version: str
     mode: str
+    language: str | None = None
     recommendations: list[RecommendationResponse]
 
 

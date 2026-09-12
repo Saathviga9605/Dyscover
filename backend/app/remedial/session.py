@@ -17,6 +17,7 @@ from ..models import PracticeEvent, PracticeSession
 from . import REMEDIAL_EVENT_SCHEMA_VERSION, REMEDIAL_MODE
 from .catalog import get_activity
 from .config import REMEDIAL_CONFIG
+from app.l10n import is_activity_available
 
 STATUS_PLANNED = "planned"
 STATUS_ACTIVE = "active"
@@ -56,12 +57,14 @@ def clamp_level(level: int | None) -> int:
     return max(REMEDIAL_CONFIG.difficulty_minimum, min(REMEDIAL_CONFIG.difficulty_maximum, level))
 
 
-def create_practice_session(db, child_id: uuid.UUID, activity_id: str, difficulty: int | None = None) -> PracticeSession:
+def create_practice_session(db, child_id: uuid.UUID, activity_id: str, difficulty: int | None = None, language: str = "en") -> PracticeSession:
     activity = get_activity(activity_id)
     if activity is None:
         raise SessionError(f"Unknown activity '{activity_id}'.", status_code=404)
     if not activity.enabled:
         raise SessionError(f"Activity '{activity_id}' is not available.", status_code=404)
+    if not is_activity_available(activity_id, language):
+        raise SessionError(f"Activity '{activity_id}' has no curated content for language '{language}'.", status_code=409)
 
     session = PracticeSession(
         id=uuid.uuid4(),
@@ -72,6 +75,7 @@ def create_practice_session(db, child_id: uuid.UUID, activity_id: str, difficult
         difficulty=clamp_level(difficulty),
         activity_version=activity.version,
         content_version=REMEDIAL_CONFIG.content_version,
+        language=language,
         config_version=REMEDIAL_CONFIG.engine_version,
         status=STATUS_PLANNED,
     )

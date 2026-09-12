@@ -9,9 +9,14 @@ import { SpeechConsentGate, SPEECH_CONSENT_KEY, probeSpeechCapabilities } from '
 import type { SpeechTrial, SpeechResponseRecord } from './speech/speechDefinitions';
 import { speechFeaturesEventPayload } from './speech/speechTelemetry';
 import { speechSupported } from './speech/speechRecognition';
+import { useLanguage } from '../l10n';
+import { languageName, speechAssessmentPlanFor } from '../l10n/languages';
+import { Mascot } from '../components/ui';
 
 export function SpeechAssessmentRunner() {
   const navigate = useNavigate();
+  const { t, language, setLanguage } = useLanguage();
+  const availablePlan = speechAssessmentPlanFor(language);
   const [gameIndex, setGameIndex] = useState(0);
   const [state, setState] = useState<GameState>('LOADING');
   const [trial, setTrial] = useState<SpeechTrial>();
@@ -21,12 +26,12 @@ export function SpeechAssessmentRunner() {
   const advanceTimer = useRef<number | undefined>(undefined);
   const sessionRef = useRef<AssessmentSession | null>(null);
   const backendTrialIds = useRef(new Map<string, string>());
-const persistedSeqByTrial = useRef(new Map<string, number>());
+  const persistedSeqByTrial = useRef(new Map<string, number>());
   const [consented, setConsented] = useState(() => window.localStorage.getItem(SPEECH_CONSENT_KEY) === 'granted');
   const capable = speechSupported();
   const definition = speechAssessmentPlan[gameIndex];
 
-  useEffect(() => { let active = true; const sessionPromise = sessionRef.current ? Promise.resolve(sessionRef.current) : ensureAssessmentSession(); sessionPromise.then(session => { if (!active) return; sessionRef.current = session; engineRef.current = new GameEngine(definition, session); setState('INTRO'); }).catch(() => { if (active) { const localSession = sessionRef.current ?? undefined; engineRef.current = new GameEngine(definition, localSession); const engine = engineRef.current; sessionRef.current = engine.session; setError('We could not connect, so this adventure will keep your progress nearby.'); setState('INTRO'); } }); return () => { active = false; window.clearTimeout(advanceTimer.current); }; }, [gameIndex, definition]);
+  useEffect(() => { if (availablePlan.length === 0) return; let active = true; const sessionPromise = sessionRef.current ? Promise.resolve(sessionRef.current) : ensureAssessmentSession(); sessionPromise.then(session => { if (!active) return; sessionRef.current = session; engineRef.current = new GameEngine(definition, session); setState('INTRO'); }).catch(() => { if (active) { const localSession = sessionRef.current ?? undefined; engineRef.current = new GameEngine(definition, localSession); const engine = engineRef.current; sessionRef.current = engine.session; setError(t('game.connectFallback')); setState('INTRO'); } }); return () => { active = false; window.clearTimeout(advanceTimer.current); }; }, [gameIndex, definition, availablePlan.length, t]);
 
   const persistNewEvents = () => { const engine = engineRef.current; if (!engine) return; const fallbackTrialId = engine.trials.at(-1)?.trialId; for (const event of engine.events) { const localTrialId = event.trialId ?? fallbackTrialId; if (!localTrialId) continue; const backendId = backendTrialIds.current.get(localTrialId); if (!backendId) continue; const since = persistedSeqByTrial.current.get(localTrialId) ?? 0; if (event.sequenceNumber <= since) continue; void persistEvent(backendId, event); persistedSeqByTrial.current.set(localTrialId, event.sequenceNumber); } };
   const startTrial = () => { const engine = engineRef.current; if (!engine) return; const next = engine.beginTrial(engine.trials.length); persistNewEvents(); setTrial(next); setFeedback(undefined); setState('PLAYING'); };
@@ -43,7 +48,7 @@ const persistedSeqByTrial = useRef(new Map<string, number>());
     const speechTrial = updated as SpeechTrial;
     const evidence = speechTrial.metadata?.evidence;
     if (evidence) engine.emit('SPEECH_FEATURES', speechFeaturesEventPayload(evidence), trial.trialId);
-    setFeedback(updated.correct ? 'Great job!' : 'Almost! Let’s keep going.');
+    setFeedback(updated.correct ? t('game.shell.feedbackGreat') : t('game.shell.feedbackAlmost'));
     setState('FEEDBACK');
     const backendId = await persistTrial(engine.session.assessmentId ?? engine.session.sessionId, definition.id, updated);
     backendTrialIds.current.set(trial.trialId, backendId ?? trial.trialId);
@@ -55,11 +60,23 @@ const persistedSeqByTrial = useRef(new Map<string, number>());
     }, 900);
   };
 
-  const continueAfterGame = () => { const engine = engineRef.current; if (!engine) return; if (gameIndex >= speechAssessmentPlan.length - 1) { engine.completeSession(); void persistSummary(engine.session.assessmentId ?? engine.session.sessionId, { games: engine.session.games, totalTrials: engine.session.totalTrials }); navigate('/parent/dashboard'); return; } setGameIndex(index => index + 1); };
+  const continueAfterGame = () => { const engine = engineRef.current; if (!engine) return; if (gameIndex >= availablePlan.length - 1) { engine.completeSession(); void persistSummary(engine.session.assessmentId ?? engine.session.sessionId, { games: engine.session.games, totalTrials: engine.session.totalTrials }); navigate('/parent/dashboard'); return; } setGameIndex(index => index + 1); };
   const abandonAndLeave = () => { const engine = engineRef.current; if (!engine) return; if (state === 'PLAYING' || state === 'FEEDBACK') { engine.emit('SESSION_ABANDONED', { reason: 'child-exit' }, engine.trials.at(-1)?.trialId); persistNewEvents(); } navigate('/child/assessment'); };
 
-  if (error && state === 'ERROR') return <div className="game-error"><h1>Oops! Something went wrong.</h1><p>{error}</p><button className="button" onClick={() => window.location.reload()}>Try again</button></div>;
-  if (state === 'LOADING') return <div className="game-loading"><span className="loading-path">✦ · ✦ · ✦</span><p>Getting the listening adventures ready...</p></div>;
+  if (availablePlan.length === 0) return (
+    <div className="child-space hub-page">
+      <div className="child-topbar"><span className="child-brand"><span className="brand-mark">✦</span>Dyscover</span></div>
+      <div className="hub-unavailable">
+        <Mascot mood="thinking" size="medium" />
+        <span className="eyebrow">{t('hub.notAvailableEyebrow')}</span>
+        <h2>{t('hub.notAvailableNone')}</h2>
+        <p>{t('hub.notAvailableNoneCopy', { languageName: languageName(language) })}</p>
+        <button className="button button-sun" onClick={() => setLanguage('en')}>{t('hub.notAvailableSwitch')} <span>→</span></button>
+      </div>
+    </div>
+  );
+  if (error && state === 'ERROR') return <div className="game-error"><h1>{t('game.error.title')}</h1><p>{error}</p><button className="button" onClick={() => window.location.reload()}>{t('game.error.retry')}</button></div>;
+  if (state === 'LOADING') return <div className="game-loading"><span className="loading-path">✦ · ✦ · ✦</span><p>{t('game.loading.speech')}</p></div>;
   if (!engineRef.current) return null;
   if (state === 'INTRO') return (
     <div className="game-overlay-page">
@@ -68,7 +85,7 @@ const persistedSeqByTrial = useRef(new Map<string, number>());
         capabilities={probeSpeechCapabilities()}
         consented={consented}
         phase={consented ? 'READY' : 'REQUESTED'}
-        message="The microphone is never saved or uploaded."
+        message={t('speech.micNeverSaved')}
         onEnable={() => void enableMic()}
         onDisable={disableMic}
       />
@@ -80,8 +97,8 @@ const persistedSeqByTrial = useRef(new Map<string, number>());
   return (
     <div className="game-runner-wrap">
       <GameShell title={definition.name} mission={engineRef.current.trials.length - 1} totalMissions={definition.totalTrials} state={state} instructions={definition.instructions} onPause={() => undefined} onHelp={() => window.alert(definition.instructions.join(' '))} feedback={feedback}>{view}</GameShell>
-      <button className="speech-exit" onClick={abandonAndLeave} aria-label="Leave the listening adventures">✕</button>
-      {!capable && <div className="speech-unavailable" role="status">This browser does not offer speech recognition, so the microphone cannot be used here.</div>}
+      <button className="speech-exit" onClick={abandonAndLeave} aria-label={t('speech.exitAria')}>✕</button>
+      {!capable && <div className="speech-unavailable" role="status">{t('speech.browserUnsupported')}</div>}
     </div>
   );
 }

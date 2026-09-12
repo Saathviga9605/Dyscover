@@ -39,19 +39,26 @@ export function probeSpeechCapabilities(): SpeechCapabilities {
   };
 }
 
-export function normalizeText(value: string): string {
-  return value
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9 ]/g, ' ')
+export function normalizeText(value: string, language = 'en'): string {
+  const lower = value.toLowerCase().normalize(language === 'en' ? 'NFKD' : 'NFC');
+  const stripped = language === 'en' ? lower.replace(/[\u0300-\u036f]/g, '') : lower;
+  if (language === 'en') {
+    return stripped
+      .replace(/[^a-z0-9 ]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  // For non-English scripts (e.g. Tamil) keep Unicode letters, combining marks and numbers
+  // so that transcripts are not reduced to empty text by an English-only filter.
+  return stripped
+    .replace(/[^\p{L}\p{M}\p{N} ]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }
 
-export function similarityRatio(a: string, b: string): number {
-  const left = normalizeText(a);
-  const right = normalizeText(b);
+export function similarityRatio(a: string, b: string, language = 'en'): number {
+  const left = normalizeText(a, language);
+  const right = normalizeText(b, language);
   if (left === right) return 1;
   if (!left.length || !right.length) return 0;
   const distance = levenshtein(left, right);

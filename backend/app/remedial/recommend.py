@@ -79,16 +79,19 @@ def select_activity(
     db=None,
     child_id: str | None = None,
     capabilities: tuple[str, ...] | None = None,
+    language: str | None = None,
 ) -> dict:
     """Return a recommendation dict (see ``build_recommendation``).
 
     ``capabilities`` filters the candidate catalog.  The default
     recommendation path uses pointer-only activities so that microphone
     activities are only offered when explicitly requested.
+    ``language`` filters the catalog to activities with curated content for
+    that language.
     """
-    activities = catalog.available_activities(age=age, capabilities=capabilities)
+    activities = catalog.available_activities(age=age, capabilities=capabilities, language=language)
     if not activities:
-        return _recommendation(None, "no_activity", None, "balanced")
+        return _recommendation(None, "no_activity", None, None, None, language=language)
 
     recent = _recent_completions(practice_history)
 
@@ -114,7 +117,7 @@ def select_activity(
         skill = _skill(profile, activity.target_domain)
         kind = "focused"
         reason = _focused_reason(kind, _domain_label(profile, activity.target_domain), skill.get("category"))
-        return _build(activity, profile, practice_history, kind, reason, skill, difficulty_service, db, child_id, age)
+        return _build(activity, profile, practice_history, kind, reason, skill, difficulty_service, db, child_id, age, language=language)
 
     # Balanced: neutral, spaced, deterministic rotation.  Prefer activities
     # not completed within the cooldown, then least recently practiced.
@@ -144,7 +147,7 @@ def select_activity(
     activity = balanced[0]
     skill = _skill(profile, activity.target_domain)
     reason = f"A balanced practice activity for {_domain_label(profile, activity.target_domain)} practice."
-    return _build(activity, profile, practice_history, "balanced", reason, skill, difficulty_service, db, child_id, age)
+    return _build(activity, profile, practice_history, "balanced", reason, skill, difficulty_service, db, child_id, age, language=language)
 
 
 def _focused_reason(kind: str, label: str, category: str | None) -> str:
@@ -153,7 +156,7 @@ def _focused_reason(kind: str, label: str, category: str | None) -> str:
     return f"{label.capitalize()} is still growing; a little practice may help it grow."
 
 
-def _recommendation(activity, kind, skill, difficulty_result, domain_label) -> dict:
+def _recommendation(activity, kind, skill, difficulty_result, domain_label=None, language=None) -> dict:
     return {
         "kind": kind,
         "activity": activity,
@@ -161,10 +164,18 @@ def _recommendation(activity, kind, skill, difficulty_result, domain_label) -> d
         "target_domain_label": domain_label,
         "difficulty_level": (difficulty_result["level"] if difficulty_result else None),
         "difficulty_previous_level": (difficulty_result["previous_level"] if difficulty_result else None),
+        "reason": (
+            "There are no practice activities available yet for this child's age and language."
+            if kind == "no_activity"
+            else None
+        ),
+        "recommendation_version": REMEDIAL_CONFIG.engine_version,
+        "content_version": CONTENT_VERSION,
+        "language": language,
     }
 
 
-def _build(activity, profile, practice_history, kind, reason, skill, difficulty_service, db, child_id, age) -> dict:
+def _build(activity, profile, practice_history, kind, reason, skill, difficulty_service, db, child_id, age, language=None) -> dict:
     difficulty_result = None
     if activity is not None and difficulty_service is not None and db is not None and child_id is not None:
         decision = difficulty_service(db, child_id, activity.supporting_game)
@@ -180,6 +191,7 @@ def _build(activity, profile, practice_history, kind, reason, skill, difficulty_
         skill,
         difficulty_result,
         _domain_label(profile, activity.target_domain) if activity else None,
+        language=language,
     )
     base["reason"] = reason
     base["recommendation_version"] = REMEDIAL_CONFIG.engine_version
