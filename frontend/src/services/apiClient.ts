@@ -95,4 +95,77 @@ export const api = {
   getPersonalizationDifficulty: (childId: string, gameId: string) => request<DifficultyDecision>(`/personalization/children/${childId}/difficulty/${gameId}`),
   getPersonalizationRecommendations: (childId: string) => request<PersonalizationRecommendations>(`/personalization/children/${childId}/recommendations`),
   getPersonalizationProgress: (childId: string) => request<ProgressResponse>(`/personalization/children/${childId}/progress`),
+
+  listRemedialActivities: (childId?: string) => request<PracticeActivity[]>(`/remedial/activities${childId ? `?child_id=${childId}` : ''}`),
+  getNextPracticeActivity: (childId: string) => request<NextPracticeActivity>(`/remedial/children/${childId}/next-activity`),
+  createPracticeSession: (payload: { child_id: string; activity_id: string; difficulty?: number | null }) => request<PracticeSessionStatus>('/remedial/sessions', { method: 'POST', body: JSON.stringify(payload) }),
+  startPracticeSession: (sessionId: string) => request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/start`, { method: 'POST' }),
+  recordPracticeEvent: (sessionId: string, event: { event_type: string; payload: Record<string, unknown> }) => request<Record<string, unknown>>(`/remedial/sessions/${sessionId}/events`, { method: 'POST', body: JSON.stringify(event) }),
+  completePracticeSession: (sessionId: string) => request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/complete`, { method: 'POST' }),
+  abandonPracticeSession: (sessionId: string) => request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/abandon`, { method: 'POST' }),
+  getPracticeProgress: (childId: string) => request<PracticeProgress>(`/remedial/children/${childId}/practice/progress`),
 };
+
+export interface PracticeActivity {
+  activity_id: string;
+  display_name: string;
+  description: string;
+  target_domain: string;
+  supporting_game: string;
+  supported_difficulty_levels: number[];
+  age_range: [number, number];
+  estimated_duration_minutes: number;
+  activity_type: string;
+  required_capabilities: string[];
+  version: string;
+  enabled: boolean;
+}
+
+export interface NextPracticeActivity {
+  child_id: string;
+  kind: 'focused' | 'balanced' | 'no_activity';
+  activity: PracticeActivity | null;
+  target_domain: string | null;
+  target_domain_label: string | null;
+  difficulty_level: number | null;
+  difficulty_previous_level?: number | null;
+  reason: string;
+  recommendation_version: string;
+  content_version: string;
+}
+
+export interface PracticeSessionStatus {
+  id: string;
+  child_id: string;
+  mode: string;
+  activity_id: string;
+  target_domain: string;
+  difficulty: number;
+  activity_version: string;
+  content_version: string;
+  config_version: string;
+  status: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  metadata: Record<string, unknown>;
+}
+
+export interface PracticeActivityRecord {
+  activity_id: string;
+  activity_name: string;
+  target_domain: string;
+  attempts: number;
+  completed: number;
+  accuracy_observed?: number | null;
+  first_accuracy_observed?: number | null;
+  latest_accuracy_observed?: number | null;
+  last_completed_at?: string | null;
+}
+
+export interface PracticeProgress {
+  child_id: string;
+  totals: { sessions_attempted: number; sessions_completed: number; activities_completed: number; activities_available: number };
+  by_activity: PracticeActivityRecord[];
+  recent_completed: Array<{ id: string; activity_id: string; activity_name: string; difficulty: number; completed_at: string }>;
+  note: string;
+}

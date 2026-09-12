@@ -24,6 +24,7 @@ class ChildProfile(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     owner: Mapped[User | None] = relationship(back_populates="children")
     assessments: Mapped[list["AssessmentSession"]] = relationship(back_populates="child")
+    practice_sessions: Mapped[list["PracticeSession"]] = relationship(back_populates="child")
 
 
 class AssessmentSession(Base):
@@ -157,3 +158,50 @@ class SpeechSession(Base):
 
 
 Index("ix_trials_game_number", Trial.game_session_id, Trial.trial_number, unique=True)
+
+
+class PracticeSession(Base):
+    """A remedial practice session — explicitly separate from assessment.
+
+    Assessment sessions collect observations; practice sessions provide
+    learning opportunities. ``mode`` is persisted as ``"practice"`` so that
+    practice data can always be identified separately from assessment data.
+    """
+
+    __tablename__ = "practice_sessions"
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    child_id: Mapped[UUID] = mapped_column(ForeignKey("child_profiles.id"), index=True)
+    mode: Mapped[str] = mapped_column(String(24), default="practice")
+    activity_id: Mapped[str] = mapped_column(String(80), index=True)
+    target_domain: Mapped[str] = mapped_column(String(80), index=True)
+    difficulty: Mapped[int] = mapped_column(Integer, default=1)
+    activity_version: Mapped[str] = mapped_column(String(32), default="1.0.0")
+    content_version: Mapped[str] = mapped_column(String(32), default="1.0")
+    config_version: Mapped[str] = mapped_column(String(32), default="1.0.0")
+    status: Mapped[str] = mapped_column(String(24), default="planned", index=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime)
+    metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
+    child: Mapped[ChildProfile] = relationship(back_populates="practice_sessions")
+    events: Mapped[list["PracticeEvent"]] = relationship(back_populates="practice_session", cascade="all, delete-orphan")
+
+
+class PracticeEvent(Base):
+    """Structured practice telemetry mirroring the canonical event contract.
+
+    Uses the same field vocabulary as assessment events (event_type,
+    timestamp, sequence_number, payload, schema_version) while living in a
+    separate, clearly marked ``practice`` collection so practice data can
+    never be mistaken for assessment evidence.
+    """
+
+    __tablename__ = "practice_events"
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    practice_session_id: Mapped[UUID] = mapped_column(ForeignKey("practice_sessions.id"), index=True)
+    mode: Mapped[str] = mapped_column(String(24), default="practice")
+    event_type: Mapped[str] = mapped_column(String(40), index=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    sequence_number: Mapped[int] = mapped_column(Integer, default=0)
+    schema_version: Mapped[str] = mapped_column(String(16), default="2.0")
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    practice_session: Mapped[PracticeSession] = relationship(back_populates="events")
