@@ -1,4 +1,5 @@
 import { api, request } from '../services/apiClient';
+import type { GazeBatchPayload } from '../services/apiClient';
 import { enqueue, flushQueue, readTrialIdMap, updateTrialIdMap, type PersistedItem } from './engine';
 import type { AssessmentEvent, AssessmentSession, GameResult, Trial } from './engine';
 
@@ -104,11 +105,57 @@ export async function persistSummary(assessmentId: string, summary: { games: Gam
   }
 }
 
+export async function persistGazeBatch(trialRef: string, backendTrialId: string | null, batch: GazeBatchPayload): Promise<void> {
+  const item: PersistedItem = {
+    kind: 'gaze',
+    trialRef,
+    path: '',
+    payload: batch as unknown as Record<string, unknown>,
+  };
+  if (backendTrialId) {
+    const path = `/gaze/trials/${backendTrialId}/gaze`;
+    try {
+      await captureApiPostGazeBatch(item, backendTrialId);
+      return;
+    } catch (error) {
+      telemetryWarning('gaze', path, error);
+      item.path = path;
+      enqueue(item);
+      return;
+    }
+  }
+  enqueue(item);
+}
+
+export async function persistSpeechFeatures(sessionId: string, features: Record<string, unknown>): Promise<void> {
+  try {
+    await api.storeSpeechFeatures(sessionId, features);
+  } catch (error) {
+    telemetryWarning('speech', `/speech/sessions/${sessionId}/features`, error);
+    enqueue({ kind: 'speech_features', path: `/speech/sessions/${sessionId}/features`, payload: features });
+  }
+}
+
+async function captureApiPostGazeBatch(item: PersistedItem, backendTrialId: string): Promise<void> {
+  const batch = item.payload as unknown as GazeBatchPayload;
+  await api.postGazeBatch(backendTrialId, batch);
+}
+
 export async function flushAssessmentQueue(): Promise<void> {
   await flushQueue(async item => {
     if (item.kind === 'trial') {
       const remote = (await request(item.path, { method: 'POST', body: JSON.stringify(item.payload) })) as { id?: string };
       if (remote?.id) updateTrialIdMap(item.trialRef, remote.id);
+      return;
+    }
+    if (item.kind === 'gaze') {
+      const backendId = item.trialRef ? readTrialIdMap()[item.trialRef] : undefined;
+      if (!backendId) throw new Error('Queued gaze data has no resolvable trial identifier');
+      await request(`/gaze/trials/${backendId}/gaze`, { method: 'POST', body: JSON.stringify(item.payload) });
+      return;
+    }
+    if (item.kind === 'speech_features') {
+      await request(item.path, { method: 'POST', body: JSON.stringify(item.payload) });
       return;
     }
     const backendId = item.trialRef ? readTrialIdMap()[item.trialRef] ?? item.trialRef : undefined;

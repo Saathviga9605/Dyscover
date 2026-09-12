@@ -123,26 +123,32 @@ def test_a_catalog_is_wellformed_and_complete(client: TestClient) -> None:
     response = client.get("/api/remedial/activities")
     assert response.status_code == 200
     activities = response.json()
-    assert len(activities) == 4
-    assert {a["activity_id"] for a in activities} == {
+    assert len(activities) == 7
+    pointer_ids = {
         "symbol-match",
         "word-builder",
         "sequence-recall",
         "visual-search",
     }
+    speech_ids = {"sound-quest", "letter-pop", "maze-ran"}
+    assert {a["activity_id"] for a in activities} == pointer_ids | speech_ids
     for activity in activities:
         assert activity["enabled"] is True
-        assert activity["activity_type"] == "practice"
         assert activity["version"]
-        assert activity["supporting_game"] in {
-            "letter-detective",
-            "word-flash",
-            "sequence-quest",
-            "word-maze",
-        }
         assert activity["supported_difficulty_levels"] == [1, 2, 3, 4, 5]
         assert activity["age_range"] == [4, 10]
-        assert activity["required_capabilities"] == ["pointer"]
+        if activity["activity_id"] in pointer_ids:
+            assert activity["activity_type"] == "practice"
+            assert activity["required_capabilities"] == ["pointer"]
+            assert activity["supporting_game"] in {
+                "letter-detective",
+                "word-flash",
+                "sequence-quest",
+                "word-maze",
+            }
+        else:
+            assert activity["activity_type"] == "speech"
+            assert activity["required_capabilities"] == ["microphone"]
         for word in PROHIBITED_WORDS:
             assert word not in activity["description"].lower()
 
@@ -348,7 +354,7 @@ def test_p_parent_oriented_progress_and_recommendation(client: TestClient) -> No
     progress = client.get(f"/api/remedial/children/{child['id']}/practice/progress").json()
     assert progress["totals"]["sessions_completed"] == 1
     assert progress["note"]
-    assert progress["totals"]["activities_available"] == 4
+    assert progress["totals"]["activities_available"] == 7
     assert progress["by_activity"]
     assert progress["recent_completed"]
 

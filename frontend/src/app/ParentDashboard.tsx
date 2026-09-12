@@ -5,6 +5,7 @@ import { PracticeCard } from '../games/practice/PracticeCard';
 import { api, type PersonalizationProfile, type PersonalizationRecommendations, type ProgressResponse } from '../services/apiClient';
 import { progressMessage, recommendationLabel } from '../services/childPersonalization';
 import { comparisonRows, dedupeRecommendations, domainLabel, formatPercent } from './dashboardUI';
+import { ModalitySummaryCard } from './ModalitySummaryCard';
 
 export function ParentDashboard() {
 	const [profile, setProfile] = useState<Awaited<ReturnType<typeof api.getProfile>> | null>(null);
@@ -128,6 +129,8 @@ export function ParentDashboard() {
 						)}
 					</div>
 				</Card>
+
+				<ModalitySummaryCard dataQuality={profile?.data_quality ?? null} />
 
 				<PracticeCard />
 			</div>

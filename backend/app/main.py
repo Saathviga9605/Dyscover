@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.database import Base, engine, get_db
 from app.models import AssessmentSession, AssessmentSummary, ChildProfile, GameSession, InteractionEvent, Trial
+from app.gaze.routes import router as gaze_router
 from app.schemas import (
     AssessmentCreate,
     AssessmentResponse,
@@ -55,7 +56,12 @@ def initialize_database() -> None:
     if engine.url.get_backend_name() == "sqlite":
         with engine.begin() as connection:
             _ensure_sqlite_column(connection, "speech_sessions", "expected_text", "expected_text TEXT NOT NULL DEFAULT ''")
+            _ensure_sqlite_column(connection, "speech_sessions", "features", "features JSON")
             _ensure_sqlite_column(connection, "assessment_sessions", "created_at", "created_at DATETIME")
+            _ensure_sqlite_column(connection, "gaze_samples", "quality", "quality VARCHAR(24) DEFAULT 'tracking'")
+            _ensure_sqlite_column(connection, "gaze_samples", "provider", "provider VARCHAR(80)")
+            _ensure_sqlite_column(connection, "gaze_samples", "viewport_width", "viewport_width INTEGER")
+            _ensure_sqlite_column(connection, "gaze_samples", "viewport_height", "viewport_height INTEGER")
 
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
@@ -65,6 +71,7 @@ app.include_router(ml_quality_router)
 app.include_router(personalization_router)
 app.include_router(remedial_router)
 app.include_router(speech_router)
+app.include_router(gaze_router)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:

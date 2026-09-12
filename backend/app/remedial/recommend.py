@@ -78,9 +78,15 @@ def select_activity(
     difficulty_service=None,
     db=None,
     child_id: str | None = None,
+    capabilities: tuple[str, ...] | None = None,
 ) -> dict:
-    """Return a recommendation dict (see ``build_recommendation``)."""
-    activities = catalog.available_activities(age=age)
+    """Return a recommendation dict (see ``build_recommendation``).
+
+    ``capabilities`` filters the candidate catalog.  The default
+    recommendation path uses pointer-only activities so that microphone
+    activities are only offered when explicitly requested.
+    """
+    activities = catalog.available_activities(age=age, capabilities=capabilities)
     if not activities:
         return _recommendation(None, "no_activity", None, "balanced")
 

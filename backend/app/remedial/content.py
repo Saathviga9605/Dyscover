@@ -44,7 +44,56 @@ CONTENT: dict[str, dict[str, object]] = {
         ),
         "distractors": ("ball", "fish", "bell", "cap", "tree", "boat"),
     },
+    "sound-quest": {
+        "words": (
+            "cat", "dog", "sun", "hat", "run",
+            "bed", "fox", "cup", "map", "net",
+        ),
+    },
+    "letter-pop": {
+        "letters": tuple("abcdefghiklmoprstuvw"),
+    },
+    "maze-ran": {
+        "words": (
+            "the", "and", "cat", "dog", "one",
+            "two", "red", "big", "go", "of",
+        ),
+    },
 }
+
+
+def speech_tasks(activity_id: str, count: int = 5, seed: int = 0) -> list[dict]:
+    """Deterministic reading-aloud tasks derived from curated word pools.
+
+    Produces ``ReadingTask``-shaped dicts used by the speech practice
+    adapter.  Selection is reproducible for a given ``seed``.
+    """
+    from app.speech.schemas import ReadingTask
+
+    from .catalog import get_activity
+
+    activity = get_activity(activity_id)
+    if activity is None or activity.activity_type != "speech":
+        return []
+    family = "letters" if activity_id == "letter-pop" else "words"
+    pool = CONTENT.get(activity_id, {}).get(family, ())
+    if not isinstance(pool, tuple) or not pool:
+        return []
+    tasks: list[ReadingTask] = []
+    for index in range(count):
+        position = (index + seed) % len(pool)
+        word = pool[position]
+        tasks.append(
+            ReadingTask(
+                task_id=f"{activity_id}-{index + 1}-{word}",
+                expected_text=word,
+                language="en",
+                difficulty=max(1, min(5, len(word))),
+                content_type="word",
+                version=str(CONTENT_VERSION),
+            )
+        )
+    return [task.model_dump() for task in tasks]
 
 
 def content_summary() -> dict:
@@ -54,6 +103,9 @@ def content_summary() -> dict:
         "word-builder": "letters and short words",
         "sequence-recall": "picture sequences",
         "visual-search": "finding a target picture",
+        "sound-quest": "short words to read aloud",
+        "letter-pop": "letters to name aloud",
+        "maze-ran": "short words to say quickly",
     }
     return {
         "version": CONTENT_VERSION,

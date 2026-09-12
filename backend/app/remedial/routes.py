@@ -24,7 +24,7 @@ from sqlalchemy.orm import Session
 from ..database import get_db
 from ..models import ChildProfile
 from ..personalization.service import build_child_profile, build_game_difficulty
-from . import catalog
+from . import catalog, content
 from .progress import build_practice_progress
 from .recommend import get_child_age, select_activity
 from .session import (
@@ -63,16 +63,25 @@ def _require_child(db: Session, child_id: uuid.UUID) -> ChildProfile:
 
 
 @router.get("/activities")
-def list_activities(child_id: uuid.UUID | None = None, age: int | None = None, db: Session = Depends(get_db)):
+def list_activities(child_id: uuid.UUID | None = None, age: int | None = None, capabilities: str | None = None, db: Session = Depends(get_db)):
     resolved_age = age
+    capability_filter = tuple(capabilities.split(",")) if capabilities else None
     if child_id is not None:
         child = _require_child(db, child_id)
         resolved_age = get_child_age({"birth_year": child.birth_year})
-    return [activity.to_dict() for activity in catalog.available_activities(age=resolved_age)]
+    return [activity.to_dict() for activity in catalog.available_activities(age=resolved_age, capabilities=capability_filter)]
+
+
+@router.get("/activities/{activity_id}/speech-tasks")
+def speech_tasks_for(activity_id: str, count: int = 5, seed: int = 0):
+    tasks = content.speech_tasks(activity_id, count=count, seed=seed)
+    if not tasks:
+        raise HTTPException(status_code=404, detail="Unknown speech activity.")
+    return {"activity_id": activity_id, "content_version": content.CONTENT_VERSION, "tasks": tasks}
 
 
 @router.get("/children/{child_id}/next-activity")
-def next_activity(child_id: uuid.UUID, db: Session = Depends(get_db)):
+def next_activity(child_id: uuid.UUID, capabilities: str | None = None, db: Session = Depends(get_db)):
     child = _require_child(db, child_id)
     profile = build_child_profile(db, str(child_id))
     history = practice_history(db, child_id)
@@ -81,6 +90,7 @@ def next_activity(child_id: uuid.UUID, db: Session = Depends(get_db)):
     def _difficulty(db_: Session, child: str, game_id: str):
         return build_game_difficulty(db_, child, game_id)
 
+    capability_filter = tuple(capabilities.split(",")) if capabilities else ("pointer",)
     recommendation = select_activity(
         profile,
         history,
@@ -88,6 +98,7 @@ def next_activity(child_id: uuid.UUID, db: Session = Depends(get_db)):
         difficulty_service=_difficulty,
         db=db,
         child_id=str(child_id),
+        capabilities=capability_filter,
     )
     return {
         "child_id": str(child_id),

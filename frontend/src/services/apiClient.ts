@@ -97,13 +97,20 @@ export const api = {
   getPersonalizationProgress: (childId: string) => request<ProgressResponse>(`/personalization/children/${childId}/progress`),
 
   listRemedialActivities: (childId?: string) => request<PracticeActivity[]>(`/remedial/activities${childId ? `?child_id=${childId}` : ''}`),
-  getNextPracticeActivity: (childId: string) => request<NextPracticeActivity>(`/remedial/children/${childId}/next-activity`),
+  getNextPracticeActivity: (childId: string, capabilitiesOverride?: string) => request<NextPracticeActivity>(`/remedial/children/${childId}/next-activity${capabilitiesOverride ? `?capabilities=${capabilitiesOverride}` : ''}`),
+  getSpeechTasks: (activityId: string, count = 5, seed = 0) => request<SpeechTasksResponse>(`/remedial/activities/${activityId}/speech-tasks?count=${count}&seed=${seed}`),
   createPracticeSession: (payload: { child_id: string; activity_id: string; difficulty?: number | null }) => request<PracticeSessionStatus>('/remedial/sessions', { method: 'POST', body: JSON.stringify(payload) }),
   startPracticeSession: (sessionId: string) => request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/start`, { method: 'POST' }),
   recordPracticeEvent: (sessionId: string, event: { event_type: string; payload: Record<string, unknown> }) => request<Record<string, unknown>>(`/remedial/sessions/${sessionId}/events`, { method: 'POST', body: JSON.stringify(event) }),
   completePracticeSession: (sessionId: string) => request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/complete`, { method: 'POST' }),
   abandonPracticeSession: (sessionId: string) => request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/abandon`, { method: 'POST' }),
   getPracticeProgress: (childId: string) => request<PracticeProgress>(`/remedial/children/${childId}/practice/progress`),
+
+  getGazeStatus: () => request<GazeStatusResponse>('/gaze/status'),
+  postGazeBatch: (trialId: string, batch: GazeBatchPayload) => request<GazeBatchResponse>(`/gaze/trials/${trialId}/gaze`, { method: 'POST', body: JSON.stringify(batch) }),
+  getGazeBatch: (trialId: string) => request<GazeBatchResponse>(`/gaze/trials/${trialId}/gaze`),
+  storeSpeechFeatures: (sessionId: string, features: Record<string, unknown>) => request<Record<string, unknown>>(`/speech/sessions/${sessionId}/features`, { method: 'POST', body: JSON.stringify(features) }),
+  getSpeechFeatures: (sessionId: string) => request<Record<string, unknown>>(`/speech/sessions/${sessionId}/features`),
 };
 
 export interface PracticeActivity {
@@ -132,6 +139,21 @@ export interface NextPracticeActivity {
   reason: string;
   recommendation_version: string;
   content_version: string;
+}
+
+export interface SpeechTask {
+  task_id: string;
+  expected_text: string;
+  language: string;
+  difficulty: number;
+  content_type: 'word' | 'letter' | 'phrase' | 'sentence' | 'other';
+  version: string;
+}
+
+export interface SpeechTasksResponse {
+  activity_id: string;
+  content_version: string;
+  tasks: SpeechTask[];
 }
 
 export interface PracticeSessionStatus {
@@ -168,4 +190,44 @@ export interface PracticeProgress {
   by_activity: PracticeActivityRecord[];
   recent_completed: Array<{ id: string; activity_id: string; activity_name: string; difficulty: number; completed_at: string }>;
   note: string;
+}
+
+export interface GazeStatusResponse {
+  recording: boolean;
+  total_samples: number;
+  trialsWithSamples: number;
+  schema_version: string;
+}
+
+export interface GazeBatchResponse {
+  samples_created: number;
+  samples_rejected: number;
+  fixations_created: number;
+  quality: string;
+  message: string;
+}
+
+export interface GazeBatchPayload {
+  provider: string;
+  providerVersion: string;
+  quality: string;
+  schemaVersion: string;
+  samples: Array<{
+    x: number;
+    y: number;
+    timestamp_ms: number;
+    confidence?: number;
+    quality: string;
+    viewport_width: number;
+    viewport_height: number;
+  }>;
+  fixations: Array<{
+    start_timestamp_ms: number;
+    end_timestamp_ms: number;
+    duration_ms: number;
+    x: number;
+    y: number;
+    target_type?: string;
+    target_id?: string;
+  }>;
 }

@@ -100,6 +100,10 @@ class GazeSample(Base):
     x: Mapped[float] = mapped_column(Float)
     y: Mapped[float] = mapped_column(Float)
     confidence: Mapped[float | None] = mapped_column(Float)
+    quality: Mapped[str] = mapped_column(String(24), default="tracking")
+    provider: Mapped[str | None] = mapped_column(String(80))
+    viewport_width: Mapped[int | None] = mapped_column(Integer)
+    viewport_height: Mapped[int | None] = mapped_column(Integer)
 
 
 class Fixation(Base):
@@ -154,6 +158,7 @@ class SpeechSession(Base):
     provider: Mapped[str] = mapped_column(String(80), default="unconfigured")
     provider_version: Mapped[str] = mapped_column(String(40), default="unknown")
     duration_ms: Mapped[int | None] = mapped_column(Integer)
+    features_json: Mapped[dict | None] = mapped_column("features", JSON, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
 

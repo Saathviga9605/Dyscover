@@ -7,11 +7,12 @@ import type { LetterTrial } from '../definitions/letterDetective';
 import type { SequenceTrial } from '../definitions/sequenceQuest';
 import type { WordFlashTrial } from '../definitions/wordFlash';
 import type { MazeTrial } from '../definitions/wordMaze';
-import { api, type NextPracticeActivity, type PracticeSessionStatus } from '../../services/apiClient';
+import { api, type NextPracticeActivity, type PracticeSessionStatus, type SpeechTasksResponse } from '../../services/apiClient';
 import { MIRRORED_PRACTICE_EVENTS, practiceGameFor, seedForSessionId, toPracticeEvent } from './practice';
 import { PRACTICE_COPY } from './practiceCopy';
+import { probeSpeechCapabilities, SpeechConsentCard, SpeechPracticeView, SPEECH_CONSENT_KEY } from '../../speech';
 
-type Stage = 'loading' | 'intro' | 'playing' | 'done' | 'error';
+type Stage = 'loading' | 'intro' | 'playing' | 'speech-intro' | 'speech-playing' | 'done' | 'error';
 
 export function PracticeRunner() {
   const navigate = useNavigate();
@@ -27,6 +28,14 @@ export function PracticeRunner() {
   const presentationTimer = useRef<number | undefined>(undefined);
   const advanceTimer = useRef<number | undefined>(undefined);
   const knownEvents = useRef(0);
+  const speechSession = useRef<PracticeSessionStatus | null>(null);
+  const speechTasks = useRef<SpeechTasksResponse | null>(null);
+  const speechFeatures = useRef<Record<string, number>>({});
+  const speechCapabilities = useRef(probeSpeechCapabilities());
+  const hasSpeechMic = speechCapabilities.current.recognition || speechCapabilities.current.audio;
+  const [speechConsented, setSpeechConsented] = useState(() => (typeof window !== 'undefined' ? window.localStorage.getItem(SPEECH_CONSENT_KEY) === 'true' : false));
+  const [speechPhase, setSpeechPhase] = useState<string>('NOT_CONFIGURED');
+  const [speechMessage, setSpeechMessage] = useState<string>();
 
   useEffect(() => {
     const childId = window.localStorage.getItem('dyscover-stage2-child-id');
@@ -117,6 +126,41 @@ export function PracticeRunner() {
     startTrial();
   };
 
+  const beginSpeech = async () => {
+    const childId = window.localStorage.getItem('dyscover-stage2-child-id');
+    if (!childId) return;
+    const next = await api.getNextPracticeActivity(childId, 'microphone');
+    if (!next.activity) { setStage('error'); setError('No speech activity is available just now.'); return; }
+    const created = await api.createPracticeSession({ child_id: childId, activity_id: next.activity.activity_id, difficulty: next.difficulty_level ?? undefined });
+    const started = await api.startPracticeSession(created.id);
+    speechSession.current = started;
+    const tasks = await api.getSpeechTasks(next.activity.activity_id, 5, seedForSessionId(started.id)).catch(() => null);
+    if (!tasks?.tasks?.length) { setStage('error'); setError('That speech activity is not ready just yet.'); return; }
+    speechTasks.current = tasks;
+    speechFeatures.current = {};
+    setStage('speech-playing');
+    setPracticeSession(started);
+  };
+
+  const handleSpeechResult = async (_task: import('../../speech').ReadingTask, result: import('../../speech').SpeechAnalysisResult, _index: number) => {
+    if (!speechSession.current) return;
+    await api.recordPracticeEvent(speechSession.current.id, { event_type: 'RESPONSE_SUBMITTED', payload: { correct: result.correct, difficulty: result.expected_text.length } }).catch(() => undefined);
+    for (const [k, v] of Object.entries(result.features)) {
+      if (typeof v === 'number') speechFeatures.current[k] = Math.max(speechFeatures.current[k] ?? 0, v);
+    }
+  };
+
+  const finishSpeech = async (abandoned = false) => {
+    const session = speechSession.current;
+    speechSession.current = null;
+    if (session && !abandoned) await api.completePracticeSession(session.id).catch(() => undefined);
+    if (session) {
+      await api.recordPracticeEvent(session.id, { event_type: 'SPEECH_FEATURES', payload: { features: speechFeatures.current } }).catch(() => undefined);
+    }
+    speechFeatures.current = {};
+    setStage('done');
+  };
+
   const pause = () => {
     const engine = engineRef.current;
     if (!engine) return;
@@ -126,6 +170,7 @@ export function PracticeRunner() {
 
   const abandonAndLeave = () => {
     const session = practiceSession;
+    if (speechSession.current) void finishSpeech(true);
     if (session) void api.abandonPracticeSession(session.id).catch(() => undefined);
     navigate('/child/home');
   };
@@ -137,12 +182,71 @@ export function PracticeRunner() {
   if (!activity) return null;
 
   if (stage === 'intro') return (
-    <div className="child-space"><section className="child-welcome"><div className="child-copy"><span className="child-kicker">✦ practice zone ✦</span><h1>{PRACTICE_COPY.introTitle}</h1><p>{PRACTICE_COPY.introBody}</p><MascotBubble mood="happy">{activity.display_name}: {activity.description}</MascotBubble><button className="child-start" onClick={() => void begin()}>Start practice <span>→</span></button><Link className="child-exit" to="/child/home">Not now</Link></div><div className="child-scene"><div className="child-cloud cloud-one" /><div className="child-ground" /><Mascot mood="excited" size="large" /></div></section></div>
+    <div className="child-space">
+      <section className="child-welcome">
+        <div className="child-copy">
+          <span className="child-kicker">✦ practice zone ✦</span>
+          <h1>{PRACTICE_COPY.introTitle}</h1>
+          <p>{PRACTICE_COPY.introBody}</p>
+          <MascotBubble mood="happy">{activity.display_name}: {activity.description}</MascotBubble>
+          <button className="child-start" onClick={() => void begin()}>Start practice <span>→</span></button>
+          <Link className="child-exit" to="/child/home">Not now</Link>
+        </div>
+        <div className="child-scene"><div className="child-cloud cloud-one" /><div className="child-ground" /><Mascot mood="excited" size="large" /></div>
+      </section>
+      {hasSpeechMic && (
+        <section className="child-welcome speech-intro-card">
+          <div className="child-copy">
+            <span className="child-kicker">✦ read-aloud practice ✦</span>
+            <h2>Say it out loud</h2>
+            <p>Optional activities where your child reads a word or letter aloud. Choose this when you would like to practice speech together.</p>
+            {!speechConsented ? (
+              <SpeechConsentCard
+                capabilities={speechCapabilities.current}
+                consented={false}
+                phase={speechPhase}
+                message={speechMessage}
+                onEnable={() => {
+                  window.localStorage.setItem(SPEECH_CONSENT_KEY, 'true');
+                  setSpeechConsented(true);
+                  document.dispatchEvent(new Event('dyscover:speech-consent'));
+                }}
+                onDisable={() => undefined}
+              />
+            ) : (
+              <div>
+                <p>Microphone permission is on for this activity. Say each prompt aloud when it appears — the audio is used only for the moment.</p>
+                <button className="child-start" onClick={() => void beginSpeech()}>Start read-aloud practice <span>→</span></button>
+              </div>
+            )}
+          </div>
+          <div className="child-scene"><div className="child-cloud cloud-two" /><div className="child-ground" /><Mascot mood="thinking" size="large" /></div>
+        </section>
+      )}
+    </div>
   );
 
   if (stage === 'done') return (
     <div className="game-overlay-page"><div className="game-complete"><Mascot mood="excited" size="large" /><span className="child-kicker">practice complete</span><h1>{PRACTICE_COPY.doneTitle}</h1><p>{PRACTICE_COPY.doneBody}</p><button className="button" onClick={() => navigate('/child/home')}>Back to the explorer space <span>→</span></button></div></div>
   );
+
+  if (stage === 'speech-playing') {
+    const speech = speechTasks.current;
+    if (!speech?.tasks?.length || !practiceSession) return null;
+    return (
+      <SpeechPracticeView
+        activityName={activity.display_name}
+        activityDescription={activity.description}
+        tasks={speech.tasks}
+        capabilities={speechCapabilities.current}
+        difficulty={practiceSession.difficulty}
+        onResult={(task, result, index) => void handleSpeechResult(task, result, index)}
+        onComplete={() => void finishSpeech(false)}
+        onAbandon={abandonAndLeave}
+        onPhaseChange={(phase, text) => { setSpeechPhase(phase); setSpeechMessage(text); }}
+      />
+    );
+  }
 
   const engine = engineRef.current;
   if (!engine || !trial) return null;

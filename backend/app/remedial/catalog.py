@@ -119,6 +119,51 @@ ACTIVITIES: tuple[ActivityDefinition, ...] = (
         version="1.0.0",
         enabled=True,
     ),
+    ActivityDefinition(
+        activity_id="sound-quest",
+        display_name="Sound Quest",
+        description="Read familiar short words aloud into the microphone.",
+        target_domain="phonological-awareness",
+        supporting_game=SUPPORTING_GAMES["word-builder"],
+        supported_difficulty_levels=_DIFFICULTY_LEVELS,
+        age_min=REMEDIAL_CONFIG.default_age_min,
+        age_max=REMEDIAL_CONFIG.default_age_max,
+        estimated_duration_minutes=5,
+        activity_type="speech",
+        required_capabilities=("microphone",),
+        version="1.0.0",
+        enabled=True,
+    ),
+    ActivityDefinition(
+        activity_id="letter-pop",
+        display_name="Letter Bubble Pop",
+        description="Say the name of a letter as it pops up.",
+        target_domain="reading-fluency",
+        supporting_game=SUPPORTING_GAMES["symbol-match"],
+        supported_difficulty_levels=_DIFFICULTY_LEVELS,
+        age_min=REMEDIAL_CONFIG.default_age_min,
+        age_max=REMEDIAL_CONFIG.default_age_max,
+        estimated_duration_minutes=5,
+        activity_type="speech",
+        required_capabilities=("microphone",),
+        version="1.0.0",
+        enabled=True,
+    ),
+    ActivityDefinition(
+        activity_id="maze-ran",
+        display_name="Maze Runner (Say It)",
+        description="Say each word in quick succession as it shows up.",
+        target_domain="attention-visual-search",
+        supporting_game=SUPPORTING_GAMES["visual-search"],
+        supported_difficulty_levels=_DIFFICULTY_LEVELS,
+        age_min=REMEDIAL_CONFIG.default_age_min,
+        age_max=REMEDIAL_CONFIG.default_age_max,
+        estimated_duration_minutes=5,
+        activity_type="speech",
+        required_capabilities=("microphone",),
+        version="1.0.0",
+        enabled=True,
+    ),
 )
 
 
@@ -126,9 +171,11 @@ def get_activity(activity_id: str) -> ActivityDefinition | None:
     return _by_id.get(activity_id)
 
 
-def available_activities(age: int | None = None) -> tuple[ActivityDefinition, ...]:
-    """Enabled activities appropriate for *age*, when known."""
+def available_activities(age: int | None = None, capabilities: tuple[str, ...] | None = None) -> tuple[ActivityDefinition, ...]:
+    """Enabled activities appropriate for *age* and *capabilities*, when known."""
     result = [a for a in ACTIVITIES if a.enabled]
+    if capabilities is not None:
+        result = [a for a in result if set(a.required_capabilities).issubset(set(capabilities))]
     if age is not None:
         result = [a for a in result if a.age_min <= age <= a.age_max]
     return tuple(result)

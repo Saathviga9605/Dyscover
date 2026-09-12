@@ -10,7 +10,13 @@ from typing import Any
 def build_rows(session_features: list[tuple[str, str, dict[str, dict[str, Any]], Any | None]]) -> list[dict[str, Any]]:
     rows = []
     for subject_id, session_id, features, target in session_features:
-        rows.append({"subject_id": subject_id, "session_id": session_id, "features": {name: item["value"] if item["available"] and isinstance(item["value"], (int, float)) else None for name, item in features.items()}, "target": target})
+        rows.append({
+            "subject_id": subject_id,
+            "session_id": session_id,
+            "features": {name: item["value"] if item["available"] and isinstance(item["value"], (int, float)) else None for name, item in features.items()},
+            "feature_metadata": {name: {"modality": item.get("modality", "behavior"), "available": bool(item.get("available"))} for name, item in features.items()},
+            "target": target,
+        })
     return rows
 
 

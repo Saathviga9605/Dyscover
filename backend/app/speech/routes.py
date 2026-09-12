@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import AssessmentSession, SpeechSession
-from .request import ReadingAnalysisRequest
+from .request import ReadingAnalysisRequest, SpeechFeaturesStoreRequest
 from .schemas import SpeechFeaturesResponse, SpeechSessionCreate, SpeechSessionResponse, SpeechStatusResponse
 from .service import analyze_reading, provider_status
 
@@ -35,3 +35,22 @@ def get_session(speech_session_id: UUID, db: Session = Depends(get_db)) -> Speec
 
 @router.post("/analyze", response_model=SpeechFeaturesResponse)
 def analyze(request: ReadingAnalysisRequest): return analyze_reading(request.task, request.transcript, request.duration_ms)
+
+
+@router.post("/sessions/{speech_session_id}/features", response_model=SpeechSessionResponse)
+def store_features(speech_session_id: UUID, payload: SpeechFeaturesStoreRequest, db: Session = Depends(get_db)):
+    speech_session = db.get(SpeechSession, speech_session_id)
+    if speech_session is None:
+        raise HTTPException(status_code=404, detail="Speech session not found")
+    speech_session.features_json = payload.features
+    db.commit()
+    db.refresh(speech_session)
+    return {"id": speech_session.id, "session_id": speech_session.assessment_id, "trial_id": speech_session.trial_id, "task": {"task_id": speech_session.task_id, "expected_text": speech_session.expected_text, "language": speech_session.language}, "language": speech_session.language, "provider": speech_session.provider, "provider_version": speech_session.provider_version, "audio_available": speech_session.audio_available, "duration_ms": speech_session.duration_ms, "created_at": speech_session.created_at}
+
+
+@router.get("/sessions/{speech_session_id}/features")
+def session_features(speech_session_id: UUID, db: Session = Depends(get_db)):
+    speech_session = db.get(SpeechSession, speech_session_id)
+    if speech_session is None:
+        raise HTTPException(status_code=404, detail="Speech session not found")
+    return {"speech_session_id": str(speech_session_id), "speech_available": speech_session.features_json is not None, "features": speech_session.features_json or {}}

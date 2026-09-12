@@ -23,12 +23,14 @@ def validate_trials(trials: list[Any], events: list[Any]) -> dict[str, Any]:
     return {"valid": not issues, "issues": issues, "duplicate_events": max(0, duplicate_events), "incomplete_trials": sum(trial.completed_at is None for trial in trials)}
 
 
-def build_quality_report(sessions: list[Any], all_trials: list[Any], gaze_trial_ids: set[str] | None = None) -> dict[str, Any]:
+def build_quality_report(sessions: list[Any], all_trials: list[Any], gaze_trial_ids: set[str] | None = None, speech_trial_ids: set[str] | None = None) -> dict[str, Any]:
     gaze_trial_ids = gaze_trial_ids or set()
+    speech_trial_ids = speech_trial_ids or set()
     valid_sessions = sum(bool(getattr(session, "completed_at", None)) for session in sessions)
     zero_trial_sessions = sum(not getattr(session, "games", None) for session in sessions)
     warnings = []
     if zero_trial_sessions: warnings.append("One or more sessions contain no trials.")
     if not all_trials: warnings.append("No trials are available for feature extraction.")
     invalid_sessions = len(sessions) - valid_sessions
-    return {"status": "invalid" if invalid_sessions else ("warning" if warnings else "ok"), "schema_version": "1.0", "total_sessions": len(sessions), "total_trials": len(all_trials), "valid_sessions": valid_sessions, "invalid_sessions": invalid_sessions, "missing_feature_percentage": {}, "missing_feature_rates": {}, "invalid_feature_counts": {}, "gaze_availability": (len(gaze_trial_ids) / len(all_trials) if all_trials else 0), "speech_availability": 0.0, "incomplete_trials": sum(trial.completed_at is None for trial in all_trials), "duplicate_events": 0, "outlier_counts": {}, "zero_trial_sessions": zero_trial_sessions, "warnings": warnings}
+    speech_availability = (len(speech_trial_ids) / len(all_trials) if all_trials else 0.0)
+    return {"status": "invalid" if invalid_sessions else ("warning" if warnings else "ok"), "schema_version": "1.0", "total_sessions": len(sessions), "total_trials": len(all_trials), "valid_sessions": valid_sessions, "invalid_sessions": invalid_sessions, "missing_feature_percentage": {}, "missing_feature_rates": {}, "invalid_feature_counts": {}, "gaze_availability": (len(gaze_trial_ids) / len(all_trials) if all_trials else 0), "speech_availability": speech_availability, "incomplete_trials": sum(trial.completed_at is None for trial in all_trials), "duplicate_events": 0, "outlier_counts": {}, "zero_trial_sessions": zero_trial_sessions, "warnings": warnings}
