@@ -22,7 +22,7 @@ export interface GazeTrackingController {
   previewStream: MediaStream | null;
   stats: GazeStats;
   calibrationCompleted: boolean;
-  enable(): Promise<void>;
+  enable(): Promise<EyeTrackingPhase>;
   disable(): void;
   finalizeCalibration(): void;
   setCalibrationPoint(x: number, y: number): Promise<void>;
@@ -86,8 +86,8 @@ export function useGazeTracking(gameId: string): GazeTrackingController {
     setStats({ samples, aoiSamples });
   }, []);
 
-  const enable = useCallback(async () => {
-    if (!capable) return;
+  const enable = useCallback(async (): Promise<EyeTrackingPhase> => {
+    if (!capable) return 'UNAVAILABLE';
     const provider = createEyeTrackingProvider();
     providerRef.current = provider;
     provider.setPhaseListener((next, text) => {
@@ -102,7 +102,7 @@ export function useGazeTracking(gameId: string): GazeTrackingController {
       window.localStorage.setItem(CONSENT_KEY, 'false');
       setConsented(false);
       stopPreview();
-      return;
+      return provider.phase;
     }
     void startPreview();
     await provider.beginCalibration();
@@ -112,6 +112,7 @@ export function useGazeTracking(gameId: string): GazeTrackingController {
       viewportHeight: window.innerHeight,
       onSampleStats: updateStats,
     });
+    return provider.phase;
   }, [capable, startPreview, stopPreview, updateStats]);
 
   const disable = useCallback(() => {

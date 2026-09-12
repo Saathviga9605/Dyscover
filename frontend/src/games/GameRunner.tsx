@@ -44,8 +44,8 @@ export function GameRunner() {
   const handleStart = async () => {
     if (gaze.consented && gaze.capable) {
       if (gaze.phase === 'NOT_CONFIGURED' || gaze.phase === 'STOPPED') {
-        await gaze.enable();
-        if (gaze.consented && ((gaze.phase as string) === 'CALIBRATING' || (gaze.phase as string) === 'REQUESTED')) { setCalibrationOpen(true); return; }
+        const phase = await gaze.enable();
+        if (gaze.consented && (phase === 'CALIBRATING' || phase === 'REQUESTED')) { setCalibrationOpen(true); return; }
       }
     }
     const engine = engineRef.current;
@@ -55,7 +55,7 @@ export function GameRunner() {
     startTrial();
   };
   const finishCalibration = () => { gaze.finalizeCalibration(); setCalibrationOpen(false); const engine = engineRef.current; if (!engine) return; engine.start(); persistNewEvents(); startTrial(); };
-  const enableGaze = async () => { await gaze.enable(); if (gaze.consented && (gaze.phase === 'CALIBRATING' || gaze.phase === 'REQUESTED')) setCalibrationOpen(true); else setCalibrationOpen(false); };
+  const enableGaze = async () => { const phase = await gaze.enable(); if (gaze.consented && (phase === 'CALIBRATING' || phase === 'REQUESTED')) setCalibrationOpen(true); else setCalibrationOpen(false); };
   const emit = (eventType: Parameters<GameEngine['emit']>[0], payload: Record<string, unknown> = {}) => { const engine = engineRef.current; if (!engine) return; engine.emit(eventType, payload, trial?.trialId); };
   const submit = async (response: unknown) => { const engine = engineRef.current; if (!engine || !trial || state !== 'PLAYING' || presentation) return; const updated = engine.recordResponse(trial, response); engine.completeTrial(updated); const result = updated.correct ? 'Great job!' : 'Almost! Let’s keep exploring.'; setFeedback(result); setState('FEEDBACK'); const backendId = await persistTrial(engine.session.assessmentId ?? engine.session.sessionId, definition.id, updated); backendTrialIds.current.set(trial.trialId, backendId ?? trial.trialId); persistNewEvents(); const gazeData = gaze.harvestTrial(trial.trialId); if (gazeData) void persistGazeBatch(trial.trialId, backendId ?? null, toGazeBatchPayload(gazeData, gaze.calibrationCompleted)); advanceTimer.current = window.setTimeout(() => { if (engine.trials.length >= definition.totalTrials) { engine.completeGame(); persistNewEvents(); setState('GAME_COMPLETE'); } else startTrial(); }, 900); };
   const pause = () => { const engine = engineRef.current; if (!engine) return; if (state === 'PAUSED') { engine.resume(); setState('PLAYING'); } else if (state === 'PLAYING' || state === 'FEEDBACK') { engine.pause(); window.clearTimeout(presentationTimer.current); window.clearTimeout(advanceTimer.current); setState('PAUSED'); emit('SESSION_PAUSED'); } };

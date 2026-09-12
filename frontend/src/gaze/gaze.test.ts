@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { captureRegions, regionForPoint } from './aoi';
 import { FixationEngine } from './fixationEngine';
 import { computeGazeFeatures } from './features';
@@ -284,5 +284,69 @@ describe('useGazeTracking consent and availability', () => {
     const data = result.current.harvestTrial('trial-a');
     expect(data).toBeNull();
     expect(result.current.tracking).toBe(false);
+  });
+});
+
+describe('calibration-completion path', () => {
+  beforeEach(() => {
+    window.localStorage.removeItem('dyscover-gaze-consent');
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: true });
+    Object.defineProperty(navigator, 'mediaDevices', {
+      configurable: true,
+      value: { getUserMedia: vi.fn(() => Promise.resolve({ getTracks: () => [] })) },
+    });
+    const webgazer = {
+      params: {},
+      setRegression: vi.fn(() => webgazer),
+      setTracker: vi.fn(() => webgazer),
+      addMouseEventListeners: vi.fn(() => webgazer),
+      removeMouseEventListeners: vi.fn(() => webgazer),
+      begin: vi.fn(() => Promise.resolve()),
+      end: vi.fn(),
+      pause: vi.fn(),
+      resume: vi.fn(),
+      recordScreenPosition: vi.fn(() => webgazer),
+      setGazeListener: vi.fn(() => webgazer),
+      showVideo: vi.fn(() => webgazer),
+      showPredictionPoints: vi.fn(() => webgazer),
+      showFaceOverlay: vi.fn(() => webgazer),
+      showFaceFeedbackBox: vi.fn(() => webgazer),
+    } as unknown as Window['webgazer'];
+    window.webgazer = webgazer;
+  });
+
+  afterEach(() => {
+    window.localStorage.removeItem('dyscover-gaze-consent');
+    Object.defineProperty(window, 'isSecureContext', { configurable: true, value: false });
+    delete (window as { webgazer?: unknown }).webgazer;
+  });
+
+  it('enable() resolves CALIBRATING (so the overlay opens) and completed calibration marks the batch calibration_completed: true', async () => {
+    const { result } = renderHook(() => useGazeTracking('word-flash'));
+    const phase = await act(async () => result.current.enable());
+    expect(phase).toBe('CALIBRATING');
+    act(() => result.current.finalizeCalibration());
+    expect(result.current.calibrationCompleted).toBe(true);
+    await result.current.beginTrial('trial-1');
+    const gazeListener = (window.webgazer!.setGazeListener as ReturnType<typeof vi.fn>).mock.calls[0][0] as (data: { x: number; y: number }) => void;
+    gazeListener({ x: 60, y: 60 });
+    const data = result.current.harvestTrial('trial-1');
+    expect(data).not.toBeNull();
+    const payload = toGazeBatchPayload(data!, result.current.calibrationCompleted);
+    expect(payload.calibration_completed).toBe(true);
+    void result.current.cleanup();
+  });
+
+  it('batches carry calibration_completed: false when calibration was never completed', async () => {
+    const { result } = renderHook(() => useGazeTracking('word-flash'));
+    await result.current.enable();
+    await result.current.beginTrial('trial-2');
+    const gazeListener = (window.webgazer!.setGazeListener as ReturnType<typeof vi.fn>).mock.calls[0][0] as (data: { x: number; y: number }) => void;
+    gazeListener({ x: 60, y: 60 });
+    const data = result.current.harvestTrial('trial-2');
+    expect(data).not.toBeNull();
+    const payload = toGazeBatchPayload(data!, result.current.calibrationCompleted);
+    expect(payload.calibration_completed).toBe(false);
+    void result.current.cleanup();
   });
 });

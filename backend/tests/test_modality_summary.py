@@ -133,3 +133,40 @@ def test_modality_summary_reflects_gaze_and_speech(client: TestClient) -> None:
     assert body["speech"]["trial_coverage"] == 1.0
     assert body["speech"]["transcript_available"] == 0
     assert body["speech"]["asr_available"] == 1
+
+
+def test_modality_summary_reports_calibrated_when_calibration_event_persisted(client: TestClient) -> None:
+    setup = _setup(client)
+    assessment_id = setup["assessment"]["id"]
+    trial_id = setup["trial"]["id"]
+    client.post(
+        f"/api/gaze/trials/{trial_id}/gaze",
+        json={
+            "provider": "webgazer",
+            "samples": [{"x": 110.0, "y": 80.0, "timestamp_ms": 100.0, "viewport_width": 1280, "viewport_height": 720}],
+            "fixations": [],
+            "calibration_completed": True,
+        },
+    )
+    body = client.get(f"/api/assessments/{assessment_id}/modality-summary").json()
+    assert body["gaze"]["recorded"] is True
+    assert body["gaze"]["calibration_completed"] is True
+    assert body["gaze"]["sample_count"] == 1
+
+
+def test_modality_summary_reports_not_calibrated_without_calibration_event(client: TestClient) -> None:
+    setup = _setup(client)
+    assessment_id = setup["assessment"]["id"]
+    trial_id = setup["trial"]["id"]
+    client.post(
+        f"/api/gaze/trials/{trial_id}/gaze",
+        json={
+            "provider": "webgazer",
+            "samples": [{"x": 110.0, "y": 80.0, "timestamp_ms": 100.0, "viewport_width": 1280, "viewport_height": 720}],
+            "fixations": [],
+        },
+    )
+    body = client.get(f"/api/assessments/{assessment_id}/modality-summary").json()
+    assert body["gaze"]["recorded"] is True
+    assert body["gaze"]["calibration_completed"] is False
+    assert body["gaze"]["sample_count"] == 1
