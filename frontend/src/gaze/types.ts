@@ -97,4 +97,5 @@ export interface GazeBatchPayload {
     target_type?: string;
     target_id?: string;
   }>;
+  calibration_completed?: boolean;
 }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '../components/ui';
+import { GazeVideo } from './LiveGazePreview';
 
 const CALIBRATION_POINTS = [
   { left: 15, top: 15 },
@@ -17,9 +18,10 @@ export interface CalibrationOverlayProps {
   onFinished: () => void;
   onCancel: () => void;
   onCapturePoint: (x: number, y: number) => Promise<void>;
+  previewStream?: MediaStream | null;
 }
 
-export function CalibrationOverlay({ onFinished, onCancel, onCapturePoint }: CalibrationOverlayProps) {
+export function CalibrationOverlay({ onFinished, onCancel, onCapturePoint, previewStream }: CalibrationOverlayProps) {
   const [index, setIndex] = useState(0);
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -49,10 +51,21 @@ export function CalibrationOverlay({ onFinished, onCancel, onCapturePoint }: Cal
 
   return (
     <div ref={overlayRef} className="calibration-overlay" aria-label="Eye tracking calibration">
+      {previewStream ? (
+        <div className="calibration-preview">
+          <GazeVideo className="gaze-preview-video" stream={previewStream} />
+          <span>Camera preview</span>
+        </div>
+      ) : null}
       <p className="calibration-copy">Look at the dot, then click it. This teaches the eye tracker where you are looking.</p>
       <p className="calibration-progress">
-        {index + 1} of {CALIBRATION_POINTS.length}
+        Point {index + 1} of {CALIBRATION_POINTS.length}
       </p>
+      <div className="calibration-track">
+        {CALIBRATION_POINTS.map((_, step) => (
+          <span key={step} className={`calibration-track-dot ${step <= index ? 'done' : ''}`} />
+        ))}
+      </div>
       <button
         type="button"
         className="calibration-point"

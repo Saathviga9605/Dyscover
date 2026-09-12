@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Fixation, GazeSample, Trial
+from app.models import Fixation, GazeSample, InteractionEvent, Trial
 from .features import analyze_fixations
 from .schemas import (
     GAZE_SCHEMA_VERSION,
@@ -104,6 +104,22 @@ def ingest_trial_gaze(trial_id: UUID, payload: GazeTrialBatchCreate, db: Session
     finalized = "degraded" if (samples_rejected or fixations_rejected or any(sample.quality in {"degraded", "out_of_order"} for sample in samples)) else payload.quality
     db.add_all(samples)
     db.add_all(fixations)
+    if payload.calibration_completed:
+        existing = db.scalar(
+            select(InteractionEvent.id).where(
+                InteractionEvent.trial_id == trial_id,
+                InteractionEvent.event_type == "CALIBRATION_COMPLETED",
+            )
+        )
+        if existing is None:
+            db.add(
+                InteractionEvent(
+                    trial_id=trial_id,
+                    event_type="CALIBRATION_COMPLETED",
+                    payload={"provider": payload.provider, "provider_version": payload.provider_version},
+                    schema_version="1.0",
+                )
+            )
     db.commit()
     return GazeBatchResponse(
         trial_id=trial_id,

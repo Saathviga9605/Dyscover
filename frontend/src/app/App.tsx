@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Route, Routes } from 'react-router-dom';
 import { AccessibilityPanel, Badge, Button, Card, Mascot, MascotBubble, PageHeader, ProgressBar, SectionHeader } from '../components/ui';
 import { GameRunner } from '../games/GameRunner';
+import { SpeechAssessmentRunner } from '../games/SpeechAssessmentRunner';
+import { ChildAssessmentHub } from './ChildAssessmentHub';
 import { PracticeRunner } from '../games/practice/PracticeRunner';
 import { LexiWidget } from '../chatbot/LexiWidget';
 import { ParentDashboard } from './ParentDashboard';
@@ -51,6 +53,8 @@ function Contact() { const [sent, setSent] = useState(false); return <><section 
 
 function ChildHome() { return <div className="child-space"><div className="child-topbar"><Link className="child-brand" to="/"><span className="brand-mark">✦</span>Dyscover</Link><Link className="child-exit" to="/">Grown-up space <span>↗</span></Link></div><section className="child-welcome"><div className="child-copy"><span className="child-kicker">✦ explorer mode ✦</span><h1>Hi, Explorer!</h1><p>Ready for today's adventure?</p><MascotBubble mood="happy">Take your time. We can explore together.</MascotBubble><Link className="child-start" to="/child/assessment">Start adventure <span>→</span></Link></div><div className="child-scene"><div className="child-moon">✦</div><div className="child-cloud cloud-one" /><div className="child-cloud cloud-two" /><div className="child-ground" /><div className="child-path" /><Mascot mood="excited" size="large" /></div></section><section className="child-journey-card"><div className="child-card-heading"><div><span className="child-kicker">your journey</span><h2>A little path, one step at a time.</h2></div><span className="journey-count">0 / 5</span></div><div className="star-progress"><span className="active">✦</span><i /><span>✦</span><i /><span>✦</span><i /><span>✦</span><i /><span>✦</span></div><div className="child-quick-links"><Link to="/child/assessment"><span>✦</span><strong>My activities</strong><small>Choose an adventure</small></Link><Link to="/child/practice"><span>⌁</span><strong>Let's practise</strong><small>A friendly practice zone</small></Link><Link to="/parent/dashboard"><span>◌</span><strong>My grown-up</strong><small>See your journey</small></Link></div></section></div>; }
 
-function Assessment() { return <GameRunner />; }
+function Assessment() { return <ChildAssessmentHub />; }
+function VisualAssessment() { return <GameRunner />; }
+function SpeechAssessment() { return <SpeechAssessmentRunner />; }
 
-export function App() { return <Layout><Routes><Route path="/" element={<Home />} /><Route path="/about" element={<About />} /><Route path="/how-it-works" element={<HowItWorks />} /><Route path="/research" element={<Research />} /><Route path="/contact" element={<Contact />} /><Route path="/parent/dashboard" element={<ParentDashboard />} /><Route path="/child/home" element={<ChildHome />} /><Route path="/child/assessment" element={<Assessment />} /><Route path="/child/practice" element={<PracticeRunner />} /><Route path="*" element={<Home />} /></Routes></Layout>; }
+export function App() { return <Layout><Routes><Route path="/" element={<Home />} /><Route path="/about" element={<About />} /><Route path="/how-it-works" element={<HowItWorks />} /><Route path="/research" element={<Research />} /><Route path="/contact" element={<Contact />} /><Route path="/parent/dashboard" element={<ParentDashboard />} /><Route path="/child/home" element={<ChildHome />} /><Route path="/child/assessment" element={<Assessment />} /><Route path="/child/assessment/visual" element={<VisualAssessment />} /><Route path="/child/assessment/speech" element={<SpeechAssessment />} /><Route path="/child/practice" element={<PracticeRunner />} /><Route path="*" element={<Home />} /></Routes></Layout>; }

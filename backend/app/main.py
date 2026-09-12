@@ -7,12 +7,12 @@ from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import inspect, select, text
+from sqlalchemy import func, inspect, select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.database import Base, engine, get_db
-from app.models import AssessmentSession, AssessmentSummary, ChildProfile, GameSession, InteractionEvent, Trial
+from app.models import AssessmentSession, AssessmentSummary, ChildProfile, Fixation, GameSession, GazeSample, InteractionEvent, SpeechSession, Trial
 from app.gaze.routes import router as gaze_router
 from app.schemas import (
     AssessmentCreate,
@@ -211,3 +211,67 @@ def list_assessments(child_id: UUID, db: Session = Depends(get_db)) -> list[Asse
     if db.get(ChildProfile, child_id) is None:
         raise HTTPException(status_code=404, detail="Child profile not found")
     return list(db.scalars(select(AssessmentSession).where(AssessmentSession.child_id == child_id).order_by(AssessmentSession.created_at.desc(), AssessmentSession.id.desc())))
+
+
+@app.get("/api/assessments/{assessment_id}/modality-summary")
+def assessment_modality_summary(assessment_id: UUID, db: Session = Depends(get_db)) -> dict:
+    """Structured per-modality availability for an assessment.
+
+    Reports only observable coverage — whether gaze speech observations were
+    recorded and how complete they are. Never synthesizes ability judgments.
+    """
+    if db.get(AssessmentSession, assessment_id) is None:
+        raise HTTPException(status_code=404, detail="Assessment session not found")
+
+    game_ids = list(db.scalars(select(GameSession.id).where(GameSession.assessment_session_id == assessment_id)))
+    trial_ids: list[UUID] = []
+    trials = list(db.scalars(select(Trial).where(Trial.game_session_id.in_(game_ids)))) if game_ids else []
+    trial_ids = [trial.id for trial in trials]
+    trial_count = len(trial_ids)
+
+    if not trial_ids:
+        return {
+            "assessment_id": str(assessment_id),
+            "gaze": {"recorded": False, "calibration_completed": False, "trial_count": 0, "sample_count": 0, "fixation_count": 0, "trial_coverage": 0.0, "aoi_coverage": 0.0},
+            "speech": {"recorded": False, "trial_count": 0, "trial_coverage": 0.0, "transcript_available": 0, "response_timing_available": 0, "asr_available": 0},
+        }
+
+    gaze_sample_count = int(db.scalar(select(func.count()).select_from(GazeSample).where(GazeSample.trial_id.in_(trial_ids))) or 0)
+    fixations = list(db.scalars(select(Fixation).where(Fixation.trial_id.in_(trial_ids))))
+    gaze_trial_ids = set(db.scalars(select(GazeSample.trial_id).where(GazeSample.trial_id.in_(trial_ids))))
+    gaze_trial_ids.update(db.scalars(select(Fixation.trial_id).where(Fixation.trial_id.in_(trial_ids))))
+    calibration_completed = db.scalar(
+        select(func.count()).select_from(InteractionEvent).where(
+            InteractionEvent.event_type == "CALIBRATION_COMPLETED",
+            InteractionEvent.trial_id.in_(trial_ids),
+        )
+    ) or 0
+    calibration_completed = bool(calibration_completed)
+    labeled_fixations = sum(1 for fixation in fixations if fixation.target_type)
+
+    speech_sessions = list(db.scalars(select(SpeechSession).where(SpeechSession.assessment_id == assessment_id)))
+    speech_trial_ids = {session.trial_id for session in speech_sessions if session.trial_id is not None}
+    transcript_available = sum(1 for trial in trials if trial.id in speech_trial_ids and trial.actual_response)
+    response_timing_available = sum(1 for trial in trials if trial.id in speech_trial_ids and trial.reaction_time_ms is not None)
+    asr_available = sum(1 for session in speech_sessions if isinstance(session.features_json, dict) and "speech_speech_detected" in session.features_json)
+
+    return {
+        "assessment_id": str(assessment_id),
+        "gaze": {
+            "recorded": bool(gaze_sample_count or fixations),
+            "calibration_completed": bool(calibration_completed),
+            "trial_count": len(gaze_trial_ids),
+            "sample_count": gaze_sample_count,
+            "fixation_count": len(fixations),
+            "trial_coverage": round(len(gaze_trial_ids) / trial_count, 3),
+            "aoi_coverage": round(labeled_fixations / len(fixations), 3) if fixations else 0.0,
+        },
+        "speech": {
+            "recorded": bool(speech_sessions),
+            "trial_count": len(speech_sessions),
+            "trial_coverage": round(len(speech_trial_ids) / trial_count, 3),
+            "transcript_available": transcript_available,
+            "response_timing_available": response_timing_available,
+            "asr_available": asr_available,
+        },
+    }

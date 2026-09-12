@@ -27,6 +27,7 @@ export interface CollectorOptions {
   viewportHeight: number;
   regions?: AoiRegion[];
   estimateNow?: () => number;
+  onSampleStats?: (samples: number, aoiSamples: number) => void;
 }
 
 export class GazeCollector {
@@ -37,6 +38,7 @@ export class GazeCollector {
   private previousTimestampMs: number | null = null;
   private dropped = 0;
   private outOfOrder = 0;
+  private aoiMatches = 0;
   private pendingRegions: AoiRegion[] = [];
   private estimateNow: () => number;
 
@@ -44,6 +46,10 @@ export class GazeCollector {
     this.regions = options.regions ?? [];
     this.estimateNow = options.estimateNow ?? (() => Date.now());
     this.engine = new FixationEngine((x, y) => resolveRegion(x, y, this.regions));
+  }
+
+  aoiSampleCount(): number {
+    return this.aoiMatches;
   }
 
   setRegions(regions: AoiRegion[]): void {
@@ -57,6 +63,7 @@ export class GazeCollector {
     this.previousTimestampMs = null;
     this.dropped = 0;
     this.outOfOrder = 0;
+    this.aoiMatches = 0;
     await this.options.provider.startTracking((x, y, confidence) => this.accept(x, y, confidence));
   }
 
@@ -85,6 +92,7 @@ export class GazeCollector {
     this.previousTimestampMs = null;
     this.dropped = 0;
     this.outOfOrder = 0;
+    this.aoiMatches = 0;
     return data;
   }
 
@@ -114,10 +122,12 @@ export class GazeCollector {
     this.samples.push(sample);
     const fixation = this.engine.push(sample);
     if (fixation) this.fixations.push(fixation);
+    if (resolveRegion(x, y, this.regions)) this.aoiMatches += 1;
+    this.options.onSampleStats?.(this.samples.length, this.aoiMatches);
   }
 }
 
-export function toGazeBatchPayload(data: GazeTrialData): GazeBatchPayload {
+export function toGazeBatchPayload(data: GazeTrialData, calibrationCompleted = false): GazeBatchPayload {
   return {
     provider: data.samples[0]?.provider ?? 'unknown',
     providerVersion: 'webgazer-1.0',
@@ -141,5 +151,6 @@ export function toGazeBatchPayload(data: GazeTrialData): GazeBatchPayload {
       target_type: fixation.targetType,
       target_id: fixation.targetId,
     })),
+    calibration_completed: calibrationCompleted,
   };
 }

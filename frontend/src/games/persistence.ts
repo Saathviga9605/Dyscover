@@ -1,7 +1,8 @@
-import { api, request } from '../services/apiClient';
+import { api, request, type SpeechSessionCreatePayload } from '../services/apiClient';
 import type { GazeBatchPayload } from '../services/apiClient';
 import { enqueue, flushQueue, readTrialIdMap, updateTrialIdMap, type PersistedItem } from './engine';
 import type { AssessmentEvent, AssessmentSession, GameResult, Trial } from './engine';
+import type { SpeechTrial } from './speech/speechDefinitions';
 
 const childKey = 'dyscover-stage2-child-id';
 const assessmentKey = 'dyscover-stage2-assessment-id';
@@ -132,13 +133,86 @@ export async function persistSpeechFeatures(sessionId: string, features: Record<
     await api.storeSpeechFeatures(sessionId, features);
   } catch (error) {
     telemetryWarning('speech', `/speech/sessions/${sessionId}/features`, error);
-    enqueue({ kind: 'speech_features', path: `/speech/sessions/${sessionId}/features`, payload: features });
+    enqueue({ kind: 'speech_features', path: `/speech/sessions/${sessionId}/features`, payload: { features } });
   }
+}
+
+export async function persistSpeechAssessmentTrial(assessmentId: string, trial: SpeechTrial, backendTrialId: string | null): Promise<void> {
+  const evidence = trial.metadata.evidence;
+  const features = trial.metadata.features;
+  if (!evidence || !features) return;
+  const taskId = trial.stimulus.taskId;
+  const recordPayload = {
+    session_id: assessmentId,
+    trial_id: backendTrialId,
+    task: {
+      task_id: taskId,
+      expected_text: trial.expectedResponse as string,
+      language: 'en',
+      difficulty: trial.difficulty,
+      content_type: contentTypeFor(evidence.kind),
+      version: trial.gameVersion,
+    },
+    language: 'en',
+    provider: 'webkit-speech-v1',
+    provider_version: '1.0',
+    audio_available: false,
+    duration_ms: Number.isFinite(evidence.durationMs) ? evidence.durationMs : null,
+  };
+  const item: PersistedItem = {
+    kind: 'speech_session',
+    trialRef: trial.trialId,
+    path: '/speech/sessions',
+    payload: { ...recordPayload, features },
+  };
+  if (!backendTrialId) {
+    enqueue(item);
+    return;
+  }
+  try {
+    const created = await api.createSpeechSession(recordPayload);
+    await api.storeSpeechFeatures(created.id, featureRecordPayload(features));
+  } catch (error) {
+    telemetryWarning('speech', item.path, error);
+    enqueue(item);
+  }
+}
+
+function contentTypeFor(kind: string): SpeechSessionCreatePayload['task']['content_type'] {
+  switch (kind) {
+    case 'letter':
+    case 'letter-pair':
+      return 'letter';
+    case 'sentence':
+      return 'sentence';
+    case 'ran':
+      return 'word';
+    default:
+      return 'word';
+  }
+}
+
+function featureRecordPayload(features: Record<string, number>): Record<string, { value: number; available: boolean }> {
+  const records: Record<string, { value: number; available: boolean }> = {};
+  for (const [name, value] of Object.entries(features)) {
+    if (typeof value === 'number' && Number.isFinite(value)) records[name] = { value, available: true };
+  }
+  return records;
 }
 
 async function captureApiPostGazeBatch(item: PersistedItem, backendTrialId: string): Promise<void> {
   const batch = item.payload as unknown as GazeBatchPayload;
   await api.postGazeBatch(backendTrialId, batch);
+}
+
+async function persistQueuedSpeechSession(item: PersistedItem, payload: Record<string, unknown>): Promise<void> {
+  const backendTrialId = item.trialRef ? readTrialIdMap()[item.trialRef] : undefined;
+  if (!backendTrialId && !payload.trial_id) throw new Error('Queued speech observations have no resolvable trial identifier');
+  const body = { ...payload, trial_id: backendTrialId ?? payload.trial_id };
+  const created = (await request(item.path, { method: 'POST', body: JSON.stringify(body) })) as { id?: string };
+  if (created?.id && payload.features && typeof payload.features === 'object') {
+    await request(`/speech/sessions/${created.id}/features`, { method: 'POST', body: JSON.stringify({ features: featureRecordPayload(payload.features as Record<string, number>) }) });
+  }
 }
 
 export async function flushAssessmentQueue(): Promise<void> {
@@ -156,6 +230,11 @@ export async function flushAssessmentQueue(): Promise<void> {
     }
     if (item.kind === 'speech_features') {
       await request(item.path, { method: 'POST', body: JSON.stringify(item.payload) });
+      return;
+    }
+    if (item.kind === 'speech_session') {
+      const payload = item.payload as Record<string, unknown>;
+      await persistQueuedSpeechSession(item, payload);
       return;
     }
     const backendId = item.trialRef ? readTrialIdMap()[item.trialRef] ?? item.trialRef : undefined;

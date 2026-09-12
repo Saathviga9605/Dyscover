@@ -2,8 +2,9 @@ import { browserSupportsEyeTrackingCapability } from './provider';
 import type { EyeTrackingPhase, EyeTrackingProvider } from './types';
 
 const WEBAZER_CDN = 'https://webgazer.cs.brown.edu/webgazer.js';
-const FACE_MESH_SOLUTION_PATH = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh';
-const FACE_MESH_MODEL_URL = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh_landmarks.task';
+const FACE_MESH_SOLUTION_PATH = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619';
+const WATCHDOG_INTERVAL_MS = 1000;
+const NO_SAMPLE_TIMEOUT_MS = 3000;
 
 type WebGazerHandle = {
   begin: (callback?: () => void) => Promise<void>;
@@ -29,15 +30,31 @@ declare global {
   }
 }
 
+let injectedWebGazerScript: HTMLScriptElement | null = null;
+
 function loadWebGazerScript(): Promise<void> {
   return new Promise((resolve, reject) => {
     if (typeof window !== 'undefined' && window.webgazer) {
       resolve();
       return;
     }
+    if (injectedWebGazerScript?.isConnected) {
+      const existing = injectedWebGazerScript;
+      const timeout = window.setTimeout(() => reject(new Error('WebGazer could not be loaded.')), 15000);
+      existing.onload = () => {
+        window.clearTimeout(timeout);
+        window.webgazer ? resolve() : reject(new Error('WebGazer loaded but unavailable.'));
+      };
+      existing.onerror = () => {
+        window.clearTimeout(timeout);
+        reject(new Error('WebGazer could not be loaded.'));
+      };
+      return;
+    }
     const script = document.createElement('script');
     script.src = WEBAZER_CDN;
     script.async = true;
+    injectedWebGazerScript = script;
     script.onload = () => (window.webgazer ? resolve() : reject(new Error('WebGazer loaded but unavailable.')));
     script.onerror = () => reject(new Error('WebGazer could not be loaded.'));
     document.head.appendChild(script);
@@ -50,6 +67,8 @@ export class WebGazerEyeTrackingProvider implements EyeTrackingProvider {
   phase: EyeTrackingPhase = 'NOT_CONFIGURED';
   private listener: ((phase: EyeTrackingPhase, message?: string) => void) | null = null;
   private onSample: ((x: number, y: number, confidence?: number) => void) | null = null;
+  private lastSampleAt = 0;
+  private watchdogTimer: number | undefined = undefined;
 
   setPhaseListener(listener: (phase: EyeTrackingPhase, message?: string) => void): void {
     this.listener = listener;
@@ -71,7 +90,6 @@ export class WebGazerEyeTrackingProvider implements EyeTrackingProvider {
       const webgazer = window.webgazer;
       if (!webgazer) throw new Error('WebGazer did not initialize.');
       webgazer.params.faceMeshSolutionPath = FACE_MESH_SOLUTION_PATH;
-      webgazer.params.faceMeshModelUrl = FACE_MESH_MODEL_URL;
       webgazer.setRegression('ridge');
       webgazer.setTracker('TFFacemesh');
       webgazer.showVideo(false);
@@ -115,22 +133,34 @@ export class WebGazerEyeTrackingProvider implements EyeTrackingProvider {
       throw new Error('WebGazer is not ready.');
     }
     this.onSample = onSample;
+    this.lastSampleAt = performance.now();
     webgazer.setGazeListener((data) => {
       if (data && Number.isFinite(data.x) && Number.isFinite(data.y)) {
+        this.lastSampleAt = performance.now();
+        if (this.phase === 'DEGRADED') this.mark('TRACKING');
         onSample(data.x, data.y);
       }
     });
     webgazer.resume();
     this.mark('TRACKING');
+    this.watchdogTimer = window.setInterval(() => {
+      if (performance.now() - this.lastSampleAt > NO_SAMPLE_TIMEOUT_MS) {
+        this.mark('DEGRADED', 'No face detected — check lighting and camera position.');
+      }
+    }, WATCHDOG_INTERVAL_MS);
   }
 
   async stopTracking(): Promise<void> {
+    window.clearInterval(this.watchdogTimer);
+    this.watchdogTimer = undefined;
     if (window.webgazer) window.webgazer.pause();
     this.onSample = null;
     this.mark('STOPPED');
   }
 
   async cleanup(): Promise<void> {
+    window.clearInterval(this.watchdogTimer);
+    this.watchdogTimer = undefined;
     this.onSample = null;
     if (window.webgazer) {
       try {
@@ -147,6 +177,8 @@ function webgazerCleanupEnd(): void {
   window.webgazer?.removeMouseEventListeners();
   window.webgazer?.end();
   delete window.webgazer;
+  injectedWebGazerScript?.remove();
+  injectedWebGazerScript = null;
 }
 
 export function createEyeTrackingProvider(): EyeTrackingProvider {

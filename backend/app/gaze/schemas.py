@@ -54,6 +54,7 @@ class GazeTrialBatchCreate(BaseModel):
     provider_version: str = Field(default="unknown", max_length=40)
     quality: Literal["tracking", "degraded", "out_of_order", "unavailable"] = "tracking"
     schema_version: str = GAZE_SCHEMA_VERSION
+    calibration_completed: bool = False
 
 
 class GazeBatchResponse(BaseModel):

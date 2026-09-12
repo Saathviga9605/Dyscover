@@ -109,8 +109,10 @@ export const api = {
   getGazeStatus: () => request<GazeStatusResponse>('/gaze/status'),
   postGazeBatch: (trialId: string, batch: GazeBatchPayload) => request<GazeBatchResponse>(`/gaze/trials/${trialId}/gaze`, { method: 'POST', body: JSON.stringify(batch) }),
   getGazeBatch: (trialId: string) => request<GazeBatchResponse>(`/gaze/trials/${trialId}/gaze`),
-  storeSpeechFeatures: (sessionId: string, features: Record<string, unknown>) => request<Record<string, unknown>>(`/speech/sessions/${sessionId}/features`, { method: 'POST', body: JSON.stringify(features) }),
+  storeSpeechFeatures: (sessionId: string, features: Record<string, unknown>) => request<Record<string, unknown>>(`/speech/sessions/${sessionId}/features`, { method: 'POST', body: JSON.stringify({ features }) }),
   getSpeechFeatures: (sessionId: string) => request<Record<string, unknown>>(`/speech/sessions/${sessionId}/features`),
+  createSpeechSession: (payload: SpeechSessionCreatePayload) => request<{ id: string; session_id: string; trial_id?: string | null }>('/speech/sessions', { method: 'POST', body: JSON.stringify(payload) }),
+  getModalitySummary: (assessmentId: string) => request<ModalitySummaryResponse>(`/assessments/${assessmentId}/modality-summary`),
 };
 
 export interface PracticeActivity {
@@ -154,6 +156,38 @@ export interface SpeechTasksResponse {
   activity_id: string;
   content_version: string;
   tasks: SpeechTask[];
+}
+
+export interface SpeechSessionCreatePayload {
+  session_id: string;
+  trial_id?: string | null;
+  task: SpeechTask;
+  language: string;
+  provider: string;
+  provider_version: string;
+  audio_available: boolean;
+  duration_ms?: number | null;
+}
+
+export interface ModalitySummaryResponse {
+  assessment_id: string;
+  gaze: {
+    recorded: boolean;
+    calibration_completed: boolean;
+    trial_count: number;
+    sample_count: number;
+    fixation_count: number;
+    trial_coverage: number;
+    aoi_coverage: number;
+  };
+  speech: {
+    recorded: boolean;
+    trial_count: number;
+    trial_coverage: number;
+    transcript_available: number;
+    response_timing_available: number;
+    asr_available: number;
+  };
 }
 
 export interface PracticeSessionStatus {
