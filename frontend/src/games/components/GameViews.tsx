@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { LetterTrial } from '../definitions/letterDetective';
 import type { MirrorTrial } from '../definitions/mirrorMatch';
+import { orientationTransform } from '../definitions/mirrorMatch';
 import type { WordFlashTrial } from '../definitions/wordFlash';
 import type { SequenceTrial } from '../definitions/sequenceQuest';
 import type { MazeTrial } from '../definitions/wordMaze';
@@ -10,7 +11,10 @@ type EventFn = (type: 'OPTION_SELECTED' | 'OPTION_DESELECTED' | 'BUTTON_CLICKED'
 
 export function LetterDetectiveView({ trial, onResponse, emit }: { trial: LetterTrial; onResponse: (response: string) => void; emit: EventFn }) { const [selected, setSelected] = useState<string>(); return <div className="game-card-board detective-board"><div className="clue-label">Find the letter that matches</div><div className="detective-clue">{trial.stimulus.target}</div><div className="option-grid">{trial.stimulus.options.map(option => <button className={`game-option letter-option ${selected === option ? 'selected' : ''}`} key={option} onClick={() => { setSelected(option); emit('OPTION_SELECTED', { optionId: option }); onResponse(option); }} aria-label={`Letter ${option}`}>{option}</button>)}</div></div>; }
 
-export function MirrorMatchView({ trial, onResponse, emit }: { trial: MirrorTrial; onResponse: (response: string) => void; emit: EventFn }) { return <div className="game-card-board mirror-board"><div className="mirror-example"><span className="clue-label">Look at this symbol</span><strong>{trial.stimulus.symbol}</strong><small>{trial.stimulus.targetOrientation === 'normal' ? 'Which one looks the same?' : 'Find its matching reflection.'}</small></div><div className="mirror-options">{trial.stimulus.options.map(option => <button className="game-option mirror-option" key={option.id} onClick={() => { emit('OPTION_SELECTED', { optionId: option.id, orientation: option.orientation }); onResponse(option.id); }} aria-label={`Choose ${option.id}`}><span style={{ transform: option.orientation === 'mirror' ? 'scaleX(-1)' : option.orientation === 'rotated' ? 'rotate(180deg)' : undefined }}>{option.label}</span></button>)}</div></div>; }
+export function MirrorMatchView({ trial, onResponse, emit }: { trial: MirrorTrial; onResponse: (response: string) => void; emit: EventFn }) {
+	const exampleTransform = orientationTransform(trial.stimulus.targetOrientation);
+	return <div className="game-card-board mirror-board"><div className="mirror-example"><span className="clue-label">Look at this symbol</span><strong style={{ display: 'inline-block', transform: exampleTransform }}>{trial.stimulus.symbol}</strong><small>{trial.stimulus.targetOrientation === 'normal' ? 'Which option looks the same?' : 'Which option faces the same way?'}</small></div><div className="mirror-options">{trial.stimulus.options.map(option => <button className="game-option mirror-option" key={option.id} onClick={() => { emit('OPTION_SELECTED', { optionId: option.id, orientation: option.orientation }); onResponse(option.id); }} aria-label={`Letter ${trial.stimulus.symbol}, ${option.orientation}`}><span style={{ display: 'inline-block', transform: orientationTransform(option.orientation) }}>{option.label}</span></button>)}</div></div>;
+}
 
 export function WordFlashView({ trial, onResponse, emit, showing }: { trial: WordFlashTrial; onResponse: (response: string) => void; emit: EventFn; showing: boolean }) { return <div className="game-card-board flash-board"><div className={`flash-stimulus ${showing ? 'flash-showing' : 'flash-hidden'}`} aria-live="polite">{showing ? trial.stimulus.word : 'Which word did you see?'}</div>{!showing && <div className="option-grid word-options">{trial.stimulus.options.map(option => <button className="game-option word-option" key={option} onClick={() => { emit('OPTION_SELECTED', { optionId: option }); onResponse(option); }}>{option}</button>)}</div>}</div>; }
 

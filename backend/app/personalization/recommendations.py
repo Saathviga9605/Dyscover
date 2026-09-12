@@ -16,7 +16,7 @@ from typing import Literal
 
 from . import evidence
 from .config import PersonalizationConfig
-from .domains import domain_label
+from .domains import DEFAULT_GAME_ORDER, domain_label
 
 CATEGORY_PRIORITY = {
     "practice_opportunity": 30,
@@ -39,23 +39,29 @@ class Recommendation:
 def build_recommendations(skills, config: PersonalizationConfig) -> list[Recommendation]:
     ranked: list[Recommendation] = []
 
+    seen_domains: set[str] = set()
     for skill in sorted(
         [s for s in skills if s.evidence_state == evidence.EvidenceState.SUFFICIENT_DATA],
         key=lambda s: (-CATEGORY_PRIORITY.get(s.category, 0), s.domain),
     ):
-        game_ids = [g for g in ["letter-detective", "mirror-match", "word-flash", "sequence-quest", "word-maze"] if g in skill.games]
-        for game_id in game_ids:
-            reason = _reason_for(skill.category, skill.label, config)
-            ranked.append(
-                Recommendation(
-                    game_id=game_id,
-                    target_domain=skill.domain,
-                    priority=CATEGORY_PRIORITY.get(skill.category, 0),
-                    reason=reason,
-                    category=skill.category,
-                    suggested_difficulty=None,
-                )
+        if skill.domain in seen_domains:
+            continue
+        seen_domains.add(skill.domain)
+        game_ids = [g for g in DEFAULT_GAME_ORDER if g in skill.games]
+        if not game_ids:
+            continue
+        game_id = game_ids[0]
+        reason = _reason_for(skill.category, skill.label, config)
+        ranked.append(
+            Recommendation(
+                game_id=game_id,
+                target_domain=skill.domain,
+                priority=CATEGORY_PRIORITY.get(skill.category, 0),
+                reason=reason,
+                category=skill.category,
+                suggested_difficulty=None,
             )
+        )
 
     if not ranked:
         ranked.append(

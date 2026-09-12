@@ -267,6 +267,36 @@ def test_neutral_recommendation_no_clinical_language(client: TestClient) -> None
     _assert_no_clinical_language(recs.json())
 
 
+def test_recommendations_never_duplicate_a_domain_when_many_games_are_observed(client: TestClient) -> None:
+    # letter-detective AND mirror-match both map to the same domain, so a
+    # child observed playing both must not receive two visual-symbol entries.
+    child = client.post("/api/children", json={"display_name": "Explorer", "birth_year": 2018}).json()
+    assessment = client.post("/api/assessments", json={"child_id": child["id"]}).json()
+    for game in ("letter-detective", "mirror-match"):
+        for i in range(3):
+            client.post(
+                f"/api/assessments/{assessment['id']}/games/{game}/trials",
+                json={
+                    "trial_number": i + 1,
+                    "stimulus": {"target": "b", "options": ["b", "d"]},
+                    "expected_response": "b",
+                    "game_version": "1.0.0",
+                    "domain": GAME_DOMAIN[game],
+                    "difficulty": 2,
+                    "correctness": True,
+                    "completed_at": f"2026-01-01T12:00:{i + 1:02}.000Z",
+                },
+            )
+    recommendations = client.get(f"/api/personalization/children/{child['id']}/recommendations").json()["recommendations"]
+    assert recommendations, "expected a non-neutral recommendation"
+    domains = [rec["target_domain"] for rec in recommendations if rec["target_domain"] is not None]
+    assert len(domains) == len(set(domains)), "a domain appears more than once"
+    visual = [rec for rec in recommendations if rec["target_domain"] == "visual-symbol-discrimination"]
+    assert len(visual) == 1
+    assert visual[0]["game_id"] == "letter-detective"
+    assert visual[0]["target_domain_label"] == "Visual symbol discrimination"
+
+
 # ---- L: invalid data handled safely --------------------------------------
 
 def test_progress_sort_handles_mixed_naive_and_aware_timestamps() -> None:
