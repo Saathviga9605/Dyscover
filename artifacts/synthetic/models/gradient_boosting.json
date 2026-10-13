@@ -1,0 +1,379 @@
+{
+  "model_id": "synthetic-gradient_boosting-v1",
+  "model_type": "gradient_boosting",
+  "algorithm": "gradient_boosting",
+  "synthetic": true,
+  "intended_use": "simulator_profile_classification",
+  "clinical_use": "prohibited",
+  "feature_schema_version": "1.0",
+  "simulator_version": "1.0",
+  "dataset_checksum": "d3873516dd3ed2dc9ff46e9c820199579ba7a48bc3634ced8409fb2badb55399",
+  "feature_names": [
+    "completion_rate",
+    "gaze_available",
+    "gaze_coverage_ratio",
+    "gaze_distractor_fixation_time_ms",
+    "gaze_fixation_count",
+    "gaze_fixation_switch_count",
+    "gaze_horizontal_saccade_bias",
+    "gaze_max_fixation_duration_ms",
+    "gaze_mean_fixation_duration_ms",
+    "gaze_regression_count",
+    "gaze_saccade_variance_ms2",
+    "gaze_sample_count",
+    "gaze_scanpath_entropy",
+    "gaze_target_fixation_time_ms",
+    "gaze_time_to_first_target_fixation_ms",
+    "hint_count",
+    "incorrect_response_rate",
+    "mean_hesitation_time_ms",
+    "mean_reaction_time_ms",
+    "median_reaction_time_ms",
+    "overall_accuracy",
+    "pause_count",
+    "reaction_time_variance_ms2",
+    "speech_available",
+    "speech_error_rate",
+    "speech_insertion_count",
+    "speech_mean_pause_duration_ms",
+    "speech_median_pause_duration_ms",
+    "speech_omission_count",
+    "speech_pause_count",
+    "speech_pause_variability_ms2",
+    "speech_reading_duration_ms",
+    "speech_repetition_count",
+    "speech_substitution_count",
+    "speech_words_per_minute",
+    "text_repetition_count",
+    "text_token_count",
+    "text_type_token_ratio",
+    "text_unique_token_count",
+    "total_error_count"
+  ],
+  "artifact": "gradient_boosting.pkl",
+  "artifact_sha256": "dcc6c247e4ef14f211863989ec799c6a57d20dc7f2bfae98c5d20a0c5f8a1c06",
+  "created_at": "2026-10-13T09:29:17.555114+00:00",
+  "class_distribution": {
+    "counts": {
+      "variable_response_timing": 6,
+      "high_error_frequency": 6,
+      "attention_variability": 6,
+      "working_memory_task_difficulty": 6,
+      "repeated_symbol_confusions": 2,
+      "reduced_reading_response_coverage": 2,
+      "mixed_interaction_profile": 4,
+      "consistent_responses": 2
+    },
+    "minority_class_percentage": 0.058823529411764705,
+    "imbalance_ratio": 3.0
+  },
+  "evaluation": {
+    "status": "SYNTHETIC_RESEARCH_ONLY",
+    "scientific_disclaimer": "NOTICE: These metrics measure recovery of simulator-defined interaction profiles only. They do NOT demonstrate clinical dyslexia detection, diagnostic validity, or real-world generalization. Production dyslexia inference remains strictly unavailable.",
+    "algorithm": "gradient_boosting",
+    "partitions": {
+      "train_subject_count": 17,
+      "validation_subject_count": 4,
+      "test_subject_count": 3
+    },
+    "validation_metrics": {
+      "accuracy": 0.5,
+      "balanced_accuracy": 0.5,
+      "macro_f1": 0.38888888888888884,
+      "per_class": {
+        "consistent_responses": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 2
+        },
+        "mixed_interaction_profile": {
+          "precision": 1.0,
+          "recall": 0.5,
+          "f1": 0.6666666666666666,
+          "support": 2
+        },
+        "reduced_reading_response_coverage": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 2
+        },
+        "repeated_symbol_confusions": {
+          "precision": 1.0,
+          "recall": 0.5,
+          "f1": 0.6666666666666666,
+          "support": 2
+        },
+        "variable_response_timing": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        },
+        "working_memory_task_difficulty": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        }
+      },
+      "confusion_matrix": {
+        "attention_variability": {
+          "attention_variability": 0,
+          "consistent_responses": 0,
+          "high_error_frequency": 0,
+          "mixed_interaction_profile": 0,
+          "reduced_reading_response_coverage": 0,
+          "repeated_symbol_confusions": 0,
+          "variable_response_timing": 0,
+          "working_memory_task_difficulty": 0
+        },
+        "consistent_responses": {
+          "attention_variability": 0,
+          "consistent_responses": 2,
+          "high_error_frequency": 0,
+          "mixed_interaction_profile": 0,
+          "reduced_reading_response_coverage": 0,
+          "repeated_symbol_confusions": 0,
+          "variable_response_timing": 0,
+          "working_memory_task_difficulty": 0
+        },
+        "high_error_frequency": {
+          "attention_variability": 0,
+          "consistent_responses": 0,
+          "high_error_frequency": 0,
+          "mixed_interaction_profile": 0,
+          "reduced_reading_response_coverage": 0,
+          "repeated_symbol_confusions": 0,
+          "variable_response_timing": 0,
+          "working_memory_task_difficulty": 0
+        },
+        "mixed_interaction_profile": {
+          "attention_variability": 0,
+          "consistent_responses": 0,
+          "high_error_frequency": 0,
+          "mixed_interaction_profile": 1,
+          "reduced_reading_response_coverage": 0,
+          "repeated_symbol_confusions": 0,
+          "variable_response_timing": 1,
+          "working_memory_task_difficulty": 0
+        },
+        "reduced_reading_response_coverage": {
+          "attention_variability": 0,
+          "consistent_responses": 0,
+          "high_error_frequency": 0,
+          "mixed_interaction_profile": 0,
+          "reduced_reading_response_coverage": 0,
+          "repeated_symbol_confusions": 0,
+          "variable_response_timing": 0,
+          "working_memory_task_difficulty": 2
+        },
+        "repeated_symbol_confusions": {
+          "attention_variability": 0,
+          "consistent_responses": 0,
+          "high_error_frequency": 0,
+          "mixed_interaction_profile": 0,
+          "reduced_reading_response_coverage": 0,
+          "repeated_symbol_confusions": 1,
+          "variable_response_timing": 1,
+          "working_memory_task_difficulty": 0
+        },
+        "variable_response_timing": {
+          "attention_variability": 0,
+          "consistent_responses": 0,
+          "high_error_frequency": 0,
+          "mixed_interaction_profile": 0,
+          "reduced_reading_response_coverage": 0,
+          "repeated_symbol_confusions": 0,
+          "variable_response_timing": 0,
+          "working_memory_task_difficulty": 0
+        },
+        "working_memory_task_difficulty": {
+          "attention_variability": 0,
+          "consistent_responses": 0,
+          "high_error_frequency": 0,
+          "mixed_interaction_profile": 0,
+          "reduced_reading_response_coverage": 0,
+          "repeated_symbol_confusions": 0,
+          "variable_response_timing": 0,
+          "working_memory_task_difficulty": 0
+        }
+      },
+      "sample_count": 8
+    },
+    "test_metrics": {
+      "accuracy": 0.8333333333333334,
+      "balanced_accuracy": 0.8333333333333334,
+      "macro_f1": 0.6666666666666666,
+      "per_class": {
+        "consistent_responses": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 2
+        },
+        "reduced_reading_response_coverage": {
+          "precision": 1.0,
+          "recall": 0.5,
+          "f1": 0.6666666666666666,
+          "support": 2
+        },
+        "repeated_symbol_confusions": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "support": 2
+        },
+        "working_memory_task_difficulty": {
+          "precision": 0.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "support": 0
+        }
+      },
+      "confusion_matrix": {
+        "attention_variability": {
+          "attention_variability": 0,
+          "consistent_responses": 0,
+          "high_error_frequency": 0,
+          "mixed_interaction_profile": 0,
+          "reduced_reading_response_coverage": 0,
+          "repeated_symbol_confusions": 0,
+          "variable_response_timing": 0,
+          "working_memory_task_difficulty": 0
+        },
+        "consistent_responses": {
+          "attention_variability": 0,
+          "consistent_responses": 2,
+          "high_error_frequency": 0,
+          "mixed_interaction_profile": 0,
+          "reduced_reading_response_coverage": 0,
+          "repeated_symbol_confusions": 0,
+          "variable_response_timing": 0,
+          "working_memory_task_difficulty": 0
+        },
+        "high_error_frequency": {
+          "attention_variability": 0,
+          "consistent_responses": 0,
+          "high_error_frequency": 0,
+          "mixed_interaction_profile": 0,
+          "reduced_reading_response_coverage": 0,
+          "repeated_symbol_confusions": 0,
+          "variable_response_timing": 0,
+          "working_memory_task_difficulty": 0
+        },
+        "mixed_interaction_profile": {
+          "attention_variability": 0,
+          "consistent_responses": 0,
+          "high_error_frequency": 0,
+          "mixed_interaction_profile": 0,
+          "reduced_reading_response_coverage": 0,
+          "repeated_symbol_confusions": 0,
+          "variable_response_timing": 0,
+          "working_memory_task_difficulty": 0
+        },
+        "reduced_reading_response_coverage": {
+          "attention_variability": 0,
+          "consistent_responses": 0,
+          "high_error_frequency": 0,
+          "mixed_interaction_profile": 0,
+          "reduced_reading_response_coverage": 1,
+          "repeated_symbol_confusions": 0,
+          "variable_response_timing": 0,
+          "working_memory_task_difficulty": 1
+        },
+        "repeated_symbol_confusions": {
+          "attention_variability": 0,
+          "consistent_responses": 0,
+          "high_error_frequency": 0,
+          "mixed_interaction_profile": 0,
+          "reduced_reading_response_coverage": 0,
+          "repeated_symbol_confusions": 2,
+          "variable_response_timing": 0,
+          "working_memory_task_difficulty": 0
+        },
+        "variable_response_timing": {
+          "attention_variability": 0,
+          "consistent_responses": 0,
+          "high_error_frequency": 0,
+          "mixed_interaction_profile": 0,
+          "reduced_reading_response_coverage": 0,
+          "repeated_symbol_confusions": 0,
+          "variable_response_timing": 0,
+          "working_memory_task_difficulty": 0
+        },
+        "working_memory_task_difficulty": {
+          "attention_variability": 0,
+          "consistent_responses": 0,
+          "high_error_frequency": 0,
+          "mixed_interaction_profile": 0,
+          "reduced_reading_response_coverage": 0,
+          "repeated_symbol_confusions": 0,
+          "variable_response_timing": 0,
+          "working_memory_task_difficulty": 0
+        }
+      },
+      "sample_count": 6
+    },
+    "subgroup_breakdown": {
+      "by_game": {
+        "letter-detective": {
+          "accuracy": 1.0,
+          "count": 1
+        },
+        "mirror-match": {
+          "accuracy": 1.0,
+          "count": 1
+        },
+        "letter-bubble-pop": {
+          "accuracy": 1.0,
+          "count": 1
+        },
+        "maze-runner-rush": {
+          "accuracy": 1.0,
+          "count": 1
+        },
+        "word-maze": {
+          "accuracy": 0.0,
+          "count": 1
+        },
+        "sound-quest-adventure": {
+          "accuracy": 1.0,
+          "count": 1
+        }
+      },
+      "by_language": {
+        "en": {
+          "accuracy": 0.8333333333333334,
+          "count": 6
+        }
+      },
+      "by_gaze_modality": {
+        "gaze_available": {
+          "accuracy": 0.8,
+          "count": 5
+        },
+        "gaze_missing": {
+          "accuracy": 1.0,
+          "count": 1
+        }
+      },
+      "by_speech_modality": {
+        "speech_missing": {
+          "accuracy": 0.75,
+          "count": 4
+        },
+        "speech_available": {
+          "accuracy": 1.0,
+          "count": 2
+        }
+      }
+    },
+    "baseline_comparison": {
+      "dummy_test_accuracy": 0.0,
+      "test_accuracy": 0.8333333333333334,
+      "improvement_over_chance": 0.8333333333333334
+    }
+  }
+}

@@ -11,7 +11,13 @@ from typing import Any
 from .datasets import subject_level_split
 from .evaluation import classification_metrics
 from .feature_registry import REGISTRY_BY_NAME
-from .models import BaselineModel, GradientBoostingBaseline, LogisticBaseline, RandomForestBaseline
+from .models import (
+    BaselineModel,
+    DummyBaseline,
+    GradientBoostingBaseline,
+    LogisticBaseline,
+    RandomForestBaseline,
+)
 
 
 @dataclass(frozen=True)
@@ -66,7 +72,12 @@ def export_rows(rows: list[dict[str, Any]], destination: Path, manifest: dict[st
 
 
 def _model(algorithm: str, feature_names: list[str]) -> BaselineModel:
-    choices = {"logistic_regression": LogisticBaseline, "random_forest": RandomForestBaseline, "gradient_boosting": GradientBoostingBaseline}
+    choices = {
+        "logistic_regression": LogisticBaseline,
+        "random_forest": RandomForestBaseline,
+        "gradient_boosting": GradientBoostingBaseline,
+        "dummy": DummyBaseline,
+    }
     if algorithm not in choices:
         raise ValueError(f"unsupported algorithm: {algorithm}")
     return choices[algorithm](feature_names)

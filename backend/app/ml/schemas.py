@@ -56,6 +56,7 @@ class ModelInfo(BaseModel):
     hyperparameters: dict[str, Any] = Field(default_factory=dict)
     supported_modalities: list[str] = Field(default_factory=lambda: ["behavior"])
     metrics: dict[str, float] = Field(default_factory=dict)
+    synthetic: bool = False
 
 
 class PredictionResponse(BaseModel):

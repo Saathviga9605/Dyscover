@@ -2,30 +2,63 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
+
+def _extract_val(val: Any) -> float | int | None:
+    if isinstance(val, dict):
+        return val.get("value")
+    return val
+
+
 class BaselineModel(ABC):
     model_type: str
+
     def __init__(self, feature_names: list[str]) -> None:
         self.feature_names = feature_names
         self.pipeline: Any = None
+
     @abstractmethod
     def build(self) -> Any: ...
-    def fit(self, rows: list[dict[str, Any]], labels: list[int]) -> None:
-        matrix = [[row["features"].get(name) for name in self.feature_names] for row in rows]
+
+    def fit(self, rows: list[dict[str, Any]], labels: list[Any]) -> None:
+        matrix = [[_extract_val(row["features"].get(name)) for name in self.feature_names] for row in rows]
         if len(set(labels)) < 2:
             raise ValueError("At least two validated target classes are required for training")
         self.pipeline = self.build()
         self.pipeline.fit(matrix, labels)
-    def predict(self, rows: list[dict[str, Any]]) -> list[int]:
-        if self.pipeline is None: raise RuntimeError("Model is not trained")
-        matrix = [[row["features"].get(name) for name in self.feature_names] for row in rows]
+
+    def predict(self, rows: list[dict[str, Any]]) -> list[Any]:
+        if self.pipeline is None:
+            raise RuntimeError("Model is not trained")
+        matrix = [[_extract_val(row["features"].get(name)) for name in self.feature_names] for row in rows]
         return self.pipeline.predict(matrix).tolist()
+
     def predict_proba(self, rows: list[dict[str, Any]]) -> list[list[float]]:
-        if self.pipeline is None: raise RuntimeError("Model is not trained")
-        matrix = [[row["features"].get(name) for name in self.feature_names] for row in rows]
+        if self.pipeline is None:
+            raise RuntimeError("Model is not trained")
+        matrix = [[_extract_val(row["features"].get(name)) for name in self.feature_names] for row in rows]
         return self.pipeline.predict_proba(matrix).tolist()
+
+
+class DummyBaseline(BaselineModel):
+    model_type = "dummy"
+
+    def __init__(self, feature_names: list[str], strategy: str = "prior") -> None:
+        super().__init__(feature_names)
+        self.strategy = strategy
+
+    def build(self) -> Any:
+        try:
+            from sklearn.dummy import DummyClassifier
+            from sklearn.impute import SimpleImputer
+            from sklearn.pipeline import Pipeline
+        except Exception as error:
+            raise RuntimeError(f"scikit-learn runtime unavailable: {error}") from error
+        return Pipeline([("imputer", SimpleImputer(strategy="median")), ("model", DummyClassifier(strategy=self.strategy))])
+
 
 class LogisticBaseline(BaselineModel):
     model_type = "logistic_regression"
+
     def build(self) -> Any:
         try:
             from sklearn.impute import SimpleImputer
@@ -36,8 +69,10 @@ class LogisticBaseline(BaselineModel):
             raise RuntimeError(f"scikit-learn runtime unavailable: {error}") from error
         return Pipeline([("imputer", SimpleImputer(strategy="median")), ("scale", StandardScaler()), ("model", LogisticRegression(max_iter=1000, random_state=42))])
 
+
 class RandomForestBaseline(BaselineModel):
     model_type = "random_forest"
+
     def build(self) -> Any:
         try:
             from sklearn.ensemble import RandomForestClassifier
@@ -47,8 +82,10 @@ class RandomForestBaseline(BaselineModel):
             raise RuntimeError(f"scikit-learn runtime unavailable: {error}") from error
         return Pipeline([("imputer", SimpleImputer(strategy="median")), ("model", RandomForestClassifier(n_estimators=100, random_state=42, class_weight="balanced"))])
 
+
 class GradientBoostingBaseline(BaselineModel):
     model_type = "gradient_boosting"
+
     def build(self) -> Any:
         try:
             from sklearn.ensemble import GradientBoostingClassifier

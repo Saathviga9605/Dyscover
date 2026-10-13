@@ -6,6 +6,21 @@ MODELS = [
     ModelInfo(model_id="behavior-boosting-v1", model_name="Behavior Gradient Boosting Baseline", model_type="gradient_boosting", version="1.0", feature_schema_version="1.0", status="unavailable", training_status="unavailable", algorithm="gradient_boosting", hyperparameters={}),
 ]
 
-def list_models() -> list[ModelInfo]: return MODELS
 
-def get_model(model_id: str) -> ModelInfo | None: return next((model for model in MODELS if model.model_id == model_id), None)
+def list_models() -> list[ModelInfo]:
+    # Production registry only contains production-designated model descriptors (currently unavailable)
+    return [model for model in MODELS if not getattr(model, "synthetic", False)]
+
+
+def get_model(model_id: str) -> ModelInfo | None:
+    found = next((model for model in MODELS if model.model_id == model_id), None)
+    if found and getattr(found, "synthetic", False):
+        return None
+    return found
+
+
+def register_model(info: ModelInfo) -> None:
+    """Strict gatekeeper: synthetic research models can NEVER enter the production registry."""
+    if getattr(info, "synthetic", False):
+        raise PermissionError("Synthetic research models are strictly prohibited from entering the production model registry")
+    MODELS.append(info)
