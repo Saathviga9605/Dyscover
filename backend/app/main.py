@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from datetime import datetime
 import logging
 from uuid import UUID
 
@@ -13,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.database import Base, engine, get_db
 from app.l10n import L10N_CONTENT_VERSION, locale_for
-from app.models import AssessmentSession, AssessmentSummary, ChildProfile, Fixation, GameSession, GazeSample, InteractionEvent, SpeechSession, Trial
+from app.models import AssessmentSession, AssessmentSummary, ChildProfile, EducatorLearnerAssignment, Fixation, GameSession, GazeSample, InteractionEvent, PracticeSession, SpeechSession, Trial, User
 from app.gaze.routes import router as gaze_router
 from app.schemas import (
     AssessmentCreate,
@@ -29,6 +30,8 @@ from app.schemas import (
     SummaryResponse,
     TrialCreate,
     TrialResponse,
+    UserCreate,
+    UserResponse,
 )
 from app.ml.routes import router as ml_router
 from app.ml.quality import router as ml_quality_router
@@ -73,6 +76,9 @@ def initialize_database() -> None:
             _ensure_sqlite_column(connection, "interaction_events", "language", "language VARCHAR(16) DEFAULT 'en'")
             _ensure_sqlite_column(connection, "speech_sessions", "locale", "locale VARCHAR(16) DEFAULT 'en-US'")
             _ensure_sqlite_column(connection, "practice_sessions", "language", "language VARCHAR(16) DEFAULT 'en'")
+            _ensure_sqlite_column(connection, "users", "display_name", "display_name VARCHAR(120)")
+            _ensure_sqlite_column(connection, "users", "role", "role VARCHAR(32) DEFAULT 'parent'")
+            _ensure_sqlite_column(connection, "users", "is_active", "is_active BOOLEAN DEFAULT 1")
 
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
@@ -228,6 +234,173 @@ def list_assessments(child_id: UUID, db: Session = Depends(get_db)) -> list[Asse
     if db.get(ChildProfile, child_id) is None:
         raise HTTPException(status_code=404, detail="Child profile not found")
     return list(db.scalars(select(AssessmentSession).where(AssessmentSession.child_id == child_id).order_by(AssessmentSession.created_at.desc(), AssessmentSession.id.desc())))
+
+
+@app.post("/api/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+def create_user(payload: UserCreate, db: Session = Depends(get_db)) -> User:
+    if payload.email:
+        existing = db.scalar(select(User).where(User.email == payload.email))
+        if existing is not None:
+            raise HTTPException(status_code=409, detail="User already exists")
+    user = User(**payload.model_dump(exclude_none=True))
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def _resolve_request_user(request: Request, db: Session) -> User:
+    candidates: list[str] = []
+    for header_name in ("X-User-Id", "X-Educator-Id", "User-Id", "x-user-id", "x-educator-id"):
+        value = request.headers.get(header_name)
+        if value:
+            candidates.append(value)
+    authorization = request.headers.get("Authorization")
+    if authorization:
+        scheme, _, token = authorization.partition(" ")
+        if token and scheme.lower() == "bearer":
+            candidates.append(token)
+            if token.startswith("educator:"):
+                candidates.append(token.split(":", 1)[1])
+    for value in candidates:
+        clean = value.strip()
+        if not clean:
+            continue
+        if clean.lower().startswith("educator:"):
+            clean = clean.split(":", 1)[1]
+        try:
+            user_id = UUID(clean)
+        except ValueError:
+            continue
+        user = db.get(User, user_id)
+        if user is not None:
+            return user
+    raise HTTPException(status_code=401, detail="Authentication required")
+
+
+def _require_active_educator(request: Request, db: Session) -> User:
+    user = _resolve_request_user(request, db)
+    role = (request.headers.get("X-Role") or request.headers.get("Role") or user.role or "parent").lower()
+    if role not in {"educator", "teacher"} and user.role not in {"educator", "teacher"}:
+        raise HTTPException(status_code=403, detail="Educator access required")
+    return user
+
+
+def _summarize_learner(db: Session, child_id: UUID) -> dict:
+    child = db.get(ChildProfile, child_id)
+    if child is None:
+        raise HTTPException(status_code=404, detail="Child profile not found")
+
+    assessments = list(db.scalars(select(AssessmentSession).where(AssessmentSession.child_id == child_id).order_by(AssessmentSession.created_at.desc())))
+    completed_assessments = [assessment for assessment in assessments if assessment.status == "completed" or assessment.completed_at is not None]
+
+    domain_totals: dict[str, dict[str, float | int | None]] = {}
+    for assessment in assessments:
+        game_sessions = list(db.scalars(select(GameSession).where(GameSession.assessment_session_id == assessment.id)))
+        if not game_sessions:
+            continue
+        game_ids = [game.id for game in game_sessions]
+        trials = list(db.scalars(select(Trial).where(Trial.game_session_id.in_(game_ids))))
+        for trial in trials:
+            if not trial.domain:
+                continue
+            bucket = domain_totals.setdefault(trial.domain, {"count": 0, "correct": 0, "latest": None})
+            bucket["count"] = int(bucket["count"]) + 1
+            if trial.correctness is not None:
+                bucket["correct"] = int(bucket["correct"]) + (1 if trial.correctness else 0)
+            if trial.completed_at is not None:
+                current = bucket["latest"]
+                if current is None or trial.completed_at > current:
+                    bucket["latest"] = trial.completed_at
+
+    domain_summary = []
+    for domain, values in sorted(domain_totals.items()):
+        count = int(values["count"])
+        correct = int(values["correct"])
+        domain_summary.append({
+            "domain": domain,
+            "evidence_trials": count,
+            "accuracy": round((correct / count) * 100, 1) if count else None,
+            "quality": "sufficient" if count >= 3 else "insufficient",
+        })
+
+    practice_sessions = list(db.scalars(select(PracticeSession).where(PracticeSession.child_id == child_id).order_by(PracticeSession.completed_at.desc().nullslast())))
+    activity_names = sorted({session.activity_id for session in practice_sessions if session.activity_id})
+
+    if not assessments:
+        observation_summary = "No observations recorded."
+    elif not domain_summary:
+        observation_summary = "Insufficient evidence."
+    else:
+        observation_summary = "Observations available."
+
+    return {
+        "child_id": str(child.id),
+        "display_name": child.display_name,
+        "completed_assessment_count": len(completed_assessments),
+        "language_context": sorted({assessment.language for assessment in assessments if assessment.language}),
+        "observation_summary": observation_summary,
+        "domains": domain_summary,
+        "practice_summary": {
+            "completed_sessions": sum(1 for session in practice_sessions if session.status == "completed"),
+            "activity_count": len(activity_names),
+            "activities": activity_names,
+        },
+    }
+
+
+@app.post("/api/educator/learners/{child_id}/authorize", status_code=status.HTTP_201_CREATED)
+def authorize_learner(child_id: UUID, request: Request, payload: dict | None = None, db: Session = Depends(get_db)) -> dict:
+    educator = _require_active_educator(request, db)
+    child = db.get(ChildProfile, child_id)
+    if child is None:
+        raise HTTPException(status_code=404, detail="Child profile not found")
+    educator_id = UUID(str((payload or {}).get("educator_id", educator.id))) if payload else educator.id
+    if educator_id != educator.id:
+        raise HTTPException(status_code=403, detail="Educator assignment mismatch")
+    assignment = db.scalar(select(EducatorLearnerAssignment).where(EducatorLearnerAssignment.educator_id == educator_id, EducatorLearnerAssignment.child_id == child_id))
+    if assignment is None:
+        assignment = EducatorLearnerAssignment(educator_id=educator_id, child_id=child_id, status="active")
+        db.add(assignment)
+    else:
+        assignment.status = "active"
+        assignment.revoked_at = None
+        assignment.revocation_reason = None
+    db.commit()
+    db.refresh(assignment)
+    return {"child_id": str(child_id), "educator_id": str(educator_id), "status": assignment.status, "authorized": True}
+
+
+@app.post("/api/educator/learners/{child_id}/revoke")
+def revoke_learner_access(child_id: UUID, request: Request, db: Session = Depends(get_db)) -> dict:
+    educator = _require_active_educator(request, db)
+    assignment = db.scalar(select(EducatorLearnerAssignment).where(EducatorLearnerAssignment.educator_id == educator.id, EducatorLearnerAssignment.child_id == child_id, EducatorLearnerAssignment.status == "active"))
+    if assignment is None:
+        raise HTTPException(status_code=404, detail="Active educator authorization not found")
+    assignment.status = "revoked"
+    assignment.revoked_at = datetime.utcnow()
+    assignment.revocation_reason = "educator revocation"
+    db.commit()
+    return {"child_id": str(child_id), "educator_id": str(educator.id), "status": assignment.status, "authorized": False}
+
+
+@app.get("/api/educator/learners", response_model=list[dict])
+@app.get("/api/educator/dashboard", response_model=list[dict])
+def list_educator_learners(request: Request, db: Session = Depends(get_db)) -> list[dict]:
+    educator = _require_active_educator(request, db)
+    assignments = list(db.scalars(select(EducatorLearnerAssignment).where(EducatorLearnerAssignment.educator_id == educator.id, EducatorLearnerAssignment.status == "active").order_by(EducatorLearnerAssignment.created_at.desc())))
+    return [_summarize_learner(db, assignment.child_id) for assignment in assignments]
+
+
+@app.get("/api/educator/learners/{child_id}", response_model=dict)
+@app.get("/api/educator/learners/{child_id}/summary", response_model=dict)
+@app.get("/api/educator/children/{child_id}/summary", response_model=dict)
+def get_educator_learner_summary(child_id: UUID, request: Request, db: Session = Depends(get_db)) -> dict:
+    educator = _require_active_educator(request, db)
+    assignment = db.scalar(select(EducatorLearnerAssignment).where(EducatorLearnerAssignment.educator_id == educator.id, EducatorLearnerAssignment.child_id == child_id, EducatorLearnerAssignment.status == "active"))
+    if assignment is None:
+        raise HTTPException(status_code=403, detail="Learner is not authorized for this educator")
+    return _summarize_learner(db, child_id)
 
 
 @app.get("/api/assessments/{assessment_id}/modality-summary")

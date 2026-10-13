@@ -66,10 +66,19 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
 export function useLanguage(): LanguageContextValue {
   const context = useContext(LanguageContext);
-  if (context === undefined) {
-    throw new Error('useLanguage must be used within a LanguageProvider');
+  if (context !== undefined) {
+    return context;
   }
-  return context;
+
+  return useMemo<LanguageContextValue>(() => ({
+    language: DEFAULT_LANGUAGE,
+    setLanguage: () => undefined,
+    t: (key: MessageKey | string, params?: Record<string, string | number>) => {
+      const template = enMessages[key as MessageKey] ?? String(key);
+      return interpolate(template, params);
+    },
+    locale: 'en-US',
+  }), []);
 }
 
 export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {

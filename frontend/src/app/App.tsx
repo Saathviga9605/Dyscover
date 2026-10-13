@@ -7,6 +7,7 @@ import { ChildAssessmentHub } from './ChildAssessmentHub';
 import { PracticeRunner } from '../games/practice/PracticeRunner';
 import { LexiWidget } from '../chatbot/LexiWidget';
 import { ParentDashboard } from './ParentDashboard';
+import { EducatorDashboard } from './EducatorDashboard';
 import { LanguageProvider, LanguageSwitcher, useLanguage } from '../l10n';
 import type { MessageKey } from '../l10n/messages/en';
 
@@ -20,7 +21,7 @@ function Layout({ children }: { children: React.ReactNode }) {
     <nav className={`site-nav ${menuOpen ? 'menu-open' : ''}`}>
       <Link className="brand" to="/" onClick={() => setMenuOpen(false)}><span className="brand-mark">✦</span><span>Dyscover</span></Link>
       <button className="menu-button" onClick={() => setMenuOpen(value => !value)} aria-expanded={menuOpen} aria-label={t('nav.toggleAria')}><span /><span /><span /></button>
-      <div className="nav-links">{nav.map(([to, label]) => <NavLink key={to} to={to} onClick={() => setMenuOpen(false)} className={({ isActive }) => isActive ? 'active' : ''}>{t(label)}</NavLink>)}<span className="nav-divider" /><NavLink to="/parent/dashboard" onClick={() => setMenuOpen(false)} className="parent-link">{t('nav.forParents')}</NavLink><Link className="nav-cta" to="/child/home" onClick={() => setMenuOpen(false)}>{t('nav.startScreening')} <span>↗</span></Link><LanguageSwitcher /><button className="settings-button" onClick={() => setSettingsOpen(value => !value)} aria-label={t('nav.settingsAria')} aria-expanded={settingsOpen}>Aa</button></div>
+      <div className="nav-links">{nav.map(([to, label]) => <NavLink key={to} to={to} onClick={() => setMenuOpen(false)} className={({ isActive }) => isActive ? 'active' : ''}>{t(label)}</NavLink>)}<span className="nav-divider" /><NavLink to="/parent/dashboard" onClick={() => setMenuOpen(false)} className="parent-link">{t('nav.forParents')}</NavLink><NavLink to="/educator/dashboard" onClick={() => setMenuOpen(false)} className="parent-link">Educators</NavLink><Link className="nav-cta" to="/child/home" onClick={() => setMenuOpen(false)}>{t('nav.startScreening')} <span>↗</span></Link><LanguageSwitcher /><button className="settings-button" onClick={() => setSettingsOpen(value => !value)} aria-label={t('nav.settingsAria')} aria-expanded={settingsOpen}>Aa</button></div>
       <AccessibilityPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </nav>
     <main className="main">{children}</main>
@@ -60,4 +61,4 @@ function Assessment() { return <ChildAssessmentHub />; }
 function VisualAssessment() { return <GameRunner />; }
 function SpeechAssessment() { return <SpeechAssessmentRunner />; }
 
-export function App() { return <LanguageProvider><Layout><Routes><Route path="/" element={<Home />} /><Route path="/about" element={<About />} /><Route path="/how-it-works" element={<HowItWorks />} /><Route path="/research" element={<Research />} /><Route path="/contact" element={<Contact />} /><Route path="/parent/dashboard" element={<ParentDashboard />} /><Route path="/child/home" element={<ChildHome />} /><Route path="/child/assessment" element={<Assessment />} /><Route path="/child/assessment/visual" element={<VisualAssessment />} /><Route path="/child/assessment/speech" element={<SpeechAssessment />} /><Route path="/child/practice" element={<PracticeRunner />} /><Route path="*" element={<Home />} /></Routes></Layout></LanguageProvider>; }
+export function App() { return <LanguageProvider><Layout><Routes><Route path="/" element={<Home />} /><Route path="/about" element={<About />} /><Route path="/how-it-works" element={<HowItWorks />} /><Route path="/research" element={<Research />} /><Route path="/contact" element={<Contact />} /><Route path="/parent/dashboard" element={<ParentDashboard />} /><Route path="/educator/dashboard" element={<EducatorDashboard />} /><Route path="/child/home" element={<ChildHome />} /><Route path="/child/assessment" element={<Assessment />} /><Route path="/child/assessment/visual" element={<VisualAssessment />} /><Route path="/child/assessment/speech" element={<SpeechAssessment />} /><Route path="/child/practice" element={<PracticeRunner />} /><Route path="*" element={<Home />} /></Routes></Layout></LanguageProvider>; }

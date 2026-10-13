@@ -5,6 +5,19 @@ from pydantic import BaseModel, ConfigDict, Field
 from typing import Any
 
 
+class UserCreate(BaseModel):
+    email: str | None = None
+    display_name: str | None = Field(default=None, max_length=120)
+    role: str = "parent"
+
+
+class UserResponse(UserCreate):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    is_active: bool
+    created_at: datetime
+
+
 class HealthResponse(BaseModel):
     status: str
     version: str

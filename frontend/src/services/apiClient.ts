@@ -81,6 +81,27 @@ export interface ProgressResponse {
   note?: string | null;
 }
 
+export interface EducatorObservationDomain {
+  domain: string;
+  evidence_trials: number;
+  accuracy?: number | null;
+  quality?: string | null;
+}
+
+export interface EducatorLearnerSummary {
+  child_id: string;
+  display_name: string;
+  completed_assessment_count: number;
+  language_context: string[];
+  observation_summary: string;
+  domains: EducatorObservationDomain[];
+  practice_summary: {
+    completed_sessions: number;
+    activity_count: number;
+    activities: string[];
+  };
+}
+
 export const api = {
   health: () => request<{ status: string; version: string }>('/health'),
   createChild: (payload: { display_name: string }) => request<{ id: string; display_name: string; created_at: string }>('/children', { method: 'POST', body: JSON.stringify(payload) }),
@@ -90,6 +111,16 @@ export const api = {
   createSummary: (assessmentId: string, summary: Record<string, unknown>) => request(`/assessments/${assessmentId}/summary`, { method: 'POST', body: JSON.stringify(summary) }),
   listAssessments: (childId: string) => request<Array<{ id: string; completed_at?: string; status: string }>>(`/children/${childId}/assessments`),
   getProfile: (sessionId: string) => request<{ session_id: string; mode: string; domains: Record<string, { status: string; accuracy?: number }>; observations: string[]; data_quality: Record<string, unknown>; model: { status: string; limitations: string[] }; limitations: string[] }>(`/ml/profile/session/${sessionId}`),
+  getEducatorLearners: (educatorId?: string) => request<EducatorLearnerSummary[]>(`/educator/learners`, {
+    headers: educatorId ? { 'X-User-Id': educatorId } : undefined,
+  }),
+  getEducatorLearnerSummary: (childId: string, educatorId?: string) => request<EducatorLearnerSummary>(`/educator/learners/${childId}/summary`, {
+    headers: educatorId ? { 'X-User-Id': educatorId } : undefined,
+  }),
+  authorizeEducatorLearner: (childId: string, educatorId?: string) => request<{ child_id: string; educator_id: string; status: string; authorized: boolean }>(`/educator/learners/${childId}/authorize`, {
+    method: 'POST',
+    headers: educatorId ? { 'X-User-Id': educatorId } : undefined,
+  }),
 
   getPersonalizationProfile: (childId: string) => request<PersonalizationProfile>(`/personalization/children/${childId}/profile`),
   getPersonalizationDifficulty: (childId: string, gameId: string) => request<DifficultyDecision>(`/personalization/children/${childId}/difficulty/${gameId}`),

@@ -11,8 +11,12 @@ class User(Base):
     __tablename__ = "users"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
     email: Mapped[str | None] = mapped_column(String(320), unique=True)
+    display_name: Mapped[str | None] = mapped_column(String(120))
+    role: Mapped[str] = mapped_column(String(32), default="parent", index=True)
+    is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     children: Mapped[list["ChildProfile"]] = relationship(back_populates="owner")
+    educator_assignments: Mapped[list["EducatorLearnerAssignment"]] = relationship(back_populates="educator")
 
 
 class ChildProfile(Base):
@@ -25,6 +29,24 @@ class ChildProfile(Base):
     owner: Mapped[User | None] = relationship(back_populates="children")
     assessments: Mapped[list["AssessmentSession"]] = relationship(back_populates="child")
     practice_sessions: Mapped[list["PracticeSession"]] = relationship(back_populates="child")
+    educator_assignments: Mapped[list["EducatorLearnerAssignment"]] = relationship(back_populates="child")
+
+
+class EducatorLearnerAssignment(Base):
+    __tablename__ = "educator_learner_assignments"
+    __table_args__ = (
+        Index("ix_educator_learner_status", "educator_id", "child_id", "status", unique=True),
+    )
+
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    educator_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    child_id: Mapped[UUID] = mapped_column(ForeignKey("child_profiles.id"), index=True)
+    status: Mapped[str] = mapped_column(String(24), default="active", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
+    revocation_reason: Mapped[str | None] = mapped_column(String(200))
+    educator: Mapped[User] = relationship(back_populates="educator_assignments")
+    child: Mapped[ChildProfile] = relationship(back_populates="educator_assignments")
 
 
 class AssessmentSession(Base):
