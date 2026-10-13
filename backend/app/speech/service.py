@@ -8,7 +8,13 @@ from .schemas import ProviderState, ReadingTask, SpeechFeaturesResponse, SpeechS
 
 def provider_status() -> SpeechStatusResponse:
     provider = get_speech_provider()
-    return SpeechStatusResponse(state=provider.health_check(), provider=provider.name, provider_version=provider.version, message="No speech provider is configured; reading analysis remains optional.")
+    state = provider.health_check()
+    message = {
+        ProviderState.AVAILABLE: "Configured local speech recognition is available; explicit audio consent is required.",
+        ProviderState.NOT_CONFIGURED: "No backend speech provider is configured; browser recognition remains optional.",
+        ProviderState.UNAVAILABLE: "The configured speech provider or model is unavailable.",
+    }.get(state, "The configured speech provider cannot process this request.")
+    return SpeechStatusResponse(state=state, provider=provider.name, provider_version=provider.version, message=message)
 
 
 def analyze_reading(task: ReadingTask, transcript: Transcript | None, duration_ms: int | None) -> dict[str, Any]:

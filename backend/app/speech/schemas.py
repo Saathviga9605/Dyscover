@@ -11,6 +11,7 @@ class ProviderState(StrEnum):
     UNAVAILABLE = "UNAVAILABLE"
     ERROR = "ERROR"
     NOT_CONFIGURED = "NOT_CONFIGURED"
+    UNSUPPORTED_LOCALE = "UNSUPPORTED_LOCALE"
 
 
 class ReadingErrorType(StrEnum):
