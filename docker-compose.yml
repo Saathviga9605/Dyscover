@@ -1,4 +1,7 @@
-version: '3.8'
+# Production-style local deployment: PostgreSQL + migrations + API + nginx/SPA.
+# Copy .env.example to .env and set real secrets first. TLS must be terminated
+# in front of the "web" service for any non-local deployment.
+name: dyscover
 
 services:
   postgres:
@@ -6,53 +9,57 @@ services:
     environment:
       POSTGRES_DB: dyscover
       POSTGRES_USER: dyscover
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U dyscover -d dyscover"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
-    networks:
-      - dyscover-network
+      retries: 10
+    networks: [internal]
+    restart: unless-stopped
 
-  backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
-    environment:
-      DATABASE_URL: postgresql+psycopg://dyscover:${POSTGRES_PASSWORD:-changeme}@postgres:5432/dyscover
+  # One-shot schema migration; the API refuses to start unless the schema is at head.
+  migrate:
+    build: ./backend
+    command: ["alembic", "upgrade", "head"]
+    environment: &backend-env
       APP_ENV: production
-      SECRET_KEY: ${SECRET_KEY:-changeme}
-      CORS_ORIGINS: http://localhost,http://localhost:80
+      DATABASE_URL: postgresql+psycopg://dyscover:${POSTGRES_PASSWORD}@postgres:5432/dyscover
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env (python -c "import secrets; print(secrets.token_urlsafe(48))")}
+      CORS_ORIGINS: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      REFRESH_COOKIE_SECURE: ${REFRESH_COOKIE_SECURE:-true}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_MODEL: ${GROQ_MODEL:-llama-3.3-70b-versatile}
     depends_on:
       postgres:
         condition: service_healthy
-    ports:
-      - "8000:8000"
-    networks:
-      - dyscover-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    networks: [internal]
+    restart: "no"
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "80:80"
+  backend:
+    build: ./backend
+    environment: *backend-env
     depends_on:
-      - backend
-    networks:
-      - dyscover-network
+      migrate:
+        condition: service_completed_successfully
+    networks: [internal]
+    restart: unless-stopped
+    # No published port: only reachable through the web proxy.
+
+  web:
+    build: ./frontend
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks: [internal]
+    restart: unless-stopped
 
 volumes:
   postgres_data:
 
 networks:
-  dyscover-network:
-    driver: bridge
+  internal:

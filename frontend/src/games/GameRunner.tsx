@@ -37,6 +37,7 @@ import {
 import { useLanguage } from '../l10n';
 import { assessmentPlanFor, languageName } from '../l10n/languages';
 import { Mascot } from '../components/ui';
+import { getActiveChildId } from '../app/activeChild';
 
 export function GameRunner() {
   const navigate = useNavigate();
@@ -62,6 +63,10 @@ export function GameRunner() {
   )[gameIndex];
   const gaze = useGazeTracking(definition.id);
   const difficultyOverrides = useRef(new Map<string, number>());
+  // Guards against double taps submitting one trial twice before React re-renders.
+  const submittingRef = useRef(false);
+  // Remembers what was interrupted by a pause so resuming can continue it.
+  const pausedFrom = useRef<'PLAYING' | 'FEEDBACK' | null>(null);
 
   useEffect(() => {
     if (availablePlan.length === 0) return;
@@ -105,7 +110,7 @@ export function GameRunner() {
   useEffect(() => {
     if (availablePlan.length === 0) return;
     let active = true;
-    const childId = window.localStorage.getItem('dyscover-stage2-child-id');
+    const childId = getActiveChildId();
     if (!childId)
       return () => {
         active = false;
@@ -148,6 +153,7 @@ export function GameRunner() {
     const engine = engineRef.current;
     if (!engine) return;
     const next = engine.beginTrial(engine.trials.length);
+    submittingRef.current = false;
     persistNewEvents();
     setTrial(next);
     setFeedback(undefined);
@@ -159,6 +165,19 @@ export function GameRunner() {
       setPresentation(true);
       presentationTimer.current = window.setTimeout(() => setPresentation(false), duration ?? 1800);
     } else setPresentation(false);
+  };
+  const presentationDuration = () => {
+    const stimulus = trial?.stimulus as { presentationMs?: number; displayMs?: number } | undefined;
+    return stimulus?.presentationMs ?? stimulus?.displayMs ?? 1800;
+  };
+  const scheduleAdvance = (engine: GameEngine) => {
+    advanceTimer.current = window.setTimeout(() => {
+      if (engine.trials.length >= definition.totalTrials) {
+        engine.completeGame();
+        persistNewEvents();
+        setState('GAME_COMPLETE');
+      } else startTrial();
+    }, 900);
   };
 
   useEffect(() => {
@@ -207,7 +226,8 @@ export function GameRunner() {
   };
   const submit = async (response: unknown) => {
     const engine = engineRef.current;
-    if (!engine || !trial || state !== 'PLAYING' || presentation) return;
+    if (!engine || !trial || state !== 'PLAYING' || presentation || submittingRef.current) return;
+    submittingRef.current = true;
     const updated = engine.recordResponse(trial, response);
     engine.completeTrial(updated);
     const result = updated.correct ? t('game.shell.feedbackGreat') : t('game.shell.feedbackAlmost');
@@ -227,21 +247,31 @@ export function GameRunner() {
         backendId ?? null,
         toGazeBatchPayload(gazeData, gaze.calibrationCompleted)
       );
-    advanceTimer.current = window.setTimeout(() => {
-      if (engine.trials.length >= definition.totalTrials) {
-        engine.completeGame();
-        persistNewEvents();
-        setState('GAME_COMPLETE');
-      } else startTrial();
-    }, 900);
+    scheduleAdvance(engine);
   };
   const pause = () => {
     const engine = engineRef.current;
     if (!engine) return;
     if (state === 'PAUSED') {
       engine.resume();
+      const interrupted = pausedFrom.current;
+      pausedFrom.current = null;
+      if (interrupted === 'FEEDBACK') {
+        // The trial was already answered: continue to the next one.
+        setState('FEEDBACK');
+        scheduleAdvance(engine);
+        return;
+      }
       setState('PLAYING');
+      if (presentation) {
+        // Show the memorised stimulus again in full rather than leaving it hidden forever.
+        presentationTimer.current = window.setTimeout(
+          () => setPresentation(false),
+          presentationDuration()
+        );
+      }
     } else if (state === 'PLAYING' || state === 'FEEDBACK') {
+      pausedFrom.current = state;
       engine.pause();
       window.clearTimeout(presentationTimer.current);
       window.clearTimeout(advanceTimer.current);

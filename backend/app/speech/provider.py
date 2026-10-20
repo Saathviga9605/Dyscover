@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
+import importlib.util
 import os
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -31,13 +33,30 @@ class UnconfiguredSpeechProvider(SpeechProvider):
         return ProviderState.NOT_CONFIGURED
 
 
-def get_speech_provider() -> SpeechProvider:
-    provider_name = os.getenv("DYSCOVER_ASR_PROVIDER", "").strip().lower()
-    if provider_name == "faster-whisper":
-        return FasterWhisperProvider()
-    if provider_name == "huggingface-whisper":
-        return HuggingFaceWhisperProvider()
-    return UnconfiguredSpeechProvider()
+KNOWN_PROVIDERS = ("faster-whisper", "huggingface-whisper")
+_provider_cache: dict[str, "SpeechProvider"] = {}
+_provider_lock = threading.Lock()
+
+
+def get_speech_provider(name: str | None = None) -> SpeechProvider:
+    """Return the named provider (default: ``DYSCOVER_ASR_PROVIDER``).
+
+    Instances are cached per process so a loaded model is reused across requests.
+    """
+    provider_name = (name if name is not None else os.getenv("DYSCOVER_ASR_PROVIDER", "")).strip().lower()
+    if provider_name not in KNOWN_PROVIDERS:
+        return UnconfiguredSpeechProvider()
+    with _provider_lock:
+        provider = _provider_cache.get(provider_name)
+        if provider is None:
+            provider = FasterWhisperProvider() if provider_name == "faster-whisper" else HuggingFaceWhisperProvider()
+            _provider_cache[provider_name] = provider
+        return provider
+
+
+def reset_speech_providers() -> None:
+    with _provider_lock:
+        _provider_cache.clear()
 
 
 class FasterWhisperProvider(SpeechProvider):
@@ -151,12 +170,16 @@ class HuggingFaceWhisperProvider(SpeechProvider):
         return self._manager
 
     def health_check(self) -> ProviderState:
-        if not self.model_name_or_path:
+        if not os.getenv("DYSCOVER_HF_WHISPER_MODEL", "").strip():
             return ProviderState.NOT_CONFIGURED
-        # Check if local path exists or if it's a HF model ID
-        if Path(self.model_name_or_path).exists() or "/" in self.model_name_or_path:
+        if importlib.util.find_spec("transformers") is None or importlib.util.find_spec("torch") is None:
+            return ProviderState.UNAVAILABLE
+        if Path(self.model_name_or_path).exists():
             return ProviderState.AVAILABLE
-        return ProviderState.NOT_CONFIGURED
+        # A hub model ID is only usable when downloads are explicitly allowed or it is cached.
+        if os.getenv("DYSCOVER_ASR_ALLOW_MODEL_LOAD", "").strip().lower() == "true":
+            return ProviderState.AVAILABLE
+        return ProviderState.UNAVAILABLE
 
     def transcribe(self, audio_reference: str, language: str = "en", consent_given: bool = False) -> Transcript:
         if language not in SUPPORTED_ASR_LANGUAGES:

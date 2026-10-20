@@ -1,247 +1,183 @@
-"""Authentication routes."""
+"""Authentication routes.
 
-from __future__ import annotations
+Session model:
+- Access token: short-lived JWT sent as ``Authorization: Bearer``. It carries the
+  user's ``token_version`` so a password change invalidates outstanding tokens.
+- Refresh token: opaque random value in an HttpOnly cookie scoped to /api/auth,
+  stored server-side only as a SHA-256 digest, rotated on every use. Re-use of a
+  rotated token revokes the entire token family.
+"""
 
-from datetime import datetime, timedelta, timezone
-from typing import Optional
-from uuid import UUID
+
+from datetime import timedelta
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.auth.schemas import (
-    UserRegister,
-    UserLogin,
-    TokenResponse,
-    RefreshTokenRequest,
-    UserResponse,
-    CurrentUser,
-    PasswordChange,
-    AuthErrorResponse,
-)
-from app.auth.utils import (
-    hash_password,
-    verify_password,
-    create_access_token,
-    create_refresh_token,
-    decode_token,
-    generate_secure_token,
-)
 from app.audit import AuditEventType, AuditLogger
+from app.auth.deps import get_current_user, require_csrf_header
+from app.auth.schemas import CurrentUser, PasswordChange, TokenResponse, UserLogin, UserRegister, UserResponse
+from app.auth.utils import create_access_token, hash_password, hash_refresh_token, new_refresh_token, verify_password
 from app.core.config import get_settings
+from app.core.rate_limit import limiter
+from app.core.time import utcnow
 from app.database import get_db
-from app.models import User
+from app.models import RefreshToken, User
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
-security = HTTPBearer(auto_error=False)
-
-settings = get_settings()
-
-# In-memory refresh token store (use Redis in production)
-_refresh_token_store: dict[str, dict] = {}
+REFRESH_COOKIE = "dyscover_refresh"
+REFRESH_COOKIE_PATH = "/api/auth"
+_settings = get_settings()
 
 
-def get_current_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    db: Session = Depends(get_db),
-) -> User:
-    """Get the current authenticated user from the access token."""
-    if not credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Authentication required",
-            headers={"WWW-Authenticate": "Bearer"},
+def _set_refresh_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=REFRESH_COOKIE,
+        value=token,
+        httponly=True,
+        secure=_settings.cookie_secure,
+        samesite=_settings.refresh_cookie_samesite.lower(),
+        max_age=_settings.refresh_token_days * 24 * 60 * 60,
+        path=REFRESH_COOKIE_PATH,
+    )
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=REFRESH_COOKIE,
+        path=REFRESH_COOKIE_PATH,
+        httponly=True,
+        secure=_settings.cookie_secure,
+        samesite=_settings.refresh_cookie_samesite.lower(),
+    )
+
+
+def _issue_session(db: Session, response: Response, user: User, family_id=None) -> TokenResponse:
+    raw = new_refresh_token()
+    db.add(
+        RefreshToken(
+            user_id=user.id,
+            token_hash=hash_refresh_token(raw),
+            family_id=family_id or uuid4(),
+            expires_at=utcnow() + timedelta(days=_settings.refresh_token_days),
         )
-
-    payload = decode_token(credentials.credentials)
-    if not payload or payload.get("type") != "access":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-
-    user_id = payload.get("sub")
-    if not user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
-
-    try:
-        user_uuid = UUID(user_id)
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user ID in token")
-
-    user = db.get(User, user_uuid)
-    if not user or not user.is_active:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
-
-    return user
+    )
+    db.commit()
+    _set_refresh_cookie(response, raw)
+    return TokenResponse(
+        access_token=create_access_token(user.id, user.role, user.token_version),
+        expires_in=_settings.access_token_minutes * 60,
+    )
 
 
-def get_current_user_optional(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    db: Session = Depends(get_db),
-) -> Optional[User]:
-    """Get current user if authenticated, otherwise return None."""
-    if not credentials:
-        return None
-    try:
-        return get_current_user(credentials, db)
-    except HTTPException:
-        return None
+def _revoke_all_refresh_tokens(db: Session, user: User) -> None:
+    db.execute(
+        update(RefreshToken)
+        .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))
+        .values(revoked_at=utcnow())
+    )
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit(_settings.rate_limit_auth)
 def register(payload: UserRegister, request: Request, db: Session = Depends(get_db)) -> User:
-    """Register a new user account."""
-    # Check if email already exists
-    if payload.email:
-        existing = db.query(User).filter(User.email == payload.email).first()
-        if existing:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
-
-    # Hash password and create user
-    hashed_password = hash_password(payload.password)
+    audit = AuditLogger(request)
+    if db.scalar(select(User.id).where(User.email == payload.email)) is not None:
+        audit.log(AuditEventType.USER_REGISTER, success=False, error_message="duplicate_email")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="An account with this email already exists")
     user = User(
         email=payload.email,
         display_name=payload.display_name,
         role=payload.role,
         is_active=True,
+        password_hash=hash_password(payload.password),
     )
-    user.password_hash = hashed_password  # type: ignore
-
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="An account with this email already exists")
     db.refresh(user)
-
-    # Audit log
-    audit = AuditLogger(request)
     audit.log(AuditEventType.USER_REGISTER, user_id=str(user.id), success=True)
-
     return user
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit(_settings.rate_limit_auth)
 def login(payload: UserLogin, request: Request, response: Response, db: Session = Depends(get_db)) -> TokenResponse:
-    """Authenticate user and return access + refresh tokens."""
     audit = AuditLogger(request)
-
-    user = db.query(User).filter(User.email == payload.email).first()
-    if not user:
-        audit.log(AuditEventType.USER_LOGIN, user_id=payload.email, success=False, error_message="User not found")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-
-    # Verify password
-    stored_hash = getattr(user, "password_hash", None)
-    if not stored_hash or not verify_password(payload.password, stored_hash):
-        audit.log(AuditEventType.USER_LOGIN, user_id=str(user.id), success=False, error_message="Invalid password")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-
+    user = db.scalar(select(User).where(User.email == payload.email))
+    # verify_password runs a dummy bcrypt check for unknown users (timing parity).
+    if not verify_password(payload.password, user.password_hash if user else None) or user is None:
+        audit.log(AuditEventType.USER_LOGIN, user_id=str(user.id) if user else None, success=False, error_message="invalid_credentials")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     if not user.is_active:
-        audit.log(AuditEventType.USER_LOGIN, user_id=str(user.id), success=False, error_message="Account inactive")
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is inactive")
-
-    # Create tokens
-    access_token = create_access_token(str(user.id), extra_claims={"role": user.role, "email": user.email or ""})
-    refresh_token = create_refresh_token(str(user.id))
-
-    # Store refresh token (in production, use Redis with TTL)
-    _refresh_token_store[refresh_token] = {
-        "user_id": str(user.id),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-
-    # Set refresh token as HttpOnly cookie
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        secure=settings.app_env == "production",
-        samesite="lax",
-        max_age=7 * 24 * 60 * 60,  # 7 days
-    )
-
-    # Audit log successful login
+        audit.log(AuditEventType.USER_LOGIN, user_id=str(user.id), success=False, error_message="inactive")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+    tokens = _issue_session(db, response, user)
     audit.log(AuditEventType.USER_LOGIN, user_id=str(user.id), success=True)
-
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        expires_in=30 * 60,  # 30 minutes in seconds
-    )
+    return tokens
 
 
-@router.post("/refresh", response_model=TokenResponse)
-def refresh_token(request: Request, payload: Optional[RefreshTokenRequest] = None, db: Session = Depends(get_db)) -> TokenResponse:
-    """Refresh access token using refresh token."""
-    # Try to get refresh token from body or cookie
-    refresh_token = payload.refresh_token if payload else request.cookies.get("refresh_token")
-    if not refresh_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token required")
-
-    # Validate refresh token
-    token_data = _refresh_token_store.get(refresh_token)
-    if not token_data:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired refresh token")
-
-    # Verify token is valid JWT
-    payload = decode_token(refresh_token)
-    if not payload or payload.get("type") != "refresh":
-        # Remove invalid token from store
-        _refresh_token_store.pop(refresh_token, None)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
-
-    user_id = payload.get("sub")
-    if not user_id:
-        _refresh_token_store.pop(refresh_token, None)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token payload")
-
-    try:
-        user_uuid = UUID(user_id)
-    except ValueError:
-        _refresh_token_store.pop(refresh_token, None)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user ID in token")
-
-    user = db.get(User, user_uuid)
-    if not user or not user.is_active:
-        _refresh_token_store.pop(refresh_token, None)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
-
-    # Create new token pair
-    new_access_token = create_access_token(str(user.id), extra_claims={"role": user.role, "email": user.email or ""})
-    new_refresh_token = create_refresh_token(str(user.id))
-
-    # Rotate refresh token
-    _refresh_token_store.pop(refresh_token, None)
-    _refresh_token_store[new_refresh_token] = {
-        "user_id": str(user.id),
-        "created_at": datetime.now(timezone.utc).isoformat(),
-    }
-
-    return TokenResponse(
-        access_token=new_access_token,
-        refresh_token=new_refresh_token,
-        expires_in=30 * 60,
-    )
+@router.post("/refresh", response_model=TokenResponse, dependencies=[Depends(require_csrf_header)])
+@limiter.limit("60/minute")
+def refresh(request: Request, response: Response, db: Session = Depends(get_db)) -> TokenResponse:
+    raw = request.cookies.get(REFRESH_COOKIE)
+    if not raw:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
+    record = db.scalar(select(RefreshToken).where(RefreshToken.token_hash == hash_refresh_token(raw)))
+    now = utcnow()
+    if record is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
+    if record.revoked_at is not None:
+        # A rotated token was presented again: treat the family as compromised.
+        db.execute(update(RefreshToken).where(RefreshToken.family_id == record.family_id, RefreshToken.revoked_at.is_(None)).values(revoked_at=now))
+        db.commit()
+        AuditLogger(request).log(AuditEventType.USER_LOGIN, user_id=str(record.user_id), success=False, error_message="refresh_token_reuse")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
+    user = db.get(User, record.user_id)
+    if record.expires_at <= now or user is None or not user.is_active:
+        record.revoked_at = now
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired")
+    record.revoked_at = now
+    return _issue_session(db, response, user, family_id=record.family_id)
 
 
-@router.post("/logout")
-def logout(request: Request, response: Response) -> dict[str, str]:
-    """Logout user by invalidating refresh token."""
-    audit = AuditLogger(request)
-    refresh_token = request.cookies.get("refresh_token")
-    if refresh_token:
-        _refresh_token_store.pop(refresh_token, None)
+@router.post("/logout", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_csrf_header)])
+def logout(request: Request, db: Session = Depends(get_db)) -> Response:
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    raw = request.cookies.get(REFRESH_COOKIE)
+    user_id = None
+    if raw:
+        record = db.scalar(select(RefreshToken).where(RefreshToken.token_hash == hash_refresh_token(raw)))
+        if record is not None:
+            user_id = str(record.user_id)
+            db.execute(update(RefreshToken).where(RefreshToken.family_id == record.family_id, RefreshToken.revoked_at.is_(None)).values(revoked_at=utcnow()))
+            db.commit()
+    _clear_refresh_cookie(response)
+    AuditLogger(request).log(AuditEventType.USER_LOGOUT, user_id=user_id, success=True)
+    return response
 
-    response.delete_cookie(key="refresh_token", httponly=True, secure=settings.app_env == "production", samesite="lax")
-    audit.log(AuditEventType.USER_LOGOUT, success=True)
-    return {"message": "Logged out successfully"}
+
+@router.post("/logout-all", status_code=status.HTTP_204_NO_CONTENT)
+def logout_everywhere(request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> Response:
+    current_user.token_version += 1
+    _revoke_all_refresh_tokens(db, current_user)
+    db.commit()
+    response = Response(status_code=status.HTTP_204_NO_CONTENT)
+    _clear_refresh_cookie(response)
+    AuditLogger(request).log(AuditEventType.USER_LOGOUT, user_id=str(current_user.id), details={"scope": "all_sessions"})
+    return response
 
 
 @router.get("/me", response_model=CurrentUser)
 def get_current_user_info(current_user: User = Depends(get_current_user)) -> CurrentUser:
-    """Get current user info."""
     return CurrentUser(
         id=current_user.id,
         email=current_user.email,
@@ -251,17 +187,28 @@ def get_current_user_info(current_user: User = Depends(get_current_user)) -> Cur
     )
 
 
-@router.post("/change-password", response_model=dict[str, str])
-def change_password(payload: PasswordChange, request: Request, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict[str, str]:
-    """Change user password."""
+@router.post("/change-password", response_model=TokenResponse)
+@limiter.limit(_settings.rate_limit_auth)
+def change_password(
+    payload: PasswordChange,
+    request: Request,
+    response: Response,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> TokenResponse:
+    """Change password, revoke every other session, and return a fresh session for this device."""
     audit = AuditLogger(request)
-    stored_hash = getattr(current_user, "password_hash", None)
-    if not stored_hash or not verify_password(payload.current_password, stored_hash):
-        audit.log(AuditEventType.USER_PASSWORD_CHANGE, user_id=str(current_user.id), success=False, error_message="Current password incorrect")
+    if not verify_password(payload.current_password, current_user.password_hash):
+        audit.log(AuditEventType.USER_PASSWORD_CHANGE, user_id=str(current_user.id), success=False, error_message="wrong_current_password")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect")
-
-    # Hash and store new password
-    current_user.password_hash = hash_password(payload.new_password)  # type: ignore
-    db.commit()
+    if payload.current_password == payload.new_password:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="New password must differ from the current password")
+    current_user.password_hash = hash_password(payload.new_password)
+    current_user.token_version += 1
+    _revoke_all_refresh_tokens(db, current_user)
+    tokens = _issue_session(db, response, current_user)
     audit.log(AuditEventType.USER_PASSWORD_CHANGE, user_id=str(current_user.id), success=True)
-    return {"message": "Password changed successfully"}
+    return tokens
+
+
+__all__ = ["router", "get_current_user", "REFRESH_COOKIE"]

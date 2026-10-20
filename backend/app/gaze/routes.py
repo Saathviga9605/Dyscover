@@ -2,12 +2,14 @@ import math
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.access import get_trial_for_user
+from app.auth.deps import get_current_user
 from app.database import get_db
-from app.models import Fixation, GazeSample, InteractionEvent, Trial
+from app.models import Fixation, GazeSample, InteractionEvent, User
 from .features import analyze_fixations
 from .schemas import (
     GAZE_SCHEMA_VERSION,
@@ -92,11 +94,15 @@ def gaze_status() -> GazeStatusResponse:
 
 
 @router.post("/trials/{trial_id}/gaze", response_model=GazeBatchResponse, status_code=status.HTTP_201_CREATED)
-def ingest_trial_gaze(trial_id: UUID, payload: GazeTrialBatchCreate, db: Session = Depends(get_db)) -> GazeBatchResponse:
-    if db.get(Trial, trial_id) is None:
-        raise HTTPException(status_code=404, detail="Trial not found")
+def ingest_trial_gaze(trial_id: UUID, payload: GazeTrialBatchCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> GazeBatchResponse:
+    trial_id = get_trial_for_user(db, user, trial_id).id
     samples, samples_rejected = _sanitize_samples(payload)
     fixations, fixations_rejected = _sanitize_fixations(payload)
+    # Retried batches (offline queue) must not duplicate observations.
+    seen_samples = set(db.scalars(select(GazeSample.timestamp).where(GazeSample.trial_id == trial_id)))
+    seen_fixations = set(db.scalars(select(Fixation.start_time).where(Fixation.trial_id == trial_id)))
+    samples = [sample for sample in samples if sample.timestamp not in seen_samples]
+    fixations = [fixation for fixation in fixations if fixation.start_time not in seen_fixations]
     for sample in samples:
         sample.trial_id = trial_id
     for fixation in fixations:
@@ -132,12 +138,14 @@ def ingest_trial_gaze(trial_id: UUID, payload: GazeTrialBatchCreate, db: Session
 
 
 @router.get("/trials/{trial_id}/gaze", response_model=GazeTrialSummary)
-def trial_gaze(trial_id: UUID, db: Session = Depends(get_db)) -> GazeTrialSummary:
-    if db.get(Trial, trial_id) is None:
-        raise HTTPException(status_code=404, detail="Trial not found")
+def trial_gaze(trial_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> GazeTrialSummary:
+    trial_id = get_trial_for_user(db, user, trial_id).id
     samples = list(db.scalars(select(GazeSample).where(GazeSample.trial_id == trial_id)))
     fixations = list(db.scalars(select(Fixation).where(Fixation.trial_id == trial_id)))
-    quality = "degraded" if any(sample.quality in {"degraded", "out_of_order"} for sample in samples) else "tracking"
+    if not samples and not fixations:
+        quality = None  # nothing recorded: unknown, not "tracking"
+    else:
+        quality = "degraded" if any(sample.quality in {"degraded", "out_of_order"} for sample in samples) else "tracking"
     return GazeTrialSummary(
         trial_id=trial_id,
         sample_count=len(samples),
@@ -159,9 +167,8 @@ def trial_gaze(trial_id: UUID, db: Session = Depends(get_db)) -> GazeTrialSummar
 
 
 @router.get("/trials/{trial_id}/gaze/features")
-def trial_gaze_features(trial_id: UUID, db: Session = Depends(get_db)) -> dict:
-    if db.get(Trial, trial_id) is None:
-        raise HTTPException(status_code=404, detail="Trial not found")
+def trial_gaze_features(trial_id: UUID, user: User = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    trial_id = get_trial_for_user(db, user, trial_id).id
     samples = list(db.scalars(select(GazeSample).where(GazeSample.trial_id == trial_id)))
     fixations = list(db.scalars(select(Fixation).where(Fixation.trial_id == trial_id)))
     normalized = [

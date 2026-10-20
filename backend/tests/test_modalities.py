@@ -14,10 +14,6 @@ from app.ml.profile import build_profile
 from app.ml.validation import build_quality_report
 
 
-@pytest.fixture
-def client() -> TestClient:
-    with TestClient(app) as test_client:
-        yield test_client
 
 
 class _Trial:

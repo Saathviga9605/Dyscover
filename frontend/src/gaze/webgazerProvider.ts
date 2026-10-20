@@ -1,7 +1,11 @@
 import { browserSupportsEyeTrackingCapability } from './provider';
 import type { EyeTrackingPhase, EyeTrackingProvider } from './types';
 
-const WEBAZER_CDN = 'https://webgazer.cs.brown.edu/webgazer.js';
+// Pinned build (byte-identical to what webgazer.cs.brown.edu served on 2026-10-20) with
+// Subresource Integrity, so a modified or swapped script is refused by the browser.
+// WebGazer is GPLv3-licensed; see docs/readiness/risk-register.md.
+const WEBGAZER_SRC = 'https://cdn.jsdelivr.net/npm/webgazer@3.5.3/dist/webgazer.js';
+const WEBGAZER_INTEGRITY = 'sha384-N9TfYQEjUGiaDcITkzB/MtVHEfF2JtTWCwHG8NUhjOSvJ8zObGwfebHUFLBS+4Rb';
 const FACE_MESH_SOLUTION_PATH = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619';
 const WATCHDOG_INTERVAL_MS = 1000;
 const NO_SAMPLE_TIMEOUT_MS = 3000;
@@ -58,9 +62,12 @@ function loadWebGazerScript(): Promise<void> {
         window.clearTimeout(timeout);
         reject(new Error('WebGazer could not be loaded.'));
       };
+      return;
     }
     const script = document.createElement('script');
-    script.src = WEBAZER_CDN;
+    script.src = WEBGAZER_SRC;
+    script.integrity = WEBGAZER_INTEGRITY;
+    script.crossOrigin = 'anonymous';
     script.async = true;
     injectedWebGazerScript = script;
     script.onload = () =>

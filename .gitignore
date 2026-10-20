@@ -1,9 +1,17 @@
 __pycache__/
 *.py[cod]
 .venv/
+venv/
 .env
+.env.*
+!.env.example
 *.db
 node_modules/
 dist/
+coverage/
+.coverage
 .pytest_cache/
+frontend/playwright-report/
+frontend/test-results/
+*.tsbuildinfo
 .DS_Store

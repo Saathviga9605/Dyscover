@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Badge, Card } from '../../components/ui';
 import { api, type NextPracticeActivity, type PracticeProgress } from '../../services/apiClient';
 import { useLanguage } from '../../l10n';
+import { getActiveChildId } from '../../app/activeChild';
 
 export function PracticeCard() {
   const { t, language } = useLanguage();
@@ -11,7 +12,7 @@ export function PracticeCard() {
   }>({ recommendation: null, progress: null });
 
   useEffect(() => {
-    const childId = window.localStorage.getItem('dyscover-stage2-child-id');
+    const childId = getActiveChildId();
     if (!childId) return;
     let active = true;
     api

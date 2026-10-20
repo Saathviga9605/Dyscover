@@ -7,15 +7,13 @@ extraction, registry integration, and the no-raw-media privacy boundary.
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.helpers import outcome, trial_payload
+
 from app.gaze.features import aggregate_gaze_features, analyze_fixations
 from app.main import app
 from app.ml.feature_registry import REGISTRY_BY_NAME
 
 
-@pytest.fixture
-def client() -> TestClient:
-    with TestClient(app) as test_client:
-        yield test_client
 
 
 def _setup(client: TestClient) -> dict:
@@ -25,12 +23,10 @@ def _setup(client: TestClient) -> dict:
         f"/api/assessments/{assessment['id']}/games/letter-detective/trials",
         json={
             "trial_number": 1,
-            "stimulus": {"target": "b", "options": ["b", "d", "p"]},
-            "expected_response": "b",
             "game_version": "1.0.0",
             "domain": "visual-symbol-discrimination",
             "difficulty": 2,
-            "correctness": True,
+            **outcome("letter-detective", True),
             "reaction_time_ms": 800,
             "completed_at": "2026-01-01T12:00:05.000Z",
         },

@@ -10,14 +10,12 @@ import re
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.helpers import outcome, trial_payload
+
 from app.main import app
 from app.ml.profile import build_profile
 
 
-@pytest.fixture
-def client() -> TestClient:
-    with TestClient(app) as test_client:
-        yield test_client
 
 
 PROHIBITED_WORDS = ("score", "diagnos", "treat", "improve", "at risk", "condition")
@@ -31,13 +29,11 @@ def _create_practice_opportunity(client: TestClient, n: int = 12) -> dict:
             f"/api/assessments/{assessment['id']}/games/word-flash/trials",
             json={
                 "trial_number": index,
-                "stimulus": {"word": "cat", "options": ["cat", "cap"]},
-                "expected_response": "cat",
                 "actual_response": "cat" if index % 2 == 0 else "cap",
                 "game_version": "1.0.0",
                 "domain": "phonological-awareness",
                 "difficulty": 2,
-                "correctness": index % 2 == 0,
+                **outcome("word-flash", index % 2 == 0),
                 "score": 1 if index % 2 == 0 else 0,
                 "error_count": 0 if index % 2 == 0 else 1,
                 "reaction_time_ms": 900,

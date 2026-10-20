@@ -1,6 +1,7 @@
 import { api, request, type SpeechSessionCreatePayload } from '../services/apiClient';
 import type { GazeBatchPayload } from '../services/apiClient';
 import { CONTENT_VERSION, getStoredLanguage, getStoredLocale } from '../l10n/languages';
+import { getActiveChildId, setLastAssessmentId } from '../app/activeChild';
 import {
   enqueue,
   flushQueue,
@@ -10,9 +11,6 @@ import {
 } from './engine';
 import type { AssessmentEvent, AssessmentSession, GameResult, Trial } from './engine';
 import type { SpeechTrial } from './speech/speechDefinitions';
-
-const childKey = 'dyscover-stage2-child-id';
-const assessmentKey = 'dyscover-stage2-assessment-id';
 
 function sanitizeJsonValue(value: unknown): unknown {
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
@@ -31,14 +29,26 @@ function telemetryWarning(kind: string, path: string, error: unknown): void {
     console.warn(`[Dyscover telemetry] ${kind} not persisted to ${path}:`, error);
 }
 
-export async function ensureAssessmentSession(): Promise<AssessmentSession> {
+// One in-flight creation per child: an effect that runs twice (React StrictMode,
+// fast remounts) must not create an orphaned second assessment.
+let pendingSession: { childId: string; promise: Promise<AssessmentSession> } | null = null;
+
+export function ensureAssessmentSession(): Promise<AssessmentSession> {
+  const childId = getActiveChildId();
+  if (pendingSession && pendingSession.childId === childId) return pendingSession.promise;
+  const promise = createAssessmentSession().finally(() => {
+    if (pendingSession?.promise === promise) pendingSession = null;
+  });
+  pendingSession = { childId: childId ?? '', promise };
+  return promise;
+}
+
+async function createAssessmentSession(): Promise<AssessmentSession> {
   void flushAssessmentQueue();
-  let childId = localStorage.getItem(childKey);
-  if (!childId) {
-    const child = await api.createChild({ display_name: 'Explorer' });
-    childId = child.id;
-    localStorage.setItem(childKey, childId);
-  }
+  // Assessments always belong to a child profile the signed-in adult selected;
+  // anonymous profiles are never created implicitly.
+  const childId = getActiveChildId();
+  if (!childId) throw new Error('No child profile is selected');
   const assessment = await api.createAssessment({
     child_id: childId,
     version: 'stage-2.0',
@@ -46,7 +56,7 @@ export async function ensureAssessmentSession(): Promise<AssessmentSession> {
     locale: getStoredLocale(),
     content_version: CONTENT_VERSION,
   });
-  localStorage.setItem(assessmentKey, assessment.id);
+  setLastAssessmentId(assessment.id);
   return {
     sessionId: assessment.id,
     assessmentId: assessment.id,
@@ -65,11 +75,12 @@ export async function persistTrial(
   gameId: string,
   trial: Trial
 ): Promise<string | null> {
+  const unscored = (trial.metadata as { scorable?: boolean } | undefined)?.scorable === false;
   const payload = {
     trial_number: trial.trialIndex + 1,
     stimulus: sanitizeJsonValue(trial.stimulus),
     expected_response: sanitizeJsonValue(trial.expectedResponse),
-    actual_response: sanitizeJsonValue(trial.actualResponse),
+    actual_response: unscored ? null : sanitizeJsonValue(trial.actualResponse),
     game_version: trial.gameVersion,
     domain: trial.domain,
     difficulty: trial.difficulty,
@@ -77,7 +88,7 @@ export async function persistTrial(
     attempt_count: trial.attemptCount,
     error_count: trial.errorCount,
     metadata: sanitizeJsonValue(trial.metadata) ?? {},
-    correctness: trial.correct,
+    correctness: unscored ? null : trial.correct,
     reaction_time_ms: Number.isFinite(trial.reactionTimeMs ?? NaN) ? trial.reactionTimeMs : null,
     hesitation_time_ms: Number.isFinite(trial.hesitationTimeMs ?? NaN)
       ? trial.hesitationTimeMs

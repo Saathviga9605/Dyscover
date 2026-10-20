@@ -22,6 +22,8 @@ verify contracts through the FastAPI test client.
 
 import pytest
 from fastapi.testclient import TestClient
+
+from tests.helpers import outcome, trial_payload
 from datetime import datetime, timezone
 
 from app.main import app
@@ -32,10 +34,6 @@ from app.personalization.service import _utc_sort_key
 from app.personalization import evidence
 
 
-@pytest.fixture
-def client() -> TestClient:
-    with TestClient(app) as test_client:
-        yield test_client
 
 
 GAME_DOMAIN = {
@@ -122,12 +120,10 @@ def test_insufficient_trials_are_insufficient(client: TestClient) -> None:
             f"/api/assessments/{assessment['id']}/games/letter-detective/trials",
             json={
                 "trial_number": 1,
-                "stimulus": {"target": "b", "options": ["b", "d"]},
-                "expected_response": "b",
                 "game_version": "1.0.0",
                 "domain": "visual-symbol-discrimination",
                 "difficulty": 2,
-                "correctness": True,
+                **outcome("letter-detective", True),
                 "completed_at": "2026-01-01T12:00:05.000Z",
             },
         )
@@ -173,12 +169,10 @@ def test_category_matches_observed_only_and_never_clinical(client: TestClient) -
                 f"/api/assessments/{assessment['id']}/games/{game}/trials",
                 json={
                     "trial_number": i + 1,
-                    "stimulus": {"target": "b", "options": ["b", "d"]},
-                    "expected_response": "b",
                     "game_version": "1.0.0",
                     "domain": GAME_DOMAIN[game],
                     "difficulty": 2,
-                    "correctness": correct,
+                    **outcome(game, correct),
                     "completed_at": f"2026-01-01T12:00:{i + 1:02}.000Z",
                 },
             )
@@ -240,12 +234,10 @@ def test_recommendation_has_reason_and_difficulty(client: TestClient) -> None:
             f"/api/assessments/{assessment['id']}/games/word-flash/trials",
             json={
                 "trial_number": i + 1,
-                "stimulus": {"target": "cat", "options": ["cat", "bat"]},
-                "expected_response": "cat",
                 "game_version": "1.0.0",
                 "domain": "orthographic-recognition",
                 "difficulty": 2,
-                "correctness": False,
+                **outcome("word-flash", False),
                 "completed_at": f"2026-01-01T12:00:{i + 1:02}.000Z",
             },
         )
@@ -278,12 +270,10 @@ def test_recommendations_never_duplicate_a_domain_when_many_games_are_observed(c
                 f"/api/assessments/{assessment['id']}/games/{game}/trials",
                 json={
                     "trial_number": i + 1,
-                    "stimulus": {"target": "b", "options": ["b", "d"]},
-                    "expected_response": "b",
                     "game_version": "1.0.0",
                     "domain": GAME_DOMAIN[game],
                     "difficulty": 2,
-                    "correctness": True,
+                    **outcome(game, True),
                     "completed_at": f"2026-01-01T12:00:{i + 1:02}.000Z",
                 },
             )
@@ -348,12 +338,10 @@ def test_personalization_is_deterministic(client: TestClient) -> None:
             f"/api/assessments/{assessment['id']}/games/{game}/trials",
             json={
                 "trial_number": i + 1,
-                "stimulus": {"target": "b", "options": ["b", "d"]},
-                "expected_response": "b",
                 "game_version": "1.0.0",
                 "domain": GAME_DOMAIN[game],
                 "difficulty": 2,
-                "correctness": correct,
+                **outcome(game, correct),
                 "completed_at": "2026-01-01T12:00:05.000Z",
             },
         )
@@ -373,12 +361,10 @@ def test_progress_compares_earliest_and_latest_assessment(client: TestClient) ->
                 f"/api/assessments/{assessment['id']}/games/letter-detective/trials",
                 json={
                     "trial_number": i + 1,
-                    "stimulus": {"target": "b", "options": ["b", "d"]},
-                    "expected_response": "b",
                     "game_version": "1.0.0",
                     "domain": "visual-symbol-discrimination",
                     "difficulty": 2,
-                    "correctness": correct,
+                    **outcome("letter-detective", correct),
                     "completed_at": f"2026-0{run}-01T12:00:0{i + 1}.000Z",
                 },
             )
@@ -389,12 +375,10 @@ def test_progress_compares_earliest_and_latest_assessment(client: TestClient) ->
         f"/api/assessments/{abandoned['id']}/games/letter-detective/trials",
         json={
             "trial_number": 1,
-            "stimulus": {"target": "b", "options": ["b", "d"]},
-            "expected_response": "b",
             "game_version": "1.0.0",
             "domain": "visual-symbol-discrimination",
             "difficulty": 2,
-            "correctness": True,
+            **outcome("letter-detective", True),
             "completed_at": "2026-01-03T12:00:01.000Z",
         },
     )

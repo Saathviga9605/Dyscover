@@ -1,46 +1,57 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { useAuth } from '../auth';
-import { Button, Card, Input, PageHeader } from '../components/ui';
+import { Link, useNavigate } from 'react-router-dom';
+import { Button, Card, Input } from '../components/ui';
 import { useLanguage } from '../l10n';
+import { ApiError } from '../services/apiClient';
+import { useAuth } from './AuthContext';
+import { homePathFor } from './LoginPage';
+
+const MIN_PASSWORD = 8;
+const MAX_PASSWORD_BYTES = 72;
 
 export function RegisterPage() {
   const { t } = useLanguage();
-  const { register, isLoading: authLoading } = useAuth();
+  const navigate = useNavigate();
+  const { register } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [role, setRole] = useState<'parent' | 'educator'>('parent');
   const [error, setError] = useState('');
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (submitting) return;
     setError('');
-    const effectiveConfirm = confirmPassword || password;
-    if (password !== effectiveConfirm) {
+    if (password !== confirmPassword) {
       setError(t('auth.passwordsDoNotMatch'));
       return;
     }
-    if (password.length < 8) {
+    if (password.length < MIN_PASSWORD) {
       setError(t('auth.passwordTooShort'));
       return;
     }
-    setIsLoading(true);
+    if (new TextEncoder().encode(password).length > MAX_PASSWORD_BYTES) {
+      setError(t('auth.passwordTooLong'));
+      return;
+    }
+    setSubmitting(true);
     try {
-      await register(email, password, displayName, role);
-      setIsSuccess(true);
+      const user = await register({
+        email: email.trim(),
+        password,
+        display_name: displayName.trim(),
+        role,
+      });
+      navigate(homePathFor(user), { replace: true });
     } catch (err: unknown) {
-      const apiError = err as { status?: number; message?: string };
-      if (apiError.status === 409) {
-        setError(t('auth.emailExists'));
-      } else {
-        setError(apiError.message ?? t('auth.registerFailed'));
-      }
-    } finally {
-      setIsLoading(false);
+      if (err instanceof ApiError && err.status === 409) setError(t('auth.emailExists'));
+      else if (err instanceof ApiError && err.status === 429) setError(t('auth.tooManyAttempts'));
+      else if (err instanceof ApiError && err.status === 422) setError(t('auth.checkFields'));
+      else setError(t('auth.registerFailed'));
+      setSubmitting(false);
     }
   };
 
@@ -48,25 +59,29 @@ export function RegisterPage() {
     <div className="auth-page">
       <Card className="auth-card">
         <div className="auth-header">
-          <span className="brand-mark">✦</span>
+          <span className="brand-mark" aria-hidden="true">
+            ✦
+          </span>
           <h1>{t('auth.registerTitle')}</h1>
           <p>{t('auth.registerSubtitle')}</p>
         </div>
         <form onSubmit={handleSubmit} className="auth-form">
-          {error && <div className="auth-error" role="alert">{error}</div>}
-          {isSuccess && <div className="auth-success" role="status">Registration successful</div>}
+          {error && (
+            <div className="auth-error" role="alert">
+              {error}
+            </div>
+          )}
           <div className="form-group">
             <label htmlFor="display_name">{t('auth.displayName')}</label>
             <Input
               id="display_name"
-              name="display_name"
-              type="text"
               value={displayName}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDisplayName(e.target.value)}
+              onChange={event => setDisplayName(event.target.value)}
               placeholder={t('auth.displayNamePlaceholder')}
               required
+              maxLength={120}
               autoComplete="name"
-              disabled={isLoading}
+              disabled={submitting}
             />
           </div>
           <div className="form-group">
@@ -75,11 +90,11 @@ export function RegisterPage() {
               id="email"
               type="email"
               value={email}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+              onChange={event => setEmail(event.target.value)}
               placeholder={t('auth.emailPlaceholder')}
               required
               autoComplete="email"
-              disabled={isLoading}
+              disabled={submitting}
             />
           </div>
           <div className="form-group">
@@ -88,56 +103,58 @@ export function RegisterPage() {
               id="password"
               type="password"
               value={password}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+              onChange={event => setPassword(event.target.value)}
               placeholder={t('auth.passwordPlaceholder')}
               required
+              minLength={MIN_PASSWORD}
               autoComplete="new-password"
-              minLength={8}
-              disabled={isLoading}
+              aria-describedby="password-hint"
+              disabled={submitting}
             />
+            <small id="password-hint" className="form-hint">
+              {t('auth.passwordHint')}
+            </small>
           </div>
           <div className="form-group">
-            <label htmlFor="confirmPassword">{t('auth.confirmPassword')}</label>
+            <label htmlFor="confirm_password">{t('auth.confirmPassword')}</label>
             <Input
-              id="confirmPassword"
+              id="confirm_password"
               type="password"
               value={confirmPassword}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setConfirmPassword(e.target.value)}
+              onChange={event => setConfirmPassword(event.target.value)}
               placeholder={t('auth.confirmPasswordPlaceholder')}
               required
               autoComplete="new-password"
-              disabled={isLoading}
+              disabled={submitting}
             />
           </div>
-          <div className="form-group">
-            <label>{t('auth.role')}</label>
-            <div className="role-options">
-              <label className="role-option">
-                <input
-                  type="radio"
-                  name="role"
-                  value="parent"
-                  checked={role === 'parent'}
-                  onChange={() => setRole('parent')}
-                  disabled={isLoading}
-                />
-                <span>{t('auth.roleParent')}</span>
-              </label>
-              <label className="role-option">
-                <input
-                  type="radio"
-                  name="role"
-                  value="educator"
-                  checked={role === 'educator'}
-                  onChange={() => setRole('educator')}
-                  disabled={isLoading}
-                />
-                <span>{t('auth.roleEducator')}</span>
-              </label>
-            </div>
-          </div>
-          <Button type="submit" className="button-full" disabled={isLoading}>
-            {isLoading ? t('auth.registering') : t('auth.registerButton')}
+          <fieldset className="form-group role-fieldset">
+            <legend>{t('auth.role')}</legend>
+            <label className="radio-pill">
+              <input
+                type="radio"
+                name="role"
+                value="parent"
+                checked={role === 'parent'}
+                onChange={() => setRole('parent')}
+                disabled={submitting}
+              />
+              {t('auth.roleParent')}
+            </label>
+            <label className="radio-pill">
+              <input
+                type="radio"
+                name="role"
+                value="educator"
+                checked={role === 'educator'}
+                onChange={() => setRole('educator')}
+                disabled={submitting}
+              />
+              {t('auth.roleEducator')}
+            </label>
+          </fieldset>
+          <Button type="submit" className="button-full" disabled={submitting}>
+            {submitting ? t('auth.registering') : t('auth.registerButton')}
           </Button>
         </form>
         <p className="auth-footer">

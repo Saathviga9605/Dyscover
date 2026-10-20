@@ -33,6 +33,8 @@ export function SpeechAssessmentRunner() {
   const sessionRef = useRef<AssessmentSession | null>(null);
   const backendTrialIds = useRef(new Map<string, string>());
   const persistedSeqByTrial = useRef(new Map<string, number>());
+  const submittingRef = useRef(false);
+  const pausedFrom = useRef<'PLAYING' | 'FEEDBACK' | null>(null);
   const [consented, setConsented] = useState(
     () => window.localStorage.getItem(SPEECH_CONSENT_KEY) === 'granted'
   );
@@ -87,6 +89,7 @@ export function SpeechAssessmentRunner() {
     const engine = engineRef.current;
     if (!engine) return;
     const next = engine.beginTrial(engine.trials.length);
+    submittingRef.current = false;
     persistNewEvents();
     setTrial(next);
     setFeedback(undefined);
@@ -112,14 +115,22 @@ export function SpeechAssessmentRunner() {
 
   const submit = async (response: SpeechResponseRecord) => {
     const engine = engineRef.current;
-    if (!engine || !trial || state !== 'PLAYING') return;
+    if (!engine || !trial || state !== 'PLAYING' || submittingRef.current) return;
+    submittingRef.current = true;
     const updated = engine.recordResponse(trial, response);
     engine.completeTrial(updated);
     const speechTrial = updated;
     const evidence = speechTrial.metadata?.evidence;
     if (evidence)
       engine.emit('SPEECH_FEATURES', speechFeaturesEventPayload(evidence), trial.trialId);
-    setFeedback(updated.correct ? t('game.shell.feedbackGreat') : t('game.shell.feedbackAlmost'));
+    const scorable = (updated.metadata as { scorable?: boolean } | undefined)?.scorable !== false;
+    setFeedback(
+      !scorable
+        ? t('speech.feedbackNotHeard')
+        : updated.correct
+          ? t('game.shell.feedbackGreat')
+          : t('game.shell.feedbackAlmost')
+    );
     setState('FEEDBACK');
     const backendId = await persistTrial(
       engine.session.assessmentId ?? engine.session.sessionId,
@@ -133,6 +144,9 @@ export function SpeechAssessmentRunner() {
       speechTrial,
       backendId ?? null
     );
+    scheduleAdvance(engine);
+  };
+  const scheduleAdvance = (engine: GameEngine<SpeechTrial>) => {
     advanceTimer.current = window.setTimeout(() => {
       if (engine.trials.length >= definition.totalTrials) {
         engine.completeGame();
@@ -140,6 +154,25 @@ export function SpeechAssessmentRunner() {
         setState('GAME_COMPLETE');
       } else startTrial();
     }, 900);
+  };
+  const pause = () => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    if (state === 'PAUSED') {
+      engine.resume();
+      const interrupted = pausedFrom.current;
+      pausedFrom.current = null;
+      if (interrupted === 'FEEDBACK') {
+        setState('FEEDBACK');
+        scheduleAdvance(engine);
+      } else setState('PLAYING');
+    } else if (state === 'PLAYING' || state === 'FEEDBACK') {
+      pausedFrom.current = state;
+      engine.pause();
+      window.clearTimeout(advanceTimer.current);
+      setState('PAUSED');
+      engine.emit('SESSION_PAUSED', {}, trial?.trialId);
+    }
   };
 
   const continueAfterGame = () => {
@@ -210,11 +243,13 @@ export function SpeechAssessmentRunner() {
           title={definition.name}
           instructions={definition.instructions}
           onStart={startGame}
+          // The microphone is only used after an adult explicitly agrees below.
+          startBlockedReason={consented ? undefined : t('speech.consentRequiredToStart')}
         />
         <SpeechConsentGate
           capabilities={probeSpeechCapabilities()}
           consented={consented}
-          phase={consented ? 'READY' : 'REQUESTED'}
+          phase={consented ? 'READY' : 'IDLE'}
           message={t('speech.micNeverSaved')}
           onEnable={() => void enableMic()}
           onDisable={disableMic}
@@ -249,7 +284,7 @@ export function SpeechAssessmentRunner() {
         totalMissions={definition.totalTrials}
         state={state}
         instructions={definition.instructions}
-        onPause={() => undefined}
+        onPause={pause}
         onHelp={() => window.alert(definition.instructions.join(' '))}
         feedback={feedback}
       >

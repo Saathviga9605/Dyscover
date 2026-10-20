@@ -1,68 +1,182 @@
-const baseUrl: string = (import.meta.env.VITE_API_URL as string) ?? 'http://localhost:8000/api';
+/**
+ * Dyscover API client.
+ *
+ * - Same-origin by default (`/api`): Vite proxies it in development and nginx in
+ *   production, so the refresh cookie is first-party. `VITE_API_URL` overrides.
+ * - The access token lives in memory only (never localStorage). On a 401 the
+ *   client performs one shared refresh using the HttpOnly cookie and retries once.
+ */
+const baseUrl: string = ((import.meta.env.VITE_API_URL as string | undefined) ?? '/api').replace(
+  /\/$/,
+  ''
+);
+
+export const CSRF_HEADER = { 'X-Requested-With': 'dyscover' } as const;
 
 export class ApiError extends Error {
   constructor(
     public readonly status: number,
     message: string,
-    public readonly data: unknown
+    public readonly data: unknown,
+    public readonly code?: string
   ) {
     super(message);
   }
 }
 
-interface ErrorResponse {
-  detail?: string;
+let accessToken: string | null = null;
+let refreshInFlight: Promise<boolean> | null = null;
+let sessionExpiredHandler: (() => void) | null = null;
+
+export function setAccessToken(token: string | null): void {
+  accessToken = token;
 }
 
-function getAuthHeaders(): HeadersInit {
-  const token = localStorage.getItem('dyscover-access-token');
-  return token ? { Authorization: `Bearer ${token}` } : {};
+export function getAccessToken(): string | null {
+  return accessToken;
 }
 
-export async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${baseUrl}${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...getAuthHeaders(), ...options?.headers },
-  });
-  if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as ErrorResponse;
-    throw new ApiError(response.status, body.detail ?? 'The request could not be completed.', body);
+/** Called when the session cannot be refreshed (e.g. to reset auth state). */
+export function onSessionExpired(handler: (() => void) | null): void {
+  sessionExpiredHandler = handler;
+}
+
+function errorMessage(body: unknown): { message: string; code?: string } {
+  const detail = (body as { detail?: unknown } | null)?.detail;
+  if (typeof detail === 'string') return { message: detail };
+  if (detail && typeof detail === 'object' && !Array.isArray(detail)) {
+    const { message, code } = detail as { message?: unknown; code?: unknown };
+    if (typeof message === 'string')
+      return { message, code: typeof code === 'string' ? code : undefined };
   }
-  return response.json() as Promise<T>;
+  if (Array.isArray(detail) && detail.length) {
+    const first = detail[0] as { msg?: unknown; loc?: unknown[] };
+    const field = Array.isArray(first.loc) ? String(first.loc.at(-1) ?? '') : '';
+    if (typeof first.msg === 'string')
+      return { message: field ? `${field}: ${first.msg}` : first.msg, code: 'validation' };
+  }
+  return { message: 'The request could not be completed.' };
 }
 
-// Generic request helpers for non-JSON content (e.g., multipart/form-data)
-export async function requestRaw<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${baseUrl}${path}`, options);
-  if (!response.ok) {
-    const errorBody = (await response.json().catch(() => ({}))) as ErrorResponse;
+async function parseBody(response: Response): Promise<unknown> {
+  if (response.status === 204) return undefined;
+  const type = response.headers.get('content-type') ?? '';
+  if (type.includes('application/json')) return response.json().catch(() => undefined);
+  return undefined;
+}
+
+/** Exchange the refresh cookie for a new access token. Concurrent callers share one request. */
+export function refreshSession(): Promise<boolean> {
+  if (!refreshInFlight) {
+    refreshInFlight = fetch(`${baseUrl}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { ...CSRF_HEADER },
+    })
+      .then(async response => {
+        if (!response.ok) {
+          setAccessToken(null);
+          return false;
+        }
+        const body = (await response.json()) as TokenResponse;
+        setAccessToken(body.access_token);
+        return true;
+      })
+      .catch(() => false)
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+  return refreshInFlight;
+}
+
+const NO_REFRESH_PATHS = ['/auth/login', '/auth/register', '/auth/refresh', '/auth/logout'];
+
+async function send(path: string, init: RequestInit, retried = false): Promise<Response> {
+  const headers = new Headers(init.headers);
+  if (accessToken && !headers.has('Authorization'))
+    headers.set('Authorization', `Bearer ${accessToken}`);
+  const response = await fetch(`${baseUrl}${path}`, { ...init, headers, credentials: 'include' });
+  if (
+    response.status === 401 &&
+    !retried &&
+    !NO_REFRESH_PATHS.some(prefix => path.startsWith(prefix))
+  ) {
+    if (await refreshSession()) return send(path, init, true);
+    sessionExpiredHandler?.();
+  }
+  return response;
+}
+
+export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers = new Headers(options.headers);
+  if (
+    options.body !== undefined &&
+    !(options.body instanceof FormData) &&
+    !headers.has('Content-Type')
+  ) {
+    headers.set('Content-Type', 'application/json');
+  }
+  let response: Response;
+  try {
+    response = await send(path, { ...options, headers });
+  } catch (error) {
     throw new ApiError(
-      response.status,
-      errorBody.detail ?? 'The request could not be completed.',
-      errorBody
+      0,
+      'Could not reach Dyscover. Check your connection and try again.',
+      error,
+      'network'
     );
   }
-  return response.json() as Promise<T>;
+  const body = await parseBody(response);
+  if (!response.ok) {
+    const { message, code } = errorMessage(body);
+    throw new ApiError(response.status, message, body, code);
+  }
+  return body as T;
 }
+
+export async function requestBlob(path: string): Promise<Blob> {
+  const response = await send(path, { method: 'GET' });
+  if (!response.ok) {
+    const { message, code } = errorMessage(await parseBody(response));
+    throw new ApiError(response.status, message, undefined, code);
+  }
+  return response.blob();
+}
+
+const json = (method: string, body?: unknown): RequestInit => ({
+  method,
+  body: body === undefined ? undefined : JSON.stringify(body),
+});
 
 export async function get<T>(path: string): Promise<T> {
   return request<T>(path, { method: 'GET' });
 }
 
 export async function post<T>(path: string, body: unknown): Promise<T> {
-  return request<T>(path, { method: 'POST', body: JSON.stringify(body) });
+  return request<T>(path, json('POST', body));
 }
 
 export async function postForm<T>(path: string, formData: FormData): Promise<T> {
-  return requestRaw<T>(path, { method: 'POST', body: formData });
+  return request<T>(path, { method: 'POST', body: formData });
 }
 
 export async function patch<T>(path: string, body: unknown): Promise<T> {
-  return request<T>(path, { method: 'PATCH', body: JSON.stringify(body) });
+  return request<T>(path, json('PATCH', body));
 }
 
-export async function del<T>(path: string): Promise<T> {
-  return request<T>(path, { method: 'DELETE' });
+export async function del<T>(path: string, body?: unknown): Promise<T> {
+  return request<T>(path, json('DELETE', body));
+}
+
+function query(params: Record<string, string | number | undefined | null>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+  }
+  const text = search.toString();
+  return text ? `?${text}` : '';
 }
 
 export interface Skill {
@@ -161,40 +275,43 @@ export interface EducatorLearnerSummary {
 
 export const api = {
   health: () => request<{ status: string; version: string }>('/health'),
-  listChildren: () =>
-    request<Array<{ id: string; display_name: string; birth_year?: number; created_at: string }>>('/children'),
+
+  // Children (owner-scoped)
+  listChildren: () => request<ChildProfile[]>('/children'),
   createChild: (payload: { display_name: string; birth_year?: number }) =>
-    request<{ id: string; display_name: string; birth_year?: number; created_at: string }>('/children', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
+    request<ChildProfile>('/children', json('POST', payload)),
+  updateChild: (childId: string, payload: { display_name?: string; birth_year?: number | null }) =>
+    request<ChildProfile>(`/children/${childId}`, json('PATCH', payload)),
+  deleteChild: (childId: string) => request<void>(`/children/${childId}`, json('DELETE')),
+  listEducatorGrants: (childId: string) =>
+    request<EducatorGrant[]>(`/children/${childId}/educators`),
+  grantEducator: (childId: string, educatorEmail: string) =>
+    request<EducatorGrant>(
+      `/children/${childId}/educators`,
+      json('POST', { educator_email: educatorEmail })
+    ),
+  revokeEducator: (childId: string, educatorId: string) =>
+    request<void>(`/children/${childId}/educators/${educatorId}`, json('DELETE')),
+
+  // Assessments
   createAssessment: (payload: {
     child_id: string;
     version: string;
     language?: string;
     locale?: string;
     content_version?: string;
-  }) =>
-    request<{ id: string; child_id: string; version: string; status: string; started_at?: string }>(
-      '/assessments',
-      { method: 'POST', body: JSON.stringify(payload) }
-    ),
+  }) => request<AssessmentRecord>('/assessments', json('POST', payload)),
   createTrial: (assessmentId: string, gameId: string, trial: Record<string, unknown>) =>
-    request<{ id: string }>(`/assessments/${assessmentId}/games/${gameId}/trials`, {
-      method: 'POST',
-      body: JSON.stringify(trial),
-    }),
-  createEvent: (trialId: string, event: Record<string, unknown>) =>
-    request(`/trials/${trialId}/events`, { method: 'POST', body: JSON.stringify(event) }),
-  createSummary: (assessmentId: string, summary: Record<string, unknown>) =>
-    request(`/assessments/${assessmentId}/summary`, {
-      method: 'POST',
-      body: JSON.stringify(summary),
-    }),
-  listAssessments: (childId: string) =>
-    request<Array<{ id: string; completed_at?: string; status: string }>>(
-      `/children/${childId}/assessments`
+    request<{ id: string }>(
+      `/assessments/${assessmentId}/games/${gameId}/trials`,
+      json('POST', trial)
     ),
+  createEvent: (trialId: string, event: Record<string, unknown>) =>
+    request(`/trials/${trialId}/events`, json('POST', event)),
+  createSummary: (assessmentId: string, summary: Record<string, unknown>) =>
+    request(`/assessments/${assessmentId}/summary`, json('POST', summary)),
+  listAssessments: (childId: string, limit = 50) =>
+    request<AssessmentRecord[]>(`/children/${childId}/assessments${query({ limit })}`),
   getProfile: (sessionId: string) =>
     request<{
       session_id: string;
@@ -205,22 +322,13 @@ export const api = {
       model: { status: string; limitations: string[] };
       limitations: string[];
     }>(`/ml/profile/session/${sessionId}`),
-  getEducatorLearners: (educatorId?: string) =>
-    request<EducatorLearnerSummary[]>(`/educator/learners`, {
-      headers: educatorId ? { 'X-User-Id': educatorId } : undefined,
-    }),
-  getEducatorLearnerSummary: (childId: string, educatorId?: string) =>
-    request<EducatorLearnerSummary>(`/educator/learners/${childId}/summary`, {
-      headers: educatorId ? { 'X-User-Id': educatorId } : undefined,
-    }),
-  authorizeEducatorLearner: (childId: string, educatorId?: string) =>
-    request<{ child_id: string; educator_id: string; status: string; authorized: boolean }>(
-      `/educator/learners/${childId}/authorize`,
-      {
-        method: 'POST',
-        headers: educatorId ? { 'X-User-Id': educatorId } : undefined,
-      }
-    ),
+
+  // Educator workspace (role checked server-side)
+  getEducatorLearners: () => request<EducatorLearnerSummary[]>('/educator/learners'),
+  getEducatorLearnerSummary: (childId: string) =>
+    request<EducatorLearnerSummary>(`/educator/learners/${childId}/summary`),
+  leaveEducatorLearner: (childId: string) =>
+    request<void>(`/educator/learners/${childId}/revoke`, json('POST')),
 
   getPersonalizationProfile: (childId: string) =>
     request<PersonalizationProfile>(`/personalization/children/${childId}/profile`),
@@ -228,73 +336,60 @@ export const api = {
     request<DifficultyDecision>(`/personalization/children/${childId}/difficulty/${gameId}`),
   getPersonalizationRecommendations: (childId: string, language?: string) =>
     request<PersonalizationRecommendations>(
-      `/personalization/children/${childId}/recommendations${language ? `?language=${language}` : ''}`
+      `/personalization/children/${childId}/recommendations${query({ language })}`
     ),
   getPersonalizationProgress: (childId: string) =>
     request<ProgressResponse>(`/personalization/children/${childId}/progress`),
 
   listRemedialActivities: (childId?: string, language?: string) =>
-    request<PracticeActivity[]>(
-      `/remedial/activities${[childId && `child_id=${childId}`, language && `language=${language}`].filter(Boolean).join('&') ? `?${[childId && `child_id=${childId}`, language && `language=${language}`].filter(Boolean).join('&')}` : ''}`
-    ),
+    request<PracticeActivity[]>(`/remedial/activities${query({ child_id: childId, language })}`),
   getNextPracticeActivity: (childId: string, language?: string, capabilitiesOverride?: string) =>
     request<NextPracticeActivity>(
-      `/remedial/children/${childId}/next-activity${[language && `language=${language}`, capabilitiesOverride && `capabilities=${capabilitiesOverride}`].filter(Boolean).join('&') ? `?${[language && `language=${language}`, capabilitiesOverride && `capabilities=${capabilitiesOverride}`].filter(Boolean).join('&')}` : ''}`
+      `/remedial/children/${childId}/next-activity${query({ language, capabilities: capabilitiesOverride })}`
     ),
   getSpeechTasks: (activityId: string, count = 5, seed = 0, language?: string) =>
     request<SpeechTasksResponse>(
-      `/remedial/activities/${activityId}/speech-tasks?count=${count}&seed=${seed}${language ? `&language=${language}` : ''}`
+      `/remedial/activities/${activityId}/speech-tasks${query({ count, seed, language })}`
     ),
   createPracticeSession: (payload: {
     child_id: string;
     activity_id: string;
     difficulty?: number | null;
     language?: string;
-  }) =>
-    request<PracticeSessionStatus>('/remedial/sessions', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
+  }) => request<PracticeSessionStatus>('/remedial/sessions', json('POST', payload)),
   startPracticeSession: (sessionId: string) =>
-    request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/start`, { method: 'POST' }),
+    request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/start`, json('POST')),
   recordPracticeEvent: (
     sessionId: string,
     event: { event_type: string; payload: Record<string, unknown> }
   ) =>
-    request<Record<string, unknown>>(`/remedial/sessions/${sessionId}/events`, {
-      method: 'POST',
-      body: JSON.stringify(event),
-    }),
+    request<Record<string, unknown>>(`/remedial/sessions/${sessionId}/events`, json('POST', event)),
   completePracticeSession: (sessionId: string) =>
-    request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/complete`, { method: 'POST' }),
+    request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/complete`, json('POST')),
   abandonPracticeSession: (sessionId: string) =>
-    request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/abandon`, { method: 'POST' }),
+    request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/abandon`, json('POST')),
   getPracticeProgress: (childId: string) =>
     request<PracticeProgress>(`/remedial/children/${childId}/practice/progress`),
 
   getGazeStatus: () => request<GazeStatusResponse>('/gaze/status'),
   postGazeBatch: (trialId: string, batch: GazeBatchPayload) =>
-    request<GazeBatchResponse>(`/gaze/trials/${trialId}/gaze`, {
-      method: 'POST',
-      body: JSON.stringify(batch),
-    }),
-  getGazeBatch: (trialId: string) => request<GazeBatchResponse>(`/gaze/trials/${trialId}/gaze`),
+    request<GazeBatchResponse>(`/gaze/trials/${trialId}/gaze`, json('POST', batch)),
   storeSpeechFeatures: (sessionId: string, features: Record<string, unknown>) =>
-    request<Record<string, unknown>>(`/speech/sessions/${sessionId}/features`, {
-      method: 'POST',
-      body: JSON.stringify({ features }),
-    }),
+    request<Record<string, unknown>>(
+      `/speech/sessions/${sessionId}/features`,
+      json('POST', { features })
+    ),
   getSpeechFeatures: (sessionId: string) =>
     request<Record<string, unknown>>(`/speech/sessions/${sessionId}/features`),
   createSpeechSession: (payload: SpeechSessionCreatePayload) =>
-    request<{ id: string; session_id: string; trial_id?: string | null }>('/speech/sessions', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
+    request<{ id: string; session_id: string; trial_id?: string | null }>(
+      '/speech/sessions',
+      json('POST', payload)
+    ),
   getModalitySummary: (assessmentId: string) =>
     request<ModalitySummaryResponse>(`/assessments/${assessmentId}/modality-summary`),
 
-  // Speech demo endpoints
+  // Speech demo (local providers only; audio is deleted after transcription)
   getSpeechDemoProviders: () =>
     request<{
       current_provider: string;
@@ -316,31 +411,37 @@ export const api = {
   getSpeechDemoModels: () =>
     request<{ huggingface_whisper: unknown; faster_whisper: unknown }>('/speech/demo/models'),
 
-  // Auth methods
+  // Auth
   register: (payload: UserRegister) =>
-    request<UserResponse>('/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-  login: (payload: UserLogin) =>
-    request<TokenResponse>('/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-  logout: () =>
-    request<{ message: string }>('/api/auth/logout', { method: 'POST' }),
-  refreshToken: (refreshToken?: string) =>
-    request<TokenResponse>('/api/auth/refresh', {
-      method: 'POST',
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    }),
-  getCurrentUser: () =>
-    request<CurrentUser>('/api/auth/me'),
+    request<UserResponse>('/auth/register', json('POST', payload)),
+  login: (payload: UserLogin) => request<TokenResponse>('/auth/login', json('POST', payload)),
+  logout: () => request<void>('/auth/logout', { method: 'POST', headers: { ...CSRF_HEADER } }),
+  logoutEverywhere: () => request<void>('/auth/logout-all', json('POST')),
+  getCurrentUser: () => request<CurrentUser>('/auth/me'),
   changePassword: (payload: { current_password: string; new_password: string }) =>
-    request<{ message: string }>('/api/auth/change-password', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
+    request<TokenResponse>('/auth/change-password', json('POST', payload)),
+
+  // Privacy
+  getDataSummary: () => request<DataSummary>('/privacy/data-summary'),
+  exportData: () => requestBlob('/privacy/export'),
+  deleteAccount: (password: string) =>
+    request<void>('/privacy/account', json('DELETE', { password })),
+
+  // Lexi
+  getChatStatus: () => request<ChatStatus>('/chat/status'),
+  listConversations: () => request<Conversation[]>('/chat/conversations'),
+  createConversation: () => request<Conversation>('/chat/conversations', json('POST', {})),
+  deleteConversation: (conversationId: string) =>
+    request<void>(`/chat/conversations/${conversationId}`, json('DELETE')),
+  listMessages: (conversationId: string, before?: string) =>
+    request<MessagePage>(
+      `/chat/conversations/${conversationId}/messages${query({ before, limit: 50 })}`
+    ),
+  sendMessage: (conversationId: string, content: string, clientMessageId: string) =>
+    request<ChatExchange>(
+      `/chat/conversations/${conversationId}/messages`,
+      json('POST', { content, client_message_id: clientMessageId })
+    ),
 };
 
 export interface PracticeActivity {
@@ -405,13 +506,13 @@ export interface ModalitySummaryResponse {
     trial_count: number;
     sample_count: number;
     fixation_count: number;
-    trial_coverage: number;
-    aoi_coverage: number;
+    trial_coverage: number | null;
+    aoi_coverage: number | null;
   };
   speech: {
     recorded: boolean;
     trial_count: number;
-    trial_coverage: number;
+    trial_coverage: number | null;
     transcript_available: number;
     response_timing_available: number;
     asr_available: number;
@@ -465,19 +566,23 @@ export interface PracticeProgress {
   note: string;
 }
 
+/** Mirrors backend app/gaze/schemas.py GazeStatusResponse. */
 export interface GazeStatusResponse {
-  recording: boolean;
-  total_samples: number;
-  trialsWithSamples: number;
-  schema_version: string;
+  modality: 'gaze';
+  available: boolean;
+  sample_schema_version: string;
+  message: string;
+  raw_media_stored: boolean;
 }
 
+/** Mirrors backend app/gaze/schemas.py GazeBatchResponse. */
 export interface GazeBatchResponse {
+  trial_id: string;
   samples_created: number;
   samples_rejected: number;
   fixations_created: number;
+  fixations_rejected: number;
   quality: string;
-  message: string;
 }
 
 export interface GazeBatchPayload {
@@ -505,27 +610,24 @@ export interface GazeBatchPayload {
   }>;
 }
 
-// Auth interfaces
+// Auth
 export interface TokenResponse {
   access_token: string;
-  refresh_token: string;
+  token_type: string;
   expires_in: number;
 }
+
+export type UserRole = 'parent' | 'educator' | 'admin';
 
 export interface CurrentUser {
   id: string;
   email: string;
   display_name: string;
-  role: string;
+  role: UserRole;
   is_active: boolean;
 }
 
-export interface UserResponse {
-  id: string;
-  email: string;
-  display_name: string;
-  role: string;
-  is_active: boolean;
+export interface UserResponse extends CurrentUser {
   created_at: string;
 }
 
@@ -533,10 +635,86 @@ export interface UserRegister {
   email: string;
   password: string;
   display_name: string;
-  role?: string;
+  role?: 'parent' | 'educator';
 }
 
 export interface UserLogin {
   email: string;
   password: string;
+}
+
+// Children
+export interface ChildProfile {
+  id: string;
+  display_name: string;
+  birth_year?: number | null;
+  created_at: string;
+}
+
+export interface EducatorGrant {
+  child_id: string;
+  educator_id: string;
+  educator_display_name: string | null;
+  status: string;
+  created_at: string;
+}
+
+export interface AssessmentRecord {
+  id: string;
+  child_id: string;
+  version: string;
+  language: string;
+  status: string;
+  created_at?: string | null;
+  started_at?: string | null;
+  completed_at?: string | null;
+}
+
+// Privacy
+export interface DataSummary {
+  user: { id: string; email: string; role: string; created_at: string | null };
+  children: {
+    count: number;
+    details: Array<{ id: string; display_name: string; birth_year: number | null }>;
+  };
+  assessments: { count: number };
+  trials: { count: number };
+  interaction_events: { count: number };
+  speech_sessions: { count: number };
+  practice_sessions: { count: number };
+  lexi_conversations: { count: number };
+  retention: string;
+}
+
+// Lexi
+export interface ChatStatus {
+  configured: boolean;
+  provider: string;
+  model: string | null;
+}
+
+export interface Conversation {
+  id: string;
+  title: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  conversation_id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  created_at: string;
+}
+
+export interface MessagePage {
+  messages: ChatMessage[];
+  has_more: boolean;
+}
+
+export interface ChatExchange {
+  conversation: Conversation;
+  user_message: ChatMessage;
+  assistant_message: ChatMessage;
 }

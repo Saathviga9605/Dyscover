@@ -164,8 +164,13 @@ function evaluateSpeechTrial(trial: SpeechTrial, response: SpeechResponseRecord)
   );
 
   const features = numericFeatures(evidence);
+  // A recognition failure or silence says nothing about reading: such trials are
+  // stored unscored rather than as wrong answers.
+  const scorable = !response.errorType && Boolean(response.speechDetected);
   const metadata: Record<string, unknown> = {
     modality: 'speech',
+    scorable,
+    unscored_reason: scorable ? undefined : (response.errorType ?? 'no-speech'),
     evidence: { ...evidence, transcript: evidence.transcript },
     features,
     event_payload: responseSubmittedPayload(evidence),
@@ -173,9 +178,9 @@ function evaluateSpeechTrial(trial: SpeechTrial, response: SpeechResponseRecord)
   };
 
   return {
-    correct: grade.correct,
-    score: grade.correct ? 1 : 0,
-    actualResponse: grade.transcript,
+    correct: scorable && grade.correct,
+    score: scorable && grade.correct ? 1 : 0,
+    actualResponse: scorable ? grade.transcript : null,
     metadata,
   };
 }

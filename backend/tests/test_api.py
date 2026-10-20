@@ -1,14 +1,12 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.helpers import outcome, trial_payload
+
 from app.main import app
 
 
 
-@pytest.fixture
-def client() -> TestClient:
-    with TestClient(app) as test_client:
-        yield test_client
 
 
 def _create_assessment(client: TestClient, version: str = "stage-2.0") -> dict:
@@ -20,19 +18,9 @@ def _create_assessment(client: TestClient, version: str = "stage-2.0") -> dict:
 
 
 def _create_trial(client: TestClient, assessment_id: str, game_id: str, trial_number: int = 1, **overrides) -> dict:
-    payload = {
-        "trial_number": trial_number,
-        "stimulus": {"target": "b", "options": ["b", "d"]},
-        "expected_response": "b",
-        "game_version": "1.0.0",
-        "domain": "visual-symbol-discrimination",
-        "difficulty": 2,
-        "metadata": {"trial": trial_number},
-        "correctness": True,
-        "reaction_time_ms": 842,
-        "completed_at": "2026-01-01T12:00:05.000Z",
-        **overrides,
-    }
+    payload = trial_payload(game_id, trial_number, overrides.pop("correctness", True))
+    payload.update({"domain": "visual-symbol-discrimination", "metadata": {"trial": trial_number}, "reaction_time_ms": 842})
+    payload.update(overrides)
     response = client.post(f"/api/assessments/{assessment_id}/games/{game_id}/trials", json=payload)
     assert response.status_code == 201
     return response.json()
@@ -70,13 +58,11 @@ def test_structured_trial_event_and_summary_contract(client: TestClient) -> None
     assessment = client.post("/api/assessments", json={"child_id": child["id"], "version": "stage-2.0"}).json()
     trial = client.post(f"/api/assessments/{assessment['id']}/games/letter-detective/trials", json={
         "trial_number": 1,
-        "stimulus": {"target": "b", "options": ["b", "d"]},
-        "expected_response": "b",
         "actual_response": "b",
         "game_version": "1.0.0",
         "domain": "visual-symbol-discrimination",
         "difficulty": 2,
-        "correctness": True,
+        **outcome("letter-detective", True),
         "reaction_time_ms": 842,
         "metadata": {"distractorCount": 1},
     })
@@ -107,8 +93,10 @@ def test_ml_profile_extracts_and_persists_observed_features(client: TestClient) 
     assert features.json()["feature_schema_version"] == "1.0"
 
 
-def test_ml_quality_has_explicit_governance_state(client: TestClient) -> None:
-    quality = client.get("/api/ml/quality")
+def test_ml_quality_has_explicit_governance_state(client: TestClient, make_client) -> None:
+    # Platform-wide aggregate: parents are refused, operator accounts allowed.
+    assert client.get("/api/ml/quality").status_code == 403
+    quality = make_client("admin").get("/api/ml/quality")
     assert quality.status_code == 200
     assert quality.json()["status"] in {"ok", "warning", "invalid"}
     assert "warnings" in quality.json()
@@ -160,7 +148,8 @@ def test_five_game_telemetry_paths_accepted(client: TestClient) -> None:
     }
     for game_id, spec in representative.items():
         assessment = _create_assessment(client)
-        trial = _create_trial(client, assessment["id"], game_id, stimulus=spec["stimulus"], expected_response=spec["expected_response"], domain=spec["domain"])
+        trial = _create_trial(client, assessment["id"], game_id, stimulus=spec["stimulus"], expected_response=spec["expected_response"], actual_response=spec["expected_response"], domain=spec["domain"])
+        assert trial["correctness"] is True and trial["metadata"]["scoring"] == "server_verified", game_id
         event = client.post(f"/api/trials/{trial['id']}/events", json={
             "event_type": "TRIAL_COMPLETED",
             "session_id": assessment["id"],

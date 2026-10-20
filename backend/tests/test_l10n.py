@@ -28,10 +28,6 @@ from app.l10n import (
 from app.main import app
 
 
-@pytest.fixture
-def client() -> TestClient:
-    with TestClient(app) as test_client:
-        yield test_client
 
 
 def _create_child(client: TestClient, name: str = "Explorer") -> dict:

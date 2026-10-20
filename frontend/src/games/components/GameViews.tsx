@@ -234,6 +234,8 @@ export function WordMazeView({
   const { t } = useLanguage();
   const [found, setFound] = useState<string[]>([]);
   const [path, setPath] = useState<string[]>([]);
+  const [chosenTarget, setChosenTarget] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
   const [message, setMessage] = useState(() => t('game.maze.chooseWord'));
   const cells = trial.stimulus.grid.flatMap((row, rowIndex) =>
     row.map((letter, columnIndex) => ({ letter, id: `${rowIndex},${columnIndex}` }))
@@ -241,8 +243,16 @@ export function WordMazeView({
   const normalizedPaths = Object.entries(trial.stimulus.paths).map(
     ([word, targetPath]) => [word.toUpperCase(), targetPath] as const
   );
+  const remaining = trial.stimulus.targets.filter(target => !found.includes(target));
   const selectedTarget =
-    trial.stimulus.targets.find(target => !found.includes(target)) ?? trial.stimulus.targets[0];
+    chosenTarget && !found.includes(chosenTarget)
+      ? chosenTarget
+      : (remaining[0] ?? trial.stimulus.targets[0]);
+  const finish = (words: string[]) => {
+    if (done) return;
+    setDone(true);
+    onResponse(words);
+  };
   const isAdjacent = (first: string, second: string) => {
     const [firstRow, firstColumn] = first.split(',').map(Number);
     const [secondRow, secondColumn] = second.split(',').map(Number);
@@ -253,7 +263,7 @@ export function WordMazeView({
     );
   };
   const selectCell = (id: string) => {
-    if (found.includes(selectedTarget)) return;
+    if (done || found.includes(selectedTarget)) return;
     if (path.includes(id)) return;
     if (path.length > 0 && !isAdjacent(path[path.length - 1], id)) {
       setMessage(t('game.maze.notAdjacent'));
@@ -274,13 +284,14 @@ export function WordMazeView({
     if (match) {
       const nextFound = [...found, match[0]];
       setFound(nextFound);
+      setChosenTarget(null);
       setPath([]);
       setMessage(
         nextFound.length === trial.stimulus.targets.length
           ? t('game.maze.foundAll')
           : t('game.maze.niceFinding')
       );
-      if (nextFound.length === trial.stimulus.targets.length) onResponse(nextFound);
+      if (nextFound.length === trial.stimulus.targets.length) finish(nextFound);
     } else if (nextPath.length >= selectedTarget.length) {
       setMessage(t('game.maze.almost'));
       setPath([]);
@@ -288,9 +299,13 @@ export function WordMazeView({
     }
   };
   const nextWord = () => {
+    // Move on to the next word that has not been found yet.
+    const index = remaining.indexOf(selectedTarget);
+    const next = remaining[(index + 1) % remaining.length] ?? selectedTarget;
+    setChosenTarget(next);
     setPath([]);
-    setMessage(t('game.maze.traceNext'));
-    emit('BUTTON_CLICKED', { action: 'next_word', target: selectedTarget });
+    setMessage(t('game.maze.findTarget', { target: next }));
+    emit('BUTTON_CLICKED', { action: 'next_word', from: selectedTarget, to: next });
   };
   return (
     <div className="game-card-board maze-board">
@@ -300,9 +315,13 @@ export function WordMazeView({
           <button
             className={`maze-target ${found.includes(target) ? 'found' : target === selectedTarget ? 'current' : ''}`}
             key={target}
+            disabled={done || found.includes(target)}
+            aria-pressed={target === selectedTarget && !found.includes(target)}
             onClick={() => {
+              setChosenTarget(target);
               setPath([]);
               setMessage(t('game.maze.findTarget', { target }));
+              emit('OPTION_SELECTED', { action: 'choose_target', target });
             }}
             aria-label={t('game.maze.findTarget', { target })}
           >
@@ -318,6 +337,7 @@ export function WordMazeView({
           <button
             className={`maze-cell ${path.includes(cell.id) ? 'path' : ''}`}
             key={cell.id}
+            disabled={done}
             onClick={() => selectCell(cell.id)}
             aria-label={t('game.letter.letterOption', { option: cell.letter })}
           >
@@ -328,11 +348,24 @@ export function WordMazeView({
       <p className="maze-help" role="status">
         {message}
       </p>
-      {found.length > 0 && found.length < trial.stimulus.targets.length && (
-        <Button secondary onClick={nextWord}>
-          {t('game.maze.nextWord')} <span>→</span>
-        </Button>
-      )}
+      <div className="form-actions">
+        {remaining.length > 1 && !done && (
+          <Button secondary onClick={nextWord}>
+            {t('game.maze.nextWord')} <span aria-hidden="true">→</span>
+          </Button>
+        )}
+        {!done && remaining.length > 0 && (
+          <Button
+            secondary
+            onClick={() => {
+              emit('BUTTON_CLICKED', { action: 'finish_early', found: found.length });
+              finish(found);
+            }}
+          >
+            {t('game.maze.finish')}
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

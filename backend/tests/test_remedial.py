@@ -8,6 +8,8 @@ the public API and assert the assessment/practice boundary explicitly.
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.helpers import outcome, trial_payload
+
 from app.main import app
 
 PROHIBITED_WORDS = (
@@ -25,10 +27,6 @@ PROHIBITED_WORDS = (
 )
 
 
-@pytest.fixture
-def client() -> TestClient:
-    with TestClient(app) as test_client:
-        yield test_client
 
 
 def _create_child(client: TestClient) -> dict:
@@ -421,13 +419,11 @@ def test_s_assessment_telemetry_still_works_after_practice(client: TestClient) -
         f"/api/assessments/{assessment['id']}/games/sequence-quest/trials",
         json={
             "trial_number": 1,
-            "stimulus": {"sequence": ["a", "b"]},
-            "expected_response": ["a", "b"],
             "game_version": "1.0.0",
             "domain": "working-memory",
             "difficulty": 1,
             "metadata": {},
-            "correctness": True,
+            **outcome("sequence-quest", True),
             "reaction_time_ms": 400,
             "completed_at": "2026-01-01T12:30:00.000Z",
         },

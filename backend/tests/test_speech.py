@@ -44,9 +44,8 @@ def test_nlp_features_are_deterministic():
     assert result["text_type_token_ratio"]["value"] == 2 / 3
 
 
-def test_speech_session_stores_reference_metadata_without_audio():
-    client = TestClient(app)
-    with client:
+def test_speech_session_stores_reference_metadata_without_audio(client):
+    if True:  # kept indentation from the former TestClient context
         child = client.post("/api/children", json={"display_name": "Reader", "birth_year": 2018}).json()
         assessment = client.post("/api/assessments", json={"child_id": child["id"], "version": "stage-4.0"}).json()
         response = client.post("/api/speech/sessions", json={"session_id": assessment["id"], "task": {"task_id": "fixture", "expected_text": "the cat sat"}, "audio_available": False})
@@ -55,9 +54,8 @@ def test_speech_session_stores_reference_metadata_without_audio():
         fetched = client.get(f"/api/speech/sessions/{response.json()['id']}")
         assert fetched.status_code == 200
 
-def test_speech_api_exposes_explicit_unavailable_state():
-    client = TestClient(app)
-    with client:
+def test_speech_api_exposes_explicit_unavailable_state(client):
+    if True:  # kept indentation from the former TestClient context
         status_response = client.get("/api/speech/status")
         assert status_response.status_code == 200
         assert status_response.json()["state"] == "NOT_CONFIGURED"

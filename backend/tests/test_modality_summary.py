@@ -3,13 +3,11 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.helpers import outcome, trial_payload
+
 from app.main import app
 
 
-@pytest.fixture
-def client() -> TestClient:
-    with TestClient(app) as test_client:
-        yield test_client
 
 
 def _setup(client: TestClient, game_id: str = "letter-detective") -> dict:
@@ -19,12 +17,11 @@ def _setup(client: TestClient, game_id: str = "letter-detective") -> dict:
         f"/api/assessments/{assessment['id']}/games/{game_id}/trials",
         json={
             "trial_number": 1,
-            "stimulus": {"target": "b"},
-            "expected_response": "b",
             "game_version": "1.0.0",
             "domain": "visual-symbol-discrimination",
             "difficulty": 1,
-            "correctness": True,
+            # Unanswered: no response/transcript is recorded on the trial itself.
+            **outcome(game_id, None),
             "reaction_time_ms": 700,
             "completed_at": "2026-01-01T12:00:05.000Z",
         },

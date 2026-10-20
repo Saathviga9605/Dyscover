@@ -1,75 +1,54 @@
 from logging.config import fileConfig
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+import os
+import sys
 
 from alembic import context
+from sqlalchemy import engine_from_config, pool
 
-import sys
-import os
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from app.database import Base
-from app.models import User, ChildProfile, AssessmentSession, GameSession, Trial, InteractionEvent, GazeSample, Fixation, FeatureVector, SessionFeatureVector, AssessmentSummary, SpeechSession, PracticeSession, PracticeEvent, EducatorLearnerAssignment
+from app.core.config import get_settings  # noqa: E402
+from app.database import Base  # noqa: E402
+import app.models  # noqa: E402,F401  (registers every table on Base.metadata)
 
-# this is the Alembic Config object, which provides
-# access to the values within the .ini file in use.
 config = context.config
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+if config.config_file_name is not None and config.attributes.get("configure_logger", True):
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
-# add your model's MetaData object here
-# for 'autogenerate' support
+# An explicitly supplied URL (tests, programmatic upgrades) wins over app settings.
+if not config.attributes.get("connection") and config.get_main_option("sqlalchemy.url") in (None, "", "driver://user:pass@localhost/dbname"):
+    config.set_main_option("sqlalchemy.url", get_settings().database_url.replace("%", "%%"))
+
 target_metadata = Base.metadata
 
-# other values from the config, defined by the needs of env.py,
-# can be acquired:
-# my_important_option = config.get_main_option("my_important_option")
-# ... etc.
+
+def _configure(**kwargs) -> None:
+    url = config.get_main_option("sqlalchemy.url") or ""
+    context.configure(
+        target_metadata=target_metadata,
+        render_as_batch=url.startswith("sqlite"),
+        compare_type=True,
+        **kwargs,
+    )
 
 
 def run_migrations_offline() -> None:
-    """Run migrations in 'offline' mode.
-
-    This configures the context with just a URL
-    and not an Engine, though an Engine is acceptable
-    here as well.  By skipping the Engine creation
-    we don't even need a DBAPI to be available.
-
-    """
-    url = config.get_main_option("sqlalchemy.url")
-    context.configure(
-        url=url,
-        target_metadata=target_metadata,
-        literal_binds=True,
-        dialect_opts={"paramstyle": "named"},
-    )
-
+    _configure(url=config.get_main_option("sqlalchemy.url"), literal_binds=True, dialect_opts={"paramstyle": "named"})
     with context.begin_transaction():
         context.run_migrations()
 
 
 def run_migrations_online() -> None:
-    """Run migrations in 'online' mode.
-
-    In this scenario we need to create an Engine
-    and associate a connection with the context.
-
-    """
-    connectable = engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
-
+    connection = config.attributes.get("connection")
+    if connection is not None:
+        _configure(connection=connection)
+        with context.begin_transaction():
+            context.run_migrations()
+        return
+    connectable = engine_from_config(config.get_section(config.config_ini_section, {}), prefix="sqlalchemy.", poolclass=pool.NullPool)
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
-
+        _configure(connection=connection)
         with context.begin_transaction():
             context.run_migrations()
 

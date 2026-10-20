@@ -104,10 +104,13 @@ export function GameIntro({
   title,
   instructions,
   onStart,
+  startBlockedReason,
 }: {
   title: string;
   instructions: string[];
   onStart: () => void;
+  /** When set, the start button is disabled and this explains why. */
+  startBlockedReason?: string;
 }) {
   const { t } = useLanguage();
   return (
@@ -116,9 +119,18 @@ export function GameIntro({
       <span className="child-kicker">{t('game.intro.kicker')}</span>
       <h1>{title}</h1>
       <p>{instructions.join(' ')}</p>
-      <Button onClick={onStart}>
-        {t('game.intro.start')} <span>→</span>
+      <Button
+        onClick={onStart}
+        disabled={Boolean(startBlockedReason)}
+        aria-describedby={startBlockedReason ? 'game-start-blocked' : undefined}
+      >
+        {t('game.intro.start')} <span aria-hidden="true">→</span>
       </Button>
+      {startBlockedReason && (
+        <p id="game-start-blocked" className="form-hint">
+          {startBlockedReason}
+        </p>
+      )}
     </div>
   );
 }

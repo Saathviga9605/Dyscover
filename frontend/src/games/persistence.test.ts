@@ -3,7 +3,9 @@ import { flushAssessmentQueue, persistEvent, persistTrial } from './persistence'
 import { enqueue, readQueue, readTrialIdMap } from './engine';
 import type { AssessmentEvent, Trial } from './engine';
 
-const baseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api';
+const baseUrl = import.meta.env.VITE_API_URL ?? '/api';
+const jsonResponse = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
 function stubLocalStorage() {
   const store = new Map<string, string>();
@@ -76,12 +78,8 @@ describe('telemetry persistence', () => {
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
         if (url.endsWith('/trials'))
-          return {
-            ok: true,
-            status: 201,
-            json: async () => ({ id: 'backend-uuid-1', trial_number: 1 }),
-          };
-        return { ok: false, status: 404, json: async () => ({ detail: 'Not found' }) };
+          return jsonResponse(201, { id: 'backend-uuid-1', trial_number: 1 });
+        return jsonResponse(404, { detail: 'Not found' });
       })
     );
     const backendId = await persistTrial('assessment-uuid', 'word-maze', trialPayload);
@@ -94,7 +92,7 @@ describe('telemetry persistence', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => {
-        return { ok: false, status: 502, json: async () => ({ detail: 'Bad gateway' }) };
+        return jsonResponse(502, { detail: 'Bad gateway' });
       })
     );
     await persistEvent('word-maze_trial_1_abc', eventPayload);
@@ -119,10 +117,10 @@ describe('telemetry persistence', () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith('/trials') && url.includes('assessment-uuid'))
-        return { ok: true, status: 201, json: async () => ({ id: 'backend-uuid-7' }) };
+        return jsonResponse(201, { id: 'backend-uuid-7' });
       if (url.includes('/trials/backend-uuid-7/events'))
-        return { ok: true, status: 201, json: async () => ({ id: 'event-1' }) };
-      return { ok: false, status: 404, json: async () => ({ detail: 'Not found' }) };
+        return jsonResponse(201, { id: 'event-1' });
+      return jsonResponse(404, { detail: 'Not found' });
     });
     vi.stubGlobal('fetch', fetchMock);
 

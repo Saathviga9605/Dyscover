@@ -1,25 +1,26 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, NavLink, Route, Routes } from 'react-router-dom';
 import {
   AccessibilityPanel,
   Badge,
-  Button,
   Card,
   Mascot,
   MascotBubble,
   PageHeader,
-  ProgressBar,
   SectionHeader,
 } from '../components/ui';
 import { GameRunner } from '../games/GameRunner';
 import { SpeechAssessmentRunner } from '../games/SpeechAssessmentRunner';
 import { ChildAssessmentHub } from './ChildAssessmentHub';
 import { PracticeRunner } from '../games/practice/PracticeRunner';
-import { LexiWidget } from '../chatbot/LexiWidget';
+import { LexiWidget, openLexi } from '../chatbot/LexiWidget';
 import { ParentDashboard } from './ParentDashboard';
 import { EducatorDashboard } from './EducatorDashboard';
 import { LanguageProvider, LanguageSwitcher, useLanguage } from '../l10n';
-import { AuthProvider, LoginPage, RegisterPage, useAuth, UserMenu } from '../auth';
+import { AuthProvider, LoginPage, RegisterPage, RequireAuth, useAuth, UserMenu } from '../auth';
+import { AccountPage } from './AccountPage';
+import { ChildProvider, useChildren } from './ChildContext';
+import { RequireChild } from './RequireChild';
 import type { MessageKey } from '../l10n/messages/en';
 
 const nav: ReadonlyArray<readonly [string, MessageKey]> = [
@@ -30,14 +31,21 @@ const nav: ReadonlyArray<readonly [string, MessageKey]> = [
 
 function Layout({ children }: { children: React.ReactNode }) {
   const { t } = useLanguage();
+  const { user } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const closeMenu = () => setMenuOpen(false);
 
   return (
     <div className="app-shell">
-      <nav className={`site-nav ${menuOpen ? 'menu-open' : ''}`}>
-        <Link className="brand" to="/" onClick={() => setMenuOpen(false)}>
-          <span className="brand-mark">✦</span>
+      <a className="skip-link" href="#main-content">
+        {t('nav.skipToContent')}
+      </a>
+      <nav className={`site-nav ${menuOpen ? 'menu-open' : ''}`} aria-label={t('nav.mainAria')}>
+        <Link className="brand" to="/" onClick={closeMenu}>
+          <span className="brand-mark" aria-hidden="true">
+            ✦
+          </span>
           <span>Dyscover</span>
         </Link>
         <button
@@ -62,25 +70,23 @@ function Layout({ children }: { children: React.ReactNode }) {
             </NavLink>
           ))}
           <span className="nav-divider" />
-          <NavLink
-            to="/parent/dashboard"
-            onClick={() => setMenuOpen(false)}
-            className="parent-link"
-          >
-            {t('nav.forParents')}
-          </NavLink>
-          <NavLink
-            to="/educator/dashboard"
-            onClick={() => setMenuOpen(false)}
-            className="parent-link"
-          >
-            Educators
-          </NavLink>
-          <Link className="nav-cta" to="/child/home" onClick={() => setMenuOpen(false)}>
-            {t('nav.startScreening')} <span>↗</span>
-          </Link>
+          {user?.role !== 'educator' && (
+            <NavLink to="/parent/dashboard" onClick={closeMenu} className="parent-link">
+              {t('nav.forParents')}
+            </NavLink>
+          )}
+          {user?.role !== 'parent' && (
+            <NavLink to="/educator/dashboard" onClick={closeMenu} className="parent-link">
+              {t('nav.forEducators')}
+            </NavLink>
+          )}
+          {user?.role !== 'educator' && (
+            <Link className="nav-cta" to="/child/home" onClick={closeMenu}>
+              {t('nav.startScreening')} <span aria-hidden="true">↗</span>
+            </Link>
+          )}
           <LanguageSwitcher />
-          <UserMenu />
+          <UserMenu onNavigate={closeMenu} />
           <button
             className="settings-button"
             onClick={() => setSettingsOpen(value => !value)}
@@ -92,7 +98,9 @@ function Layout({ children }: { children: React.ReactNode }) {
         </div>
         <AccessibilityPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
       </nav>
-      <main className="main">{children}</main>
+      <main className="main" id="main-content" tabIndex={-1}>
+        {children}
+      </main>
       <footer className="footer">
         <div>
           <Link className="brand footer-brand" to="/">
@@ -294,10 +302,7 @@ function Home() {
           <h2>{t('home.lexiTitle')}</h2>
           <p>{t('home.lexiCopy')}</p>
         </div>
-        <button
-          className="button button-light"
-          onClick={() => document.querySelector<HTMLButtonElement>('.lexi-toggle')?.click()}
-        >
+        <button type="button" className="button button-light" onClick={openLexi}>
           {t('home.lexiCta')} <span>→</span>
         </button>
       </section>
@@ -507,9 +512,11 @@ function Research() {
   );
 }
 
+const SUPPORT_EMAIL = 'support@dyscover.org';
+
 function Contact() {
   const { t } = useLanguage();
-  const [sent, setSent] = useState(false);
+  const [opened, setOpened] = useState(false);
   return (
     <>
       <section className="split-hero contact-hero">
@@ -523,25 +530,36 @@ function Contact() {
             <span>◌</span>
             <span>⌁</span>
           </div>
-          <p className="contact-email">support@dyscover.org</p>
+          <p className="contact-email">
+            <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+          </p>
         </div>
         <Card className="contact-form-card">
-          {sent ? (
-            <div className="form-success">
-              <Mascot mood="happy" size="small" />
-              <h2>{t('contact.successTitle')}</h2>
-              <p>{t('contact.successCopy')}</p>
-              <button className="text-link" onClick={() => setSent(false)}>
-                {t('contact.sendAnother')} <span>↗</span>
+          {opened ? (
+            <div className="form-success" role="status">
+              <Mascot mood="happy" size="small" decorative />
+              <h2>{t('contact.openedTitle')}</h2>
+              <p>{t('contact.openedCopy', { email: SUPPORT_EMAIL })}</p>
+              <button type="button" className="text-link" onClick={() => setOpened(false)}>
+                {t('contact.sendAnother')} <span aria-hidden="true">↗</span>
               </button>
             </div>
           ) : (
             <form
               onSubmit={event => {
                 event.preventDefault();
-                setSent(true);
+                // There is no message backend: hand the message to the user's own email app.
+                const data = new FormData(event.currentTarget);
+                const name = String(data.get('name') ?? '');
+                const subject = encodeURIComponent(`Dyscover — ${name}`);
+                const body = encodeURIComponent(
+                  `${String(data.get('message') ?? '')}\n\n— ${name} <${String(data.get('email') ?? '')}>`
+                );
+                window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${subject}&body=${body}`;
+                setOpened(true);
               }}
             >
+              <p className="form-hint">{t('contact.mailtoNote')}</p>
               <span className="eyebrow">{t('contact.formTitle')}</span>
               <label htmlFor="name">
                 {t('contact.formName')}
@@ -555,9 +573,9 @@ function Contact() {
                 {t('contact.formMessage')}
                 <textarea id="message" name="message" rows={5} required />
               </label>
-              <Button type="submit">
-                {t('contact.formSend')} <span>→</span>
-              </Button>
+              <button type="submit" className="button">
+                {t('contact.formSend')} <span aria-hidden="true">→</span>
+              </button>
             </form>
           )}
         </Card>
@@ -568,6 +586,7 @@ function Contact() {
 
 function ChildHome() {
   const { t } = useLanguage();
+  const { activeChild, children, selectChild } = useChildren();
   return (
     <div className="child-space">
       <div className="child-topbar">
@@ -582,7 +601,16 @@ function ChildHome() {
       <section className="child-welcome">
         <div className="child-copy">
           <span className="child-kicker">{t('child.welcomeKicker')}</span>
-          <h1>{t('child.welcomeTitle')}</h1>
+          <h1>
+            {activeChild
+              ? t('child.welcomeNamed', { name: activeChild.display_name })
+              : t('child.welcomeTitle')}
+          </h1>
+          {children.length > 1 && (
+            <button type="button" className="text-link" onClick={() => selectChild(null)}>
+              {t('child.switchChild')}
+            </button>
+          )}
           <p>{t('child.welcomeCopy')}</p>
           <MascotBubble mood="happy">{t('child.welcomeBubble')}</MascotBubble>
           <Link className="child-start" to="/child/assessment">
@@ -604,11 +632,8 @@ function ChildHome() {
             <span className="child-kicker">{t('child.journeyKicker')}</span>
             <h2>{t('child.journeyTitle')}</h2>
           </div>
-          <span className="journey-count">
-            {t('child.journeyCount', { done: '0', total: '5' })}
-          </span>
         </div>
-        <div className="star-progress">
+        <div className="star-progress" aria-hidden="true">
           <span className="active">✦</span>
           <i />
           <span>✦</span>
@@ -641,39 +666,108 @@ function ChildHome() {
   );
 }
 
-function Assessment() {
-  return <ChildAssessmentHub />;
+function ChildRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <RequireAuth roles={['parent']}>
+      <RequireChild>{children}</RequireChild>
+    </RequireAuth>
+  );
 }
-function VisualAssessment() {
-  return <GameRunner />;
-}
-function SpeechAssessment() {
-  return <SpeechAssessmentRunner />;
+
+function NotFound() {
+  const { t } = useLanguage();
+  return (
+    <section className="section centered-callout">
+      <MascotBubble mood="thinking">{t('notFound.copy')}</MascotBubble>
+      <Link className="button button-sun" to="/">
+        {t('notFound.home')} <span aria-hidden="true">→</span>
+      </Link>
+    </section>
+  );
 }
 
 export function App() {
   return (
     <LanguageProvider>
       <AuthProvider>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/how-it-works" element={<HowItWorks />} />
-            <Route path="/research" element={<Research />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/parent/dashboard" element={<ParentDashboard />} />
-            <Route path="/educator/dashboard" element={<EducatorDashboard />} />
-            <Route path="/child/home" element={<ChildHome />} />
-            <Route path="/child/assessment" element={<Assessment />} />
-            <Route path="/child/assessment/visual" element={<VisualAssessment />} />
-            <Route path="/child/assessment/speech" element={<SpeechAssessment />} />
-            <Route path="/child/practice" element={<PracticeRunner />} />
-            <Route path="*" element={<Home />} />
-          </Routes>
-        </Layout>
+        <ChildProvider>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/how-it-works" element={<HowItWorks />} />
+              <Route path="/research" element={<Research />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route
+                path="/parent/dashboard"
+                element={
+                  <RequireAuth roles={['parent']}>
+                    <ParentDashboard />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/educator/dashboard"
+                element={
+                  <RequireAuth roles={['educator']}>
+                    <EducatorDashboard />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/account"
+                element={
+                  <RequireAuth>
+                    <AccountPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/child/home"
+                element={
+                  <ChildRoute>
+                    <ChildHome />
+                  </ChildRoute>
+                }
+              />
+              <Route
+                path="/child/assessment"
+                element={
+                  <ChildRoute>
+                    <ChildAssessmentHub />
+                  </ChildRoute>
+                }
+              />
+              <Route
+                path="/child/assessment/visual"
+                element={
+                  <ChildRoute>
+                    <GameRunner />
+                  </ChildRoute>
+                }
+              />
+              <Route
+                path="/child/assessment/speech"
+                element={
+                  <ChildRoute>
+                    <SpeechAssessmentRunner />
+                  </ChildRoute>
+                }
+              />
+              <Route
+                path="/child/practice"
+                element={
+                  <ChildRoute>
+                    <PracticeRunner />
+                  </ChildRoute>
+                }
+              />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Layout>
+        </ChildProvider>
       </AuthProvider>
     </LanguageProvider>
   );

@@ -1,36 +1,39 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth';
-import { Button, Card, Input, PageHeader } from '../components/ui';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Button, Card, Input } from '../components/ui';
 import { useLanguage } from '../l10n';
+import { ApiError, type CurrentUser } from '../services/apiClient';
+import { useAuth } from './AuthContext';
+import { safeNextPath } from './RequireAuth';
+
+export function homePathFor(user: CurrentUser): string {
+  return user.role === 'educator' ? '/educator/dashboard' : '/parent/dashboard';
+}
 
 export function LoginPage() {
   const { t } = useLanguage();
   const navigate = useNavigate();
-  const { login, isLoading: authLoading } = useAuth();
+  const [params] = useSearchParams();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (submitting) return;
     setError('');
-    setIsLoading(true);
+    setSubmitting(true);
     try {
-      await login(email, password);
-      navigate('/parent/dashboard');
+      const user = await login(email.trim(), password);
+      navigate(safeNextPath(params.get('next'), homePathFor(user)), { replace: true });
     } catch (err: unknown) {
-      const apiError = err as { status?: number; message?: string };
-      if (apiError.status === 401) {
-        setError(t('auth.invalidCredentials'));
-      } else if (apiError.status === 403) {
-        setError(t('auth.accountInactive'));
-      } else {
-        setError(apiError.message ?? t('auth.loginFailed'));
-      }
-    } finally {
-      setIsLoading(false);
+      if (err instanceof ApiError && err.status === 401) setError(t('auth.invalidCredentials'));
+      else if (err instanceof ApiError && err.status === 429) setError(t('auth.tooManyAttempts'));
+      else if (err instanceof ApiError && err.code === 'network') setError(t('common.offline'));
+      else setError(t('auth.loginFailed'));
+      setSubmitting(false);
     }
   };
 
@@ -38,23 +41,29 @@ export function LoginPage() {
     <div className="auth-page">
       <Card className="auth-card">
         <div className="auth-header">
-          <span className="brand-mark">✦</span>
+          <span className="brand-mark" aria-hidden="true">
+            ✦
+          </span>
           <h1>{t('auth.loginTitle')}</h1>
           <p>{t('auth.loginSubtitle')}</p>
         </div>
-        <form onSubmit={handleSubmit} className="auth-form">
-          {error && <div className="auth-error" role="alert">{error}</div>}
+        <form onSubmit={handleSubmit} className="auth-form" noValidate={false}>
+          {error && (
+            <div className="auth-error" role="alert">
+              {error}
+            </div>
+          )}
           <div className="form-group">
             <label htmlFor="email">{t('auth.email')}</label>
             <Input
               id="email"
               type="email"
               value={email}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+              onChange={event => setEmail(event.target.value)}
               placeholder={t('auth.emailPlaceholder')}
               required
               autoComplete="email"
-              disabled={isLoading || authLoading}
+              disabled={submitting}
             />
           </div>
           <div className="form-group">
@@ -63,15 +72,15 @@ export function LoginPage() {
               id="password"
               type="password"
               value={password}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
+              onChange={event => setPassword(event.target.value)}
               placeholder={t('auth.passwordPlaceholder')}
               required
               autoComplete="current-password"
-              disabled={isLoading || authLoading}
+              disabled={submitting}
             />
           </div>
-          <Button type="submit" className="button-full" disabled={isLoading || authLoading}>
-            {isLoading || authLoading ? t('auth.loggingIn') : t('auth.loginButton')}
+          <Button type="submit" className="button-full" disabled={submitting}>
+            {submitting ? t('auth.loggingIn') : t('auth.loginButton')}
           </Button>
         </form>
         <p className="auth-footer">

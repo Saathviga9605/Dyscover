@@ -1,6 +1,7 @@
 ﻿import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mascot, MascotBubble } from '../../components/ui';
+import { getActiveChildId } from '../../app/activeChild';
 import { GameEngine, type GameState, type Trial } from '../engine';
 import {
   LetterDetectiveView,
@@ -71,7 +72,7 @@ export function PracticeRunner() {
   const [speechMessage, setSpeechMessage] = useState<string>();
 
   useEffect(() => {
-    const childId = window.localStorage.getItem('dyscover-stage2-child-id');
+    const childId = getActiveChildId();
     if (!childId) {
       setStage('error');
       setError(t('practice.setupFirst'));
@@ -165,7 +166,7 @@ export function PracticeRunner() {
   };
 
   const begin = async () => {
-    const childId = window.localStorage.getItem('dyscover-stage2-child-id');
+    const childId = getActiveChildId();
     if (!recommendation?.activity || !childId) return;
     const created = await api.createPracticeSession({
       child_id: childId,
@@ -195,7 +196,7 @@ export function PracticeRunner() {
   };
 
   const beginSpeech = async () => {
-    const childId = window.localStorage.getItem('dyscover-stage2-child-id');
+    const childId = getActiveChildId();
     if (!childId) return;
     const next = await api.getNextPracticeActivity(childId, language, 'microphone');
     if (!next.activity) {

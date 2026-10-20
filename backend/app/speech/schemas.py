@@ -25,9 +25,9 @@ class ReadingErrorType(StrEnum):
 
 
 class ReadingTask(BaseModel):
-    task_id: str = Field(min_length=1)
-    expected_text: str = Field(min_length=1)
-    language: str = "en"
+    task_id: str = Field(min_length=1, max_length=120)
+    expected_text: str = Field(min_length=1, max_length=2000)
+    language: str = Field(default="en", max_length=16)
     difficulty: int = Field(default=1, ge=1, le=5)
     content_type: str = "sentence"
     version: str = "1.0"
@@ -75,12 +75,12 @@ class SpeechSessionCreate(BaseModel):
     session_id: UUID
     trial_id: UUID | None = None
     task: ReadingTask
-    language: str = "en"
-    locale: str | None = None
-    provider: str = "unconfigured"
-    provider_version: str = "unknown"
+    language: str = Field(default="en", max_length=16)
+    locale: str | None = Field(default=None, max_length=16)
+    provider: str = Field(default="unconfigured", max_length=80)
+    provider_version: str = Field(default="unknown", max_length=40)
     audio_available: bool = False
-    duration_ms: int | None = Field(default=None, ge=0)
+    duration_ms: int | None = Field(default=None, ge=0, le=600_000)
 
 
 class SpeechSessionResponse(BaseModel):

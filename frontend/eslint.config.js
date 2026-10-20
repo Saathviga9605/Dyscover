@@ -9,7 +9,7 @@ import prettierConfig from 'eslint-config-prettier';
 const tsEslint = tseslint.config({ tsconfigRootDir: import.meta.dirname });
 
 export default tseslint.config(
-  { ignores: ['dist/', 'node_modules/', '*.config.*', '*.tsbuildinfo'] },
+  { ignores: ['dist/', 'node_modules/', 'coverage/', 'playwright-report/', 'test-results/', 'e2e/', '*.config.*', '*.tsbuildinfo'] },
   js.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   {
@@ -27,7 +27,7 @@ export default tseslint.config(
       },
     },
     settings: {
-      react: { version: '18.3' },
+      react: { version: 'detect' },
     },
     rules: {
       ...prettierConfig.rules,
@@ -38,8 +38,9 @@ export default tseslint.config(
       'react-hooks/rules-of-hooks': 'error',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
+      // Async handlers in JSX attributes are idiomatic React; floating promises are still reported.
+      '@typescript-eslint/no-misused-promises': ['warn', { checksVoidReturn: { attributes: false } }],
       '@typescript-eslint/no-floating-promises': 'warn',
-      '@typescript-eslint/no-misused-promises': 'warn',
       '@typescript-eslint/require-await': 'warn',
       '@typescript-eslint/no-unsafe-assignment': 'warn',
       '@typescript-eslint/no-unsafe-member-access': 'warn',

@@ -1,20 +1,22 @@
-"""Audit logging for sensitive operations."""
+"""Structured audit logging for security-relevant operations.
+
+Audit records identify actors and resources by opaque IDs only. Callers pass short
+machine-readable reason codes as ``error_message`` — never emails, passwords,
+tokens, child names, transcripts or exception text.
+"""
 
 from __future__ import annotations
 
 import json
 import logging
 from datetime import datetime, timezone
-from functools import wraps
-from typing import Any, Callable, Optional
+from typing import Any
 
 from fastapi import Request
-from sqlalchemy.orm import Session
-
-from app.database import get_db
-from app.models import User
 
 logger = logging.getLogger("dyscover.audit")
+
+_MAX_REASON_LENGTH = 64
 
 
 class AuditEventType:
@@ -40,6 +42,13 @@ class AuditEventType:
     DATA_DELETION = "data_deletion"
     PERMISSION_CHANGE = "permission_change"
     CONFIG_CHANGE = "config_change"
+    ACCESS_DENIED = "access_denied"
+
+
+def _reason(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return value[:_MAX_REASON_LENGTH]
 
 
 def log_audit_event(
@@ -52,8 +61,7 @@ def log_audit_event(
     success: bool = True,
     error_message: str | None = None,
 ) -> None:
-    """Log an audit event with structured data."""
-    audit_data = {
+    audit_data: dict[str, Any] = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "event_type": event_type,
         "user_id": user_id,
@@ -61,90 +69,16 @@ def log_audit_event(
         "resource_id": resource_id,
         "details": details or {},
         "success": success,
-        "error_message": error_message,
+        "reason": _reason(error_message),
     }
-
-    if request:
+    if request is not None:
         audit_data["ip"] = request.client.host if request.client else None
-        audit_data["user_agent"] = request.headers.get("user-agent")
         audit_data["request_id"] = getattr(request.state, "request_id", None)
-
-    # Log as structured JSON for easy parsing
-    logger.info(json.dumps(audit_data))
-
-
-def audit_log(event_type: str, resource_type: str = None, get_resource_id: Callable[[Any], str] = None):
-    """Decorator to automatically log audit events for route handlers."""
-    def decorator(func: Callable) -> Callable:
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            # Extract request from args/kwargs
-            request = None
-            for arg in args:
-                if isinstance(arg, Request):
-                    request = arg
-                    break
-            if not request:
-                for v in kwargs.values():
-                    if isinstance(v, Request):
-                        request = v
-                        break
-
-            # Get current user if available
-            user_id = None
-            try:
-                from app.auth.routes import get_current_user_optional
-                from app.database import get_db
-                from fastapi import Depends
-
-                # This is a simplified approach - in practice, you'd get the user from the request state
-                if request and hasattr(request.state, "user"):
-                    user_id = str(request.state.user.id) if request.state.user else None
-            except Exception:
-                pass
-
-            start_time = datetime.now(timezone.utc)
-            success = False
-            error_message = None
-            result = None
-
-            try:
-                result = await func(*args, **kwargs)
-                success = True
-                return result
-            except Exception as e:
-                error_message = str(e)
-                raise
-            finally:
-                # Extract resource_id from result if possible
-                resource_id = None
-                if result and get_resource_id:
-                    try:
-                        resource_id = get_resource_id(result)
-                    except Exception:
-                        pass
-
-                log_audit_event(
-                    event_type=event_type,
-                    user_id=user_id,
-                    resource_type=resource_type,
-                    resource_id=resource_id,
-                    request=request,
-                    success=success,
-                    error_message=error_message,
-                )
-
-        return wrapper
-    return decorator
-
-
-def get_db_session() -> Session:
-    """Get a database session for audit logging."""
-    return next(get_db())
+    logger.info(json.dumps(audit_data, default=str))
 
 
 class AuditLogger:
-    """High-level audit logger for manual use in services."""
+    """Request-bound convenience wrapper around :func:`log_audit_event`."""
 
     def __init__(self, request: Request | None = None):
         self.request = request
@@ -169,25 +103,3 @@ class AuditLogger:
             success=success,
             error_message=error_message,
         )
-
-    def log_login(self, user_id: str, success: bool = True, error: str | None = None) -> None:
-        self.log(AuditEventType.USER_LOGIN, user_id=user_id, success=success, error_message=error)
-
-    def log_logout(self, user_id: str) -> None:
-        self.log(AuditEventType.USER_LOGOUT, user_id=user_id)
-
-    def log_password_change(self, user_id: str, success: bool = True, error: str | None = None) -> None:
-        self.log(AuditEventType.USER_PASSWORD_CHANGE, user_id=user_id, success=success, error_message=error)
-
-    def log_child_create(self, user_id: str, child_id: str, details: dict | None = None) -> None:
-        self.log(AuditEventType.CHILD_CREATE, user_id=user_id, resource_type="child", resource_id=child_id, details=details)
-
-    def log_assessment_complete(self, user_id: str, assessment_id: str, child_id: str) -> None:
-        self.log(AuditEventType.ASSESSMENT_COMPLETE, user_id=user_id, resource_type="assessment", resource_id=assessment_id,
-                 details={"child_id": child_id})
-
-    def log_data_export(self, user_id: str, resource_type: str, resource_id: str, details: dict | None = None) -> None:
-        self.log(AuditEventType.DATA_EXPORT, user_id=user_id, resource_type=resource_type, resource_id=resource_id, details=details)
-
-    def log_data_deletion(self, user_id: str, resource_type: str, resource_id: str, details: dict | None = None) -> None:
-        self.log(AuditEventType.DATA_DELETION, user_id=user_id, resource_type=resource_type, resource_id=resource_id, details=details)

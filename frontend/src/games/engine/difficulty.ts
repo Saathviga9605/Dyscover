@@ -7,7 +7,10 @@ export class DifficultyManager {
     private readonly initial?: number
   ) {}
   next(history: Trial[]): number {
-    const recent = history.slice(-3);
+    const scorable = history.filter(
+      trial => (trial.metadata as { scorable?: boolean } | undefined)?.scorable !== false
+    );
+    const recent = scorable.slice(-3);
     if (recent.length < 3) return history.at(-1)?.difficulty ?? this.seed();
     const accuracy = recent.filter(trial => trial.correct).length / recent.length;
     const averageTime =

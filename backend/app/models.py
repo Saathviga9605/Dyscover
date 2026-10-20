@@ -1,9 +1,21 @@
+"""SQLAlchemy models.
+
+Conventions:
+- Timestamps are stored as naive UTC ``DateTime`` values (see ``app.core.time.utcnow``).
+- Rows that belong to a child (assessments, practice, speech, gaze...) are reachable
+  from ``ChildProfile`` and are removed with it. Foreign keys declare
+  ``ON DELETE CASCADE`` so PostgreSQL enforces the same policy the ORM applies;
+  account deletion additionally deletes in dependency order (``app.privacy.service``)
+  so SQLite databases created before the cascade declarations behave identically.
+"""
+
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, Index, Integer, String, Text, Uuid
+from sqlalchemy import JSON, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.time import utcnow
 from app.database import Base
 
 
@@ -14,23 +26,45 @@ class User(Base):
     display_name: Mapped[str | None] = mapped_column(String(120))
     role: Mapped[str] = mapped_column(String(32), default="parent", index=True)
     is_active: Mapped[bool] = mapped_column(default=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Incremented on password change / "log out everywhere"; access tokens carry it
+    # so previously issued tokens stop validating immediately.
+    token_version: Mapped[int] = mapped_column(Integer, default=0, server_default="0", nullable=False)
     children: Mapped[list["ChildProfile"]] = relationship(back_populates="owner")
     educator_assignments: Mapped[list["EducatorLearnerAssignment"]] = relationship(back_populates="educator")
+
+
+class RefreshToken(Base):
+    """Server-side record of an issued refresh token.
+
+    Only a SHA-256 digest of the token is stored. Tokens rotate on every refresh;
+    presenting an already-rotated token revokes the whole family (reuse detection).
+    """
+
+    __tablename__ = "refresh_tokens"
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    family_id: Mapped[UUID] = mapped_column(Uuid, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
 
 
 class ChildProfile(Base):
     __tablename__ = "child_profiles"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    owner_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id"), index=True)
+    # Nullable only for legacy rows created before authentication existed; every
+    # API creation path sets an owner, and ownerless rows are inaccessible.
+    owner_id: Mapped[UUID | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     display_name: Mapped[str] = mapped_column(String(80))
     birth_year: Mapped[int | None] = mapped_column(Integer)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     owner: Mapped[User | None] = relationship(back_populates="children")
-    assessments: Mapped[list["AssessmentSession"]] = relationship(back_populates="child")
-    practice_sessions: Mapped[list["PracticeSession"]] = relationship(back_populates="child")
-    educator_assignments: Mapped[list["EducatorLearnerAssignment"]] = relationship(back_populates="child")
+    assessments: Mapped[list["AssessmentSession"]] = relationship(back_populates="child", cascade="all, delete-orphan", passive_deletes=True)
+    practice_sessions: Mapped[list["PracticeSession"]] = relationship(back_populates="child", cascade="all, delete-orphan", passive_deletes=True)
+    educator_assignments: Mapped[list["EducatorLearnerAssignment"]] = relationship(back_populates="child", cascade="all, delete-orphan", passive_deletes=True)
 
 
 class EducatorLearnerAssignment(Base):
@@ -40,10 +74,10 @@ class EducatorLearnerAssignment(Base):
     )
 
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    educator_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
-    child_id: Mapped[UUID] = mapped_column(ForeignKey("child_profiles.id"), index=True)
+    educator_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    child_id: Mapped[UUID] = mapped_column(ForeignKey("child_profiles.id", ondelete="CASCADE"), index=True)
     status: Mapped[str] = mapped_column(String(24), default="active", index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime)
     revocation_reason: Mapped[str | None] = mapped_column(String(200))
     educator: Mapped[User] = relationship(back_populates="educator_assignments")
@@ -53,23 +87,23 @@ class EducatorLearnerAssignment(Base):
 class AssessmentSession(Base):
     __tablename__ = "assessment_sessions"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    child_id: Mapped[UUID] = mapped_column(ForeignKey("child_profiles.id"), index=True)
+    child_id: Mapped[UUID] = mapped_column(ForeignKey("child_profiles.id", ondelete="CASCADE"), index=True)
     status: Mapped[str] = mapped_column(String(24), default="planned")
     version: Mapped[str] = mapped_column(String(32), default="stage-1")
     language: Mapped[str] = mapped_column(String(16), default="en")
     locale: Mapped[str] = mapped_column(String(16), default="en-US")
     content_version: Mapped[str] = mapped_column(String(16), default="1.0")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     started_at: Mapped[datetime | None] = mapped_column(DateTime)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
     child: Mapped[ChildProfile] = relationship(back_populates="assessments")
-    games: Mapped[list["GameSession"]] = relationship(back_populates="assessment")
+    games: Mapped[list["GameSession"]] = relationship(back_populates="assessment", cascade="all, delete-orphan", passive_deletes=True)
 
 
 class GameSession(Base):
     __tablename__ = "game_sessions"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    assessment_session_id: Mapped[UUID] = mapped_column(ForeignKey("assessment_sessions.id"), index=True)
+    assessment_session_id: Mapped[UUID] = mapped_column(ForeignKey("assessment_sessions.id", ondelete="CASCADE"), index=True)
     game_id: Mapped[str] = mapped_column(String(80), index=True)
     game_version: Mapped[str] = mapped_column(String(32), default="1.0.0")
     language: Mapped[str] = mapped_column(String(16), default="en")
@@ -78,13 +112,13 @@ class GameSession(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
     assessment: Mapped[AssessmentSession] = relationship(back_populates="games")
-    trials: Mapped[list["Trial"]] = relationship(back_populates="game_session")
+    trials: Mapped[list["Trial"]] = relationship(back_populates="game_session", cascade="all, delete-orphan", passive_deletes=True)
 
 
 class Trial(Base):
     __tablename__ = "trials"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    game_session_id: Mapped[UUID] = mapped_column(ForeignKey("game_sessions.id"), index=True)
+    game_session_id: Mapped[UUID] = mapped_column(ForeignKey("game_sessions.id", ondelete="CASCADE"), index=True)
     trial_number: Mapped[int] = mapped_column(Integer)
     stimulus: Mapped[dict | list | str] = mapped_column(JSON)
     expected_response: Mapped[dict | list | str | None] = mapped_column(JSON)
@@ -104,17 +138,17 @@ class Trial(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
     game_session: Mapped[GameSession] = relationship(back_populates="trials")
-    events: Mapped[list["InteractionEvent"]] = relationship(back_populates="trial")
+    events: Mapped[list["InteractionEvent"]] = relationship(back_populates="trial", cascade="all, delete-orphan", passive_deletes=True)
 
 
 class InteractionEvent(Base):
     __tablename__ = "interaction_events"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    trial_id: Mapped[UUID] = mapped_column(ForeignKey("trials.id"), index=True)
+    trial_id: Mapped[UUID] = mapped_column(ForeignKey("trials.id", ondelete="CASCADE"), index=True)
     event_type: Mapped[str] = mapped_column(String(40), index=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
-    session_id: Mapped[UUID | None] = mapped_column(ForeignKey("assessment_sessions.id"), index=True)
+    session_id: Mapped[UUID | None] = mapped_column(ForeignKey("assessment_sessions.id", ondelete="CASCADE"), index=True)
     game_id: Mapped[str | None] = mapped_column(String(80), index=True)
     performance_time: Mapped[float | None] = mapped_column(Float)
     sequence_number: Mapped[int | None] = mapped_column(Integer)
@@ -126,8 +160,8 @@ class InteractionEvent(Base):
 class GazeSample(Base):
     __tablename__ = "gaze_samples"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    trial_id: Mapped[UUID] = mapped_column(ForeignKey("trials.id"), index=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    trial_id: Mapped[UUID] = mapped_column(ForeignKey("trials.id", ondelete="CASCADE"), index=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     x: Mapped[float] = mapped_column(Float)
     y: Mapped[float] = mapped_column(Float)
     confidence: Mapped[float | None] = mapped_column(Float)
@@ -140,7 +174,7 @@ class GazeSample(Base):
 class Fixation(Base):
     __tablename__ = "fixations"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    trial_id: Mapped[UUID] = mapped_column(ForeignKey("trials.id"), index=True)
+    trial_id: Mapped[UUID] = mapped_column(ForeignKey("trials.id", ondelete="CASCADE"), index=True)
     start_time: Mapped[datetime] = mapped_column(DateTime)
     end_time: Mapped[datetime] = mapped_column(DateTime)
     duration_ms: Mapped[int] = mapped_column(Integer)
@@ -153,35 +187,35 @@ class Fixation(Base):
 class FeatureVector(Base):
     __tablename__ = "feature_vectors"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    trial_id: Mapped[UUID] = mapped_column(ForeignKey("trials.id"), unique=True, index=True)
+    trial_id: Mapped[UUID] = mapped_column(ForeignKey("trials.id", ondelete="CASCADE"), unique=True, index=True)
     features: Mapped[dict] = mapped_column(JSON, default=dict)
 
 
 class SessionFeatureVector(Base):
     __tablename__ = "session_feature_vectors"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    assessment_id: Mapped[UUID] = mapped_column(ForeignKey("assessment_sessions.id"), unique=True, index=True)
+    assessment_id: Mapped[UUID] = mapped_column(ForeignKey("assessment_sessions.id", ondelete="CASCADE"), unique=True, index=True)
     feature_schema_version: Mapped[str] = mapped_column(String(16), default="1.0")
     feature_extractor_version: Mapped[str] = mapped_column(String(16), default="1.0")
     features: Mapped[dict] = mapped_column(JSON, default=dict)
     quality: Mapped[dict] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class AssessmentSummary(Base):
     __tablename__ = "assessment_summaries"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    assessment_id: Mapped[UUID] = mapped_column(ForeignKey("assessment_sessions.id"), unique=True, index=True)
+    assessment_id: Mapped[UUID] = mapped_column(ForeignKey("assessment_sessions.id", ondelete="CASCADE"), unique=True, index=True)
     schema_version: Mapped[str] = mapped_column(String(16), default="2.0")
     summary: Mapped[dict] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 class SpeechSession(Base):
     __tablename__ = "speech_sessions"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    assessment_id: Mapped[UUID] = mapped_column(ForeignKey("assessment_sessions.id"), index=True)
-    trial_id: Mapped[UUID | None] = mapped_column(ForeignKey("trials.id"), index=True)
+    assessment_id: Mapped[UUID] = mapped_column(ForeignKey("assessment_sessions.id", ondelete="CASCADE"), index=True)
+    trial_id: Mapped[UUID | None] = mapped_column(ForeignKey("trials.id", ondelete="CASCADE"), index=True)
     task_id: Mapped[str] = mapped_column(String(120))
     expected_text: Mapped[str] = mapped_column(Text)
     language: Mapped[str] = mapped_column(String(16), default="en")
@@ -191,7 +225,7 @@ class SpeechSession(Base):
     provider_version: Mapped[str] = mapped_column(String(40), default="unknown")
     duration_ms: Mapped[int | None] = mapped_column(Integer)
     features_json: Mapped[dict | None] = mapped_column("features", JSON, default=None)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
 
 Index("ix_trials_game_number", Trial.game_session_id, Trial.trial_number, unique=True)
@@ -207,7 +241,7 @@ class PracticeSession(Base):
 
     __tablename__ = "practice_sessions"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    child_id: Mapped[UUID] = mapped_column(ForeignKey("child_profiles.id"), index=True)
+    child_id: Mapped[UUID] = mapped_column(ForeignKey("child_profiles.id", ondelete="CASCADE"), index=True)
     mode: Mapped[str] = mapped_column(String(24), default="practice")
     activity_id: Mapped[str] = mapped_column(String(80), index=True)
     target_domain: Mapped[str] = mapped_column(String(80), index=True)
@@ -221,43 +255,10 @@ class PracticeSession(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime)
     metadata_json: Mapped[dict] = mapped_column("metadata", JSON, default=dict)
     child: Mapped[ChildProfile] = relationship(back_populates="practice_sessions")
-    events: Mapped[list["PracticeEvent"]] = relationship(back_populates="practice_session", cascade="all, delete-orphan")
+    events: Mapped[list["PracticeEvent"]] = relationship(back_populates="practice_session", cascade="all, delete-orphan", passive_deletes=True)
 
 
 class PracticeEvent(Base):
-    __tablename__ = "practice_events"
-    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    practice_session_id: Mapped[UUID] = mapped_column(ForeignKey("practice_sessions.id"), index=True)
-    mode: Mapped[str] = mapped_column(String(24), default="practice")
-    event_type: Mapped[str] = mapped_column(String(40), index=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    sequence_number: Mapped[int] = mapped_column(Integer, default=0)
-    schema_version: Mapped[str] = mapped_column(String(16), default="2.0")
-    payload: Mapped[dict] = mapped_column(JSON, default=dict)
-    practice_session: Mapped[PracticeSession] = relationship(back_populates="events")
-
-# New Conversation and Message models for Lexi chat
-class Conversation(Base):
-    """A chat conversation belonging to a user."""
-    __tablename__ = "conversations"
-    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    # Relationship to messages
-    messages: Mapped[list["Message"]] = relationship(back_populates="conversation", cascade="all, delete-orphan")
-    user: Mapped[User] = relationship("User", backref="conversations")
-
-class Message(Base):
-    """A single chat message within a conversation."""
-    __tablename__ = "messages"
-    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    conversation_id: Mapped[UUID] = mapped_column(ForeignKey("conversations.id"), index=True)
-    role: Mapped[str] = mapped_column(String(16), index=True)  # 'user' or 'assistant'
-    content: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-    conversation: Mapped[Conversation] = relationship(back_populates="messages")
-
     """Structured practice telemetry mirroring the canonical event contract.
 
     Uses the same field vocabulary as assessment events (event_type,
@@ -268,11 +269,48 @@ class Message(Base):
 
     __tablename__ = "practice_events"
     id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
-    practice_session_id: Mapped[UUID] = mapped_column(ForeignKey("practice_sessions.id"), index=True)
+    practice_session_id: Mapped[UUID] = mapped_column(ForeignKey("practice_sessions.id", ondelete="CASCADE"), index=True)
     mode: Mapped[str] = mapped_column(String(24), default="practice")
     event_type: Mapped[str] = mapped_column(String(40), index=True)
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     sequence_number: Mapped[int] = mapped_column(Integer, default=0)
     schema_version: Mapped[str] = mapped_column(String(16), default="2.0")
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
     practice_session: Mapped[PracticeSession] = relationship(back_populates="events")
+
+
+class Conversation(Base):
+    """A Lexi chat conversation owned by one user account."""
+
+    __tablename__ = "conversations"
+    __table_args__ = (Index("ix_conversations_user_updated", "user_id", "updated_at"),)
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str | None] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    messages: Mapped[list["Message"]] = relationship(
+        back_populates="conversation",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+        order_by="Message.created_at",
+    )
+
+
+class Message(Base):
+    """A single Lexi chat message. ``role`` is ``user`` or ``assistant`` only;
+    the system prompt is never persisted."""
+
+    __tablename__ = "messages"
+    __table_args__ = (
+        CheckConstraint("role IN ('user', 'assistant')", name="ck_messages_role"),
+        Index("ix_messages_conversation_created", "conversation_id", "created_at"),
+    )
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    conversation_id: Mapped[UUID] = mapped_column(ForeignKey("conversations.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(16))
+    content: Mapped[str] = mapped_column(Text)
+    # Provider model identifier for assistant messages (audit of what generated it).
+    model: Mapped[str | None] = mapped_column(String(80))
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+    conversation: Mapped[Conversation] = relationship(back_populates="messages")

@@ -57,7 +57,7 @@
   --color-surface: #fffdf8;
   --color-surface-soft: #f2eee7;
   --color-ink: #263444;
-  --color-muted: #647080;
+  --color-muted: #5a6575; /* >= 4.5:1 on every surface token (WCAG AA) */
   --color-primary: #6d5ab7;
   --color-primary-deep: #4e408f;
   --color-primary-soft: #e8e1f7;

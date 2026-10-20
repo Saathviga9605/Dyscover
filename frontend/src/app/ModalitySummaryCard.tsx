@@ -5,74 +5,66 @@ import { useLanguage } from '../l10n';
 
 export interface ModalitySummaryCardProps {
   dataQuality?: Record<string, unknown> | null;
+  /** Assessment whose gaze/speech coverage is described. */
+  assessmentId?: string | null;
 }
 
-interface GazeStatus {
-  recording: boolean;
-  total_samples: number;
-  trialsWithSamples: number;
-  schema_version: string;
-}
-
-export function ModalitySummaryCard({ dataQuality }: ModalitySummaryCardProps) {
+/**
+ * Describes which observation modalities were recorded. Missing modalities are
+ * shown as "not recorded" — never as a zero measurement.
+ */
+export function ModalitySummaryCard({ dataQuality, assessmentId }: ModalitySummaryCardProps) {
   const { t } = useLanguage();
-  const [gazeStatus, setGazeStatus] = useState<GazeStatus | null>(null);
   const [summary, setSummary] = useState<ModalitySummaryResponse | null>(null);
 
   useEffect(() => {
+    if (!assessmentId) {
+      setSummary(null);
+      return;
+    }
     let active = true;
     api
-      .getGazeStatus()
-      .then(status => {
-        if (active) setGazeStatus(status);
+      .getModalitySummary(assessmentId)
+      .then(value => {
+        if (active) setSummary(value);
       })
       .catch(() => {
-        if (active) setGazeStatus(null);
+        if (active) setSummary(null);
       });
-    const assessmentId = window.localStorage.getItem('dyscover-stage2-assessment-id');
-    if (assessmentId) {
-      api
-        .getModalitySummary(assessmentId)
-        .then(value => {
-          if (active) setSummary(value);
-        })
-        .catch(() => {
-          if (active) setSummary(null);
-        });
-    }
     return () => {
       active = false;
     };
-  }, []);
+  }, [assessmentId]);
 
   const gazeAvailability =
     typeof dataQuality?.gaze_availability === 'number' ? dataQuality.gaze_availability : null;
   const speechAvailability =
     typeof dataQuality?.speech_availability === 'number' ? dataQuality.speech_availability : null;
-  const zeroGaze = gazeAvailability === null && (gazeStatus?.total_samples ?? 0) === 0;
   const gaze = summary?.gaze;
   const speech = summary?.speech;
 
   const trialWord = (count: number) => (count === 1 ? t('modal.trial') : t('modal.trials'));
-  const gazeLine = gaze
-    ? gaze.recorded
-      ? t('modal.gazeRecordedLine', {
-          samples: gaze.sample_count,
-          trials: gaze.trial_count,
-          trialWord: trialWord(gaze.trial_count),
-          calibration: gaze.calibration_completed ? '' : t('modal.notCalibrated'),
-        })
-      : t('modal.gazeNotRecorded')
-    : null;
-  const speechLine = speech
-    ? speech.recorded
-      ? t('modal.speechRecordedLine', {
-          trials: speech.trial_count,
-          trialWord: trialWord(speech.trial_count),
-          captured: speech.transcript_available,
-        })
-      : t('modal.gazeNotRecorded')
-    : null;
+  const gazeLine =
+    gazeAvailability !== null
+      ? t('modal.gazeTrialsPercent', { percent: Math.round(gazeAvailability * 100) })
+      : gaze?.recorded
+        ? t('modal.gazeRecordedLine', {
+            samples: gaze.sample_count,
+            trials: gaze.trial_count,
+            trialWord: trialWord(gaze.trial_count),
+            calibration: gaze.calibration_completed ? '' : t('modal.notCalibrated'),
+          })
+        : t('modal.gazeNotRecorded');
+  const speechLine =
+    speechAvailability !== null
+      ? t('modal.speechTrialsPercent', { percent: Math.round(speechAvailability * 100) })
+      : speech?.recorded
+        ? t('modal.speechRecordedLine', {
+            trials: speech.trial_count,
+            trialWord: trialWord(speech.trial_count),
+            captured: speech.transcript_available,
+          })
+        : t('modal.speechNotRecorded');
 
   return (
     <Card className="wide">
@@ -80,48 +72,16 @@ export function ModalitySummaryCard({ dataQuality }: ModalitySummaryCardProps) {
         <h3>{t('modal.howPlayed')}</h3>
         <Badge>{t('modal.observationBadge')}</Badge>
       </div>
-      <div className="domain-list">
-        {gazeAvailability !== null ? (
-          <div>
-            <span>{t('modal.eyeTracking')}</span>
-            <strong>
-              {t('modal.gazeTrialsPercent', { percent: Math.round(gazeAvailability * 100) })}
-            </strong>
-          </div>
-        ) : gazeLine ? (
-          <div>
-            <span>{t('modal.eyeTracking')}</span>
-            <strong>{gazeLine}</strong>
-          </div>
-        ) : (
-          <div>
-            <span>{t('modal.eyeTracking')}</span>
-            <strong>
-              {zeroGaze
-                ? t('modal.gazeNotRecorded')
-                : t('modal.gazeSamplesRecorded', { samples: gazeStatus?.total_samples ?? 0 })}
-            </strong>
-          </div>
-        )}
-        {speechAvailability !== null ? (
-          <div>
-            <span>{t('modal.readingAloud')}</span>
-            <strong>
-              {t('modal.speechTrialsPercent', { percent: Math.round(speechAvailability * 100) })}
-            </strong>
-          </div>
-        ) : speechLine ? (
-          <div>
-            <span>{t('modal.readingAloud')}</span>
-            <strong>{speechLine}</strong>
-          </div>
-        ) : (
-          <div>
-            <span>{t('modal.readingAloud')}</span>
-            <strong>{t('modal.gazeNotRecorded')}</strong>
-          </div>
-        )}
-      </div>
+      <dl className="domain-list">
+        <div>
+          <dt>{t('modal.eyeTracking')}</dt>
+          <dd>{gazeLine}</dd>
+        </div>
+        <div>
+          <dt>{t('modal.readingAloud')}</dt>
+          <dd>{speechLine}</dd>
+        </div>
+      </dl>
       <p className="notice">{t('modal.privacyNote')}</p>
     </Card>
   );

@@ -1,305 +1,185 @@
-"""Demo endpoints for speech transcription and model comparison."""
+"""Speech transcription demo endpoints (authenticated adults only).
 
-from __future__ import annotations
+Uploaded audio is written to a private temporary file, transcribed by a locally
+configured provider, and deleted immediately — it is never stored. No audio is
+sent to any third-party service by these endpoints.
+"""
 
+
+import asyncio
 import logging
+import os
 import tempfile
-import uuid
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 
-from app.speech.provider import get_speech_provider
-from app.speech.schemas import ProviderState, SpeechStatusResponse, Transcript
+from app.auth.deps import get_current_user
+from app.core.config import get_settings
+from app.core.rate_limit import limiter
+from app.models import User
+from app.speech.provider import KNOWN_PROVIDERS, SUPPORTED_ASR_LANGUAGES, SpeechProvider, get_speech_provider
+from app.speech.schemas import ProviderState
 
-logger = logging.getLogger(__name__)
+
+logger = logging.getLogger("dyscover.speech.demo")
 
 router = APIRouter(prefix="/api/speech/demo", tags=["speech-demo"])
 
-# In-memory storage for demo uploads (in production, use proper storage)
-DEMO_UPLOAD_DIR = Path("data/demo_audio")
-DEMO_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-
 ALLOWED_EXTENSIONS = {".wav", ".flac", ".mp3", ".ogg", ".m4a", ".webm"}
-MAX_FILE_SIZE = 25 * 1024 * 1024  # 25MB
+_CHUNK = 64 * 1024
+# Concurrent transcriptions are CPU/GPU heavy; bound them per process.
+_transcription_slots = asyncio.Semaphore(2)
 
 
-def validate_audio_file(file: UploadFile) -> list[str]:
-    """Validate uploaded audio file."""
-    errors = []
-
-    # Check file extension
+def _validate_upload(file: UploadFile, language: str) -> str:
     ext = Path(file.filename or "").suffix.lower()
     if ext not in ALLOWED_EXTENSIONS:
-        errors.append(f"Unsupported file format: {ext}. Allowed: {', '.join(ALLOWED_EXTENSIONS)}")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported audio format. Allowed: {', '.join(sorted(ALLOWED_EXTENSIONS))}")
+    if file.content_type and not (file.content_type.startswith("audio/") or file.content_type in {"application/octet-stream", "video/webm"}):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Uploaded file is not audio")
+    if language not in SUPPORTED_ASR_LANGUAGES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported language {language!r}")
+    return ext
 
-    # Check content type
-    if file.content_type and not file.content_type.startswith("audio/"):
-        errors.append(f"Invalid content type: {file.content_type}")
 
-    return errors
+async def _spool_to_tempfile(file: UploadFile, ext: str) -> tuple[Path, int]:
+    """Copy the upload to a private temp file, enforcing the size limit while reading."""
+    limit = get_settings().speech_upload_max_bytes
+    fd, name = tempfile.mkstemp(prefix="dyscover-audio-", suffix=ext)
+    path = Path(name)
+    size = 0
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            while chunk := await file.read(_CHUNK):
+                size += len(chunk)
+                if size > limit:
+                    raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=f"Audio file too large (max {limit // (1024 * 1024)} MB)")
+                handle.write(chunk)
+        if size == 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Audio file is empty")
+    except BaseException:
+        _cleanup(path)
+        raise
+    return path, size
+
+
+async def _transcribe(provider: SpeechProvider, path: Path, language: str):
+    timeout = get_settings().speech_transcription_timeout_seconds
+    async with _transcription_slots:
+        return await asyncio.wait_for(
+            run_in_threadpool(provider.transcribe, audio_reference=str(path), language=language, consent_given=True),
+            timeout=timeout,
+        )
+
+
+def _cleanup(path: Path) -> None:
+    try:
+        path.unlink(missing_ok=True)
+    except OSError:  # still held open by a timed-out worker (Windows)
+        logger.warning("Temporary audio file could not be removed immediately")
+
+
+def _require_consent(consent: bool) -> None:
+    if not consent:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Explicit consent is required before audio is processed")
 
 
 @router.get("/providers")
-def list_available_providers() -> dict[str, Any]:
-    """List all available speech providers and their status."""
-    import os
-
-    providers = {
-        "unconfigured": {"name": "unconfigured", "available": True},
-        "huggingface-whisper": {
-            "name": "huggingface-whisper",
-            "available": bool(os.getenv("DYSCOVER_HF_WHISPER_MODEL", "").strip()),
-            "model": os.getenv("DYSCOVER_HF_WHISPER_MODEL", "openai/whisper-tiny"),
-            "language": os.getenv("DYSCOVER_HF_WHISPER_LANGUAGE", "en"),
-            "device": os.getenv("DYSCOVER_HF_WHISPER_DEVICE", "auto"),
-        },
-        "faster-whisper": {
-            "name": "faster-whisper",
-            "available": bool(os.getenv("DYSCOVER_ASR_MODEL", "").strip()),
-            "model": os.getenv("DYSCOVER_ASR_MODEL", "small"),
-            "model_path": os.getenv("DYSCOVER_ASR_MODEL_PATH", ""),
-            "device": os.getenv("DYSCOVER_ASR_DEVICE", "cpu"),
-        },
-    }
-
-    # Check current provider status
-    current_provider = get_speech_provider()
-    health = current_provider.health_check()
-
+def list_available_providers(_: User = Depends(get_current_user)) -> dict[str, Any]:
+    current = get_speech_provider()
     return {
-        "current_provider": current_provider.name,
-        "current_provider_status": health.value,
-        "providers": providers,
+        "current_provider": current.name,
+        "current_provider_status": current.health_check().value,
+        "providers": {name: {"name": name, "status": get_speech_provider(name).health_check().value} for name in KNOWN_PROVIDERS},
     }
 
 
 @router.post("/transcribe")
+@limiter.limit("10/minute")
 async def transcribe_audio(
+    request: Request,
     file: UploadFile = File(...),
     language: str = Form("en"),
     provider: str | None = Form(None),
     consent: bool = Form(False),
+    _: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """
-    Transcribe uploaded audio file using configured speech provider.
-    
-    Requires explicit consent for processing child audio.
-    """
-    # Validate file
-    errors = validate_audio_file(file)
-    if errors:
-        raise HTTPException(status_code=400, detail={"errors": errors})
+    _require_consent(consent)
+    ext = _validate_upload(file, language)
+    if provider is not None and provider not in KNOWN_PROVIDERS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unknown provider {provider!r}")
+    speech_provider = get_speech_provider(provider)
+    health = speech_provider.health_check()
+    if health != ProviderState.AVAILABLE:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"Speech provider is not available ({health.value})")
 
-    # Check consent
-    if not consent:
-        raise HTTPException(
-            status_code=403,
-            detail="Explicit consent is required for audio processing. Set consent=true.",
-        )
-
-    # Read file content
-    content = await file.read()
-    if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="File too large (max 25MB)")
-
-    # Save to temporary file
-    ext = Path(file.filename or "audio.wav").suffix.lower()
-    if ext not in ALLOWED_EXTENSIONS:
-        ext = ".wav"
-
-    temp_id = uuid.uuid4().hex[:8]
-    temp_path = DEMO_UPLOAD_DIR / f"demo_{temp_id}{ext}"
-    temp_path.write_bytes(content)
-
+    path, size = await _spool_to_tempfile(file, ext)
     try:
-        # Get provider
-        if provider:
-            # Temporarily override provider
-            import os
-            old_provider = os.getenv("DYSCOVER_ASR_PROVIDER")
-            os.environ["DYSCOVER_ASR_PROVIDER"] = provider
-            speech_provider = get_speech_provider()
-            if old_provider:
-                os.environ["DYSCOVER_ASR_PROVIDER"] = old_provider
-            else:
-                os.environ.pop("DYSCOVER_ASR_PROVIDER", None)
-        else:
-            speech_provider = get_speech_provider()
-
-        # Check provider status
-        health = speech_provider.health_check()
-        if health == ProviderState.NOT_CONFIGURED:
-            raise HTTPException(
-                status_code=503,
-                detail="No speech provider configured. Set DYSCOVER_ASR_PROVIDER=huggingface-whisper or faster-whisper",
-            )
-        if health == ProviderState.UNAVAILABLE:
-            raise HTTPException(
-                status_code=503,
-                detail="Configured speech provider is unavailable",
-            )
-
-        # Transcribe
-        transcript = speech_provider.transcribe(
-            audio_reference=str(temp_path),
-            language=language,
-            consent_given=True,
-        )
-
-        return {
-            "transcript": transcript.model_dump(),
-            "provider": speech_provider.name,
-            "provider_version": speech_provider.version,
-            "audio_info": {
-                "filename": file.filename,
-                "size_bytes": len(content),
-                "duration_estimated": len(content) / 32000,  # rough estimate for 16kHz mono
-            },
-        }
-
-    except HTTPException:
-        raise
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except RuntimeError as e:
-        logger.error(f"Transcription failed: {e}")
-        raise HTTPException(status_code=500, detail="Transcription failed")
+        transcript = await _transcribe(speech_provider, path, language)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=status.HTTP_504_GATEWAY_TIMEOUT, detail="Transcription timed out")
+    except (ValueError, FileNotFoundError):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="The audio could not be processed")
+    except RuntimeError:
+        logger.exception("Transcription failed")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Transcription failed")
     finally:
-        # Clean up temp file
-        try:
-            temp_path.unlink(missing_ok=True)
-        except Exception:
-            pass
+        _cleanup(path)
+    return {
+        "transcript": transcript.model_dump(),
+        "provider": speech_provider.name,
+        "provider_version": speech_provider.version,
+        "audio_info": {"size_bytes": size, "stored": False},
+    }
 
 
 @router.post("/compare")
+@limiter.limit("5/minute")
 async def compare_models(
+    request: Request,
     file: UploadFile = File(...),
     language: str = Form("en"),
     consent: bool = Form(False),
+    _: User = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """
-    Compare transcription from multiple available providers on the same audio.
-    """
-    errors = validate_audio_file(file)
-    if errors:
-        raise HTTPException(status_code=400, detail={"errors": errors})
+    _require_consent(consent)
+    ext = _validate_upload(file, language)
+    available = [(name, get_speech_provider(name)) for name in KNOWN_PROVIDERS]
+    available = [(name, provider) for name, provider in available if provider.health_check() == ProviderState.AVAILABLE]
+    if not available:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="No speech providers are available for comparison")
 
-    if not consent:
-        raise HTTPException(
-            status_code=403,
-            detail="Explicit consent is required for audio processing.",
-        )
-
-    content = await file.read()
-    if len(content) > MAX_FILE_SIZE:
-        raise HTTPException(status_code=413, detail="File too large (max 25MB)")
-
-    ext = Path(file.filename or "audio.wav").suffix.lower()
-    if ext not in ALLOWED_EXTENSIONS:
-        ext = ".wav"
-
-    temp_id = uuid.uuid4().hex[:8]
-    temp_path = DEMO_UPLOAD_DIR / f"demo_compare_{temp_id}{ext}"
-    temp_path.write_bytes(content)
-
+    path, size = await _spool_to_tempfile(file, ext)
+    results: dict[str, Any] = {}
     try:
-        import os
-
-        results = {}
-        providers_to_try = []
-
-        # Check which providers are available
-        hf_model = os.getenv("DYSCOVER_HF_WHISPER_MODEL", "").strip()
-        if hf_model:
-            providers_to_try.append(("huggingface-whisper", "huggingface-whisper"))
-
-        fw_model = os.getenv("DYSCOVER_ASR_MODEL", "").strip()
-        if fw_model:
-            providers_to_try.append(("faster-whisper", "faster-whisper"))
-
-        if not providers_to_try:
-            raise HTTPException(
-                status_code=503,
-                detail="No speech providers configured for comparison",
-            )
-
-        for provider_name, env_value in providers_to_try:
-            old_provider = os.getenv("DYSCOVER_ASR_PROVIDER")
-            os.environ["DYSCOVER_ASR_PROVIDER"] = env_value
+        for name, provider in available:
             try:
-                speech_provider = get_speech_provider()
-                health = speech_provider.health_check()
-                if health != ProviderState.AVAILABLE:
-                    results[provider_name] = {
-                        "status": "unavailable",
-                        "error": f"Provider health check failed: {health.value}",
-                    }
-                    continue
-
-                transcript = speech_provider.transcribe(
-                    audio_reference=str(temp_path),
-                    language=language,
-                    consent_given=True,
-                )
-                results[provider_name] = {
-                    "status": "success",
-                    "transcript": transcript.model_dump(),
-                    "provider_version": speech_provider.version,
-                }
-            except Exception as e:
-                results[provider_name] = {
-                    "status": "error",
-                    "error": str(e),
-                }
-            finally:
-                if old_provider:
-                    os.environ["DYSCOVER_ASR_PROVIDER"] = old_provider
-                else:
-                    os.environ.pop("DYSCOVER_ASR_PROVIDER", None)
-
-        return {
-            "audio_info": {
-                "filename": file.filename,
-                "size_bytes": len(content),
-            },
-            "results": results,
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Comparison failed: {e}")
-        raise HTTPException(status_code=500, detail="Comparison failed")
+                transcript = await _transcribe(provider, path, language)
+                results[name] = {"status": "success", "transcript": transcript.model_dump(), "provider_version": provider.version}
+            except asyncio.TimeoutError:
+                results[name] = {"status": "error", "error": "timeout"}
+            except Exception:  # one provider failing must not hide the others
+                logger.exception("Provider %s failed during comparison", name)
+                results[name] = {"status": "error", "error": "transcription_failed"}
     finally:
-        try:
-            temp_path.unlink(missing_ok=True)
-        except Exception:
-            pass
+        _cleanup(path)
+    return {"audio_info": {"size_bytes": size, "stored": False}, "results": results}
 
 
 @router.get("/models")
-def list_configured_models() -> dict[str, Any]:
-    """List all configured models from environment."""
-    import os
-
+def list_configured_models(_: User = Depends(get_current_user)) -> dict[str, Any]:
     return {
         "huggingface_whisper": {
-            "model": os.getenv("DYSCOVER_HF_WHISPER_MODEL", "openai/whisper-tiny"),
-            "language": os.getenv("DYSCOVER_HF_WHISPER_LANGUAGE", "en"),
+            "model": os.getenv("DYSCOVER_HF_WHISPER_MODEL", ""),
             "device": os.getenv("DYSCOVER_HF_WHISPER_DEVICE", "auto"),
-            "dtype": os.getenv("DYSCOVER_HF_WHISPER_DTYPE", "float32"),
-            "cache_dir": os.getenv("DYSCOVER_HF_WHISPER_CACHE", ""),
+            "status": get_speech_provider("huggingface-whisper").health_check().value,
         },
         "faster_whisper": {
-            "model": os.getenv("DYSCOVER_ASR_MODEL", "small"),
-            "model_path": os.getenv("DYSCOVER_ASR_MODEL_PATH", ""),
+            "model": os.getenv("DYSCOVER_ASR_MODEL", ""),
             "device": os.getenv("DYSCOVER_ASR_DEVICE", "cpu"),
-            "compute_type": os.getenv("DYSCOVER_ASR_COMPUTE_TYPE", "int8"),
+            "status": get_speech_provider("faster-whisper").health_check().value,
         },
     }

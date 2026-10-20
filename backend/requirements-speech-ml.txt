@@ -1,0 +1,11 @@
+# Optional, offline speech-ML tooling (Whisper fine-tuning/evaluation, local ASR providers).
+# Not needed to run the API. Large downloads; CPU wheels shown.
+-r requirements.txt
+torch==2.11.0
+torchaudio==2.11.0
+transformers==4.46.3
+datasets==3.2.0
+accelerate==1.3.0
+jiwer==3.0.4
+librosa==0.11.0
+soundfile==0.13.1

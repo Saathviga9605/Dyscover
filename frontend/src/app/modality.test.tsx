@@ -6,7 +6,9 @@ import { ModalitySummaryCard } from './ModalitySummaryCard';
 import { toGazeBatchPayload } from '../gaze';
 import type { GazeBatchPayload } from '../services/apiClient';
 
-const baseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api';
+const baseUrl = import.meta.env.VITE_API_URL ?? '/api';
+const jsonResponse = (status: number, body: unknown) =>
+  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
 const numericBatch: GazeBatchPayload = {
   provider: 'webgazer',
@@ -64,7 +66,7 @@ describe('multimodal observation continues when gaze is present only as numbers'
   it('persists the gaze batch to the numeric endpoint when a backend trial exists', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn(() => Promise.resolve({ ok: true, json: async () => ({ samples_created: 1 }) }))
+      vi.fn(() => Promise.resolve(jsonResponse(201, { samples_created: 1 })))
     );
     await persistGazeBatch('trial-1', 'backend-1', numericBatch);
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
