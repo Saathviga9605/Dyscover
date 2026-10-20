@@ -87,6 +87,50 @@ python -m app.ml split-info
 
 Offline model training is intentionally not run by the API and is not performed in this repository without validated labels. Add a governed dataset, configure an experiment, then train and evaluate outside normal request handling.
 
+## Speech ML Pipeline (Stage 4+)
+
+A complete Whisper fine-tuning and evaluation pipeline is available in `backend/app/ml/speech/`.
+
+### Quick Commands
+
+```powershell
+cd backend
+
+# Validate dataset manifest
+python -m app.ml.speech.cli validate --manifest data/manifest.jsonl --base-dir data/
+
+# Create train/val/test splits
+python -m app.ml.speech.cli split --manifest data/manifest.jsonl --output-dir data/splits --seed 42
+
+# Fine-tune Whisper (smoke test)
+python -m app.ml.speech.cli train --model openai/whisper-tiny --train-manifest data/splits/manifest_train.jsonl --val-manifest data/splits/manifest_validation.jsonl --output-dir outputs/whisper-smoke --epochs 1 --max-steps 10
+
+# Fine-tune Whisper (full)
+python -m app.ml.speech.cli train --model openai/whisper-base --train-manifest data/splits/manifest_train.jsonl --val-manifest data/splits/manifest_validation.jsonl --output-dir outputs/whisper-finetune --epochs 5 --fp16
+
+# Evaluate model
+python -m app.ml.speech.cli evaluate --model outputs/whisper-finetune --test-manifest data/splits/manifest_test.jsonl
+
+# Compare pretrained vs fine-tuned
+python -m app.ml.speech.cli compare --pretrained-model openai/whisper-base --finetuned-model outputs/whisper-finetune --test-manifest data/splits/manifest_test.jsonl
+
+# Run complete experiment
+python -m app.ml.speech.cli create-experiment --name my-exp --model openai/whisper-base --manifest data/manifest.jsonl
+python -m app.ml.speech.cli run-experiment --config outputs/experiments/my-exp-*/experiment_config.json
+```
+
+### Enable Whisper Provider
+
+```powershell
+# In backend/.env or environment
+DYSCOVER_ASR_PROVIDER=huggingface-whisper
+DYSCOVER_HF_WHISPER_MODEL=openai/whisper-tiny
+DYSCOVER_HF_WHISPER_LANGUAGE=en
+DYSCOVER_HF_WHISPER_DEVICE=auto
+```
+
+See `docs/speech-ml-pipeline.md` for full documentation.
+
 ## Next stage
 
 Next work should focus on validated dataset collection, authentication/authorization, explicit consented gaze integration, configured speech providers, grouped evaluation on real labels, and deeper research experiments. Deep learning, clinical speech models, and multimodal fusion remain future work. See `docs/stage-3.5-hardening.md` and `docs/speech-architecture.md`.

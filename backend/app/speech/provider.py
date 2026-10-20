@@ -5,7 +5,7 @@ from typing import Any
 
 from .schemas import ProviderState, Transcript
 
-SUPPORTED_ASR_LANGUAGES = {"en", "ta"}
+SUPPORTED_ASR_LANGUAGES = {"en", "ta", "hi", "bn", "te", "mr", "gu", "kn", "ml", "pa", "or", "as"}
 
 
 class SpeechProvider(ABC):
@@ -32,8 +32,11 @@ class UnconfiguredSpeechProvider(SpeechProvider):
 
 
 def get_speech_provider() -> SpeechProvider:
-    if os.getenv("DYSCOVER_ASR_PROVIDER", "").strip().lower() == "faster-whisper":
+    provider_name = os.getenv("DYSCOVER_ASR_PROVIDER", "").strip().lower()
+    if provider_name == "faster-whisper":
         return FasterWhisperProvider()
+    if provider_name == "huggingface-whisper":
+        return HuggingFaceWhisperProvider()
     return UnconfiguredSpeechProvider()
 
 
@@ -113,3 +116,75 @@ class FasterWhisperProvider(SpeechProvider):
             )
         except Exception as error:
             raise RuntimeError("configured ASR transcription failed") from error
+
+
+class HuggingFaceWhisperProvider(SpeechProvider):
+    """Hugging Face Transformers Whisper provider for local inference."""
+
+    name = "huggingface-whisper"
+
+    def __init__(self) -> None:
+        self.model_name_or_path = os.getenv("DYSCOVER_HF_WHISPER_MODEL", "openai/whisper-tiny").strip()
+        self.language = os.getenv("DYSCOVER_HF_WHISPER_LANGUAGE", "en").strip()
+        self.device = os.getenv("DYSCOVER_HF_WHISPER_DEVICE", "auto").strip()
+        self.torch_dtype = os.getenv("DYSCOVER_HF_WHISPER_DTYPE", "float32").strip()
+        self.cache_dir = os.getenv("DYSCOVER_HF_WHISPER_CACHE", "").strip() or None
+        self._manager = None
+        self.version = "unloaded"
+
+    def _get_manager(self):
+        if self._manager is None:
+            try:
+                from app.ml.speech.model import WhisperModelManager, WhisperModelConfig
+            except ImportError as error:
+                raise RuntimeError("Speech ML dependencies not installed") from error
+
+            config = WhisperModelConfig(
+                model_name_or_path=self.model_name_or_path,
+                language=self.language,
+                device=self.device,
+                torch_dtype=self.torch_dtype,
+                cache_dir=self.cache_dir,
+                local_files_only=bool(self.cache_dir and Path(self.cache_dir).exists()),
+            )
+            self._manager = WhisperModelManager(config)
+        return self._manager
+
+    def health_check(self) -> ProviderState:
+        if not self.model_name_or_path:
+            return ProviderState.NOT_CONFIGURED
+        # Check if local path exists or if it's a HF model ID
+        if Path(self.model_name_or_path).exists() or "/" in self.model_name_or_path:
+            return ProviderState.AVAILABLE
+        return ProviderState.NOT_CONFIGURED
+
+    def transcribe(self, audio_reference: str, language: str = "en", consent_given: bool = False) -> Transcript:
+        if language not in SUPPORTED_ASR_LANGUAGES:
+            raise ValueError(f"unsupported ASR locale: {language}")
+        if not consent_given:
+            raise PermissionError("explicit consent is required before processing child audio")
+
+        audio_path = Path(audio_reference)
+        if not audio_path.is_file():
+            raise FileNotFoundError("audio reference does not point to a local file")
+
+        manager = self._get_manager()
+        self.version = manager.config.model_name_or_path
+
+        try:
+            from app.ml.speech.audio import AudioPreprocessor, AudioConfig
+            preprocessor = AudioPreprocessor(AudioConfig())
+            audio_array = preprocessor.preprocess_for_whisper(audio_path)
+
+            result = manager.transcribe(audio_array, language=language or self.language)
+
+            return Transcript(
+                text=result["text"],
+                language=result["language"],
+                provider=self.name,
+                provider_version=self.version,
+                transcript_available=bool(result["text"]),
+                quality="OK" if result["text"] else "WARNING",
+            )
+        except Exception as error:
+            raise RuntimeError("Hugging Face Whisper transcription failed") from error

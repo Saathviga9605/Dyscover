@@ -38,6 +38,7 @@ from app.ml.quality import router as ml_quality_router
 from app.personalization.routes import router as personalization_router
 from app.remedial.routes import router as remedial_router
 from app.speech.routes import router as speech_router
+from app.speech.demo_routes import router as speech_demo_router
 
 settings = get_settings()
 logger = logging.getLogger("dyscover.api")
@@ -88,6 +89,7 @@ app.include_router(ml_quality_router)
 app.include_router(personalization_router)
 app.include_router(remedial_router)
 app.include_router(speech_router)
+app.include_router(speech_demo_router)
 app.include_router(gaze_router)
 
 @app.exception_handler(RequestValidationError)
