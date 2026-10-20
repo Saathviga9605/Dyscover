@@ -14,6 +14,7 @@ import { ModalitySummaryCard } from './ModalitySummaryCard';
 import { useLanguage } from '../l10n';
 
 
+  export function ParentDashboard() {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
   const [showAddChild, setShowAddChild] = useState(false);
@@ -316,3 +317,4 @@ import { useLanguage } from '../l10n';
     </div>
   );
 }
+export default ParentDashboard;

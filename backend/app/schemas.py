@@ -124,3 +124,40 @@ class SummaryResponse(SummaryCreate):
     assessment_id: UUID
     schema_version: str
     created_at: datetime
+
+# --- Lexi chat schemas ---
+
+class ConversationCreate(BaseModel):
+    """Placeholder for creating a conversation; no body needed."""
+    pass
+
+class ConversationResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class MessageCreate(BaseModel):
+    content: str
+
+class MessageResponse(BaseModel):
+    id: UUID
+    conversation_id: UUID
+    role: str
+    content: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class MessageListResponse(BaseModel):
+    messages: list[MessageResponse]
+
+    model_config = ConfigDict(from_attributes=True)
+
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    assessment_id: UUID
+    schema_version: str
+    created_at: datetime

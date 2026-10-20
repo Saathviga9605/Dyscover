@@ -1,6 +1,7 @@
 // Authentication context for Dyscover frontend
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode, useNavigate } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { api, type CurrentUser } from '../services/apiClient';
+import { safeStorage } from '../utils/storage';
 
 interface AuthContextValue {
   user: CurrentUser | null;
@@ -17,7 +18,6 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
 
   const refreshUser = useCallback(async (): Promise<void> => {
     try {
@@ -36,7 +36,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string) => {
     const tokens = await api.login({ email, password });
-    localStorage.setItem('dyscover-access-token', tokens.access_token);
+    safeStorage.setItem('dyscover-access-token', tokens.access_token);
     await refreshUser();
   };
 
@@ -47,9 +47,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = async () => {
     await api.logout();
-    localStorage.removeItem('dyscover-access-token');
+    safeStorage.removeItem('dyscover-access-token');
     setUser(null);
-    navigate('/login');
+    // Redirect to login page safely
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
   };
 
   return (
@@ -66,3 +69,4 @@ export function useAuth() {
   }
   return context;
 }
+

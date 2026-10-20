@@ -225,6 +225,39 @@ class PracticeSession(Base):
 
 
 class PracticeEvent(Base):
+    __tablename__ = "practice_events"
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    practice_session_id: Mapped[UUID] = mapped_column(ForeignKey("practice_sessions.id"), index=True)
+    mode: Mapped[str] = mapped_column(String(24), default="practice")
+    event_type: Mapped[str] = mapped_column(String(40), index=True)
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    sequence_number: Mapped[int] = mapped_column(Integer, default=0)
+    schema_version: Mapped[str] = mapped_column(String(16), default="2.0")
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    practice_session: Mapped[PracticeSession] = relationship(back_populates="events")
+
+# New Conversation and Message models for Lexi chat
+class Conversation(Base):
+    """A chat conversation belonging to a user."""
+    __tablename__ = "conversations"
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    # Relationship to messages
+    messages: Mapped[list["Message"]] = relationship(back_populates="conversation", cascade="all, delete-orphan")
+    user: Mapped[User] = relationship("User", backref="conversations")
+
+class Message(Base):
+    """A single chat message within a conversation."""
+    __tablename__ = "messages"
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    conversation_id: Mapped[UUID] = mapped_column(ForeignKey("conversations.id"), index=True)
+    role: Mapped[str] = mapped_column(String(16), index=True)  # 'user' or 'assistant'
+    content: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    conversation: Mapped[Conversation] = relationship(back_populates="messages")
+
     """Structured practice telemetry mirroring the canonical event contract.
 
     Uses the same field vocabulary as assessment events (event_type,

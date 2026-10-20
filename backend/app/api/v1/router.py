@@ -22,11 +22,13 @@ router.include_router(ml_router, prefix="/ml", tags=["ml-research"])
 router.include_router(ml_quality_router, prefix="/ml/quality", tags=["ml-quality"])
 router.include_router(personalization_router, prefix="/personalization", tags=["personalization"])
 router.include_router(remedial_router, prefix="/remedial", tags=["remedial"])
+router.include_router(chat.router, prefix="/chat", tags=["lexi-chat"])
 router.include_router(speech_router, prefix="/speech", tags=["speech-research"])
 router.include_router(speech_demo_router, prefix="/speech/demo", tags=["speech-demo"])
 router.include_router(gaze_router, prefix="/gaze", tags=["gaze-research"])
 router.include_router(privacy_router, prefix="/privacy", tags=["privacy"])
 router.include_router(remedial_router, prefix="/remedial", tags=["remedial"])
+router.include_router(chat.router, prefix="/chat", tags=["lexi-chat"])
 
 # Note: The legacy routes (without /v1 prefix) are maintained in main.py for backward compatibility
 # but new clients should use the /api/v1/ prefix
