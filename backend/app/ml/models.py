@@ -42,7 +42,7 @@ class BaselineModel(ABC):
 class DummyBaseline(BaselineModel):
     model_type = "dummy"
 
-    def __init__(self, feature_names: list[str], strategy: str = "prior") -> None:
+    def __init__(self, feature_names: list[str], strategy: str = "stratified") -> None:
         super().__init__(feature_names)
         self.strategy = strategy
 
@@ -53,7 +53,7 @@ class DummyBaseline(BaselineModel):
             from sklearn.pipeline import Pipeline
         except Exception as error:
             raise RuntimeError(f"scikit-learn runtime unavailable: {error}") from error
-        return Pipeline([("imputer", SimpleImputer(strategy="median")), ("model", DummyClassifier(strategy=self.strategy))])
+        return Pipeline([("imputer", SimpleImputer(strategy="median")), ("model", DummyClassifier(strategy=self.strategy, random_state=42))])
 
 
 class LogisticBaseline(BaselineModel):

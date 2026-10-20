@@ -1,13 +1,18 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import datetime
+import io
 import logging
+import uuid
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException, Request, status
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from sqlalchemy import func, inspect, select, text
 from sqlalchemy.orm import Session
 
@@ -16,6 +21,9 @@ from app.database import Base, engine, get_db
 from app.l10n import L10N_CONTENT_VERSION, locale_for
 from app.models import AssessmentSession, AssessmentSummary, ChildProfile, EducatorLearnerAssignment, Fixation, GameSession, GazeSample, InteractionEvent, PracticeSession, SpeechSession, Trial, User
 from app.gaze.routes import router as gaze_router
+from app.auth.routes import router as auth_router
+from app.privacy.routes import router as privacy_router
+from app.api.v1 import router as v1_router
 from app.schemas import (
     AssessmentCreate,
     AssessmentResponse,
@@ -80,10 +88,40 @@ def initialize_database() -> None:
             _ensure_sqlite_column(connection, "users", "display_name", "display_name VARCHAR(120)")
             _ensure_sqlite_column(connection, "users", "role", "role VARCHAR(32) DEFAULT 'parent'")
             _ensure_sqlite_column(connection, "users", "is_active", "is_active BOOLEAN DEFAULT 1")
+            _ensure_sqlite_column(connection, "users", "password_hash", "password_hash VARCHAR(255)")
 
 
 app = FastAPI(title=settings.app_name, version=settings.app_version, lifespan=lifespan)
+
+# Rate limiter
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Security headers middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+    if settings.app_env == "production":
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
+# Request correlation ID middleware
+@app.middleware("http")
+async def add_request_id(request: Request, call_next):
+    request_id = request.headers.get("X-Request-ID", str(uuid.uuid4()))
+    request.state.request_id = request_id
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = request_id
+    return response
+
 app.add_middleware(CORSMiddleware, allow_origins=settings.cors_origin_list, allow_methods=["*"], allow_headers=["*"])
+app.include_router(auth_router)
 app.include_router(ml_router)
 app.include_router(ml_quality_router)
 app.include_router(personalization_router)
@@ -91,6 +129,8 @@ app.include_router(remedial_router)
 app.include_router(speech_router)
 app.include_router(speech_demo_router)
 app.include_router(gaze_router)
+app.include_router(privacy_router)
+app.include_router(v1_router, prefix=settings.api_version_prefix)
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:

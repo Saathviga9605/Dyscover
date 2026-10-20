@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLanguage } from '../l10n';
 import { Mascot, MascotBubble } from '../components/ui';
-import { apiClient } from '../services/apiClient';
+import { api } from '../services/apiClient';
 
 interface ProviderInfo {
   name: string;
@@ -67,10 +67,10 @@ export function SpeechDemo({ onClose }: SpeechDemoProps) {
 
   const loadProviders = async () => {
     try {
-      const response = await apiClient.get('/speech/demo/providers');
-      setProviders(response.providers);
+      const response = await api.getSpeechDemoProviders();
+      setProviders(response.providers as Record<string, ProviderInfo>);
       // Auto-select first available provider
-      const available = Object.entries(response.providers).find(([, v]) => v.available);
+      const available = Object.entries(response.providers).find(([, v]) => (v as ProviderInfo).available);
       if (available) {
         setSelectedProvider(available[0]);
       }
@@ -111,12 +111,10 @@ export function SpeechDemo({ onClose }: SpeechDemoProps) {
         formData.append('provider', selectedProvider);
       }
 
-      const response = await apiClient.post<DemoTranscriptionResponse>('/speech/demo/transcribe', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setResult(response);
+      const response = await api.transcribeSpeechDemo(formData);
+      setResult(response as DemoTranscriptionResponse);
     } catch (e: any) {
-      setError(e.response?.data?.detail?.message || e.message || t('speech.demo.transcriptionFailed'));
+      setError(e.data?.detail?.message || e.message || t('speech.demo.transcriptionFailed'));
     } finally {
       setUploading(false);
     }
@@ -143,12 +141,10 @@ export function SpeechDemo({ onClose }: SpeechDemoProps) {
       formData.append('language', language);
       formData.append('consent', 'true');
 
-      const response = await apiClient.post<DemoCompareResponse>('/speech/demo/compare', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-      setCompareResult(response);
+      const response = await api.compareSpeechDemo(formData);
+      setCompareResult(response as DemoCompareResponse);
     } catch (e: any) {
-      setError(e.response?.data?.detail?.message || e.message || t('speech.demo.comparisonFailed'));
+      setError(e.data?.detail?.message || e.message || t('speech.demo.comparisonFailed'));
     } finally {
       setComparing(false);
     }

@@ -1,11 +1,48 @@
 const baseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api';
 
-export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
+export class ApiError extends Error { 
+  constructor(public status: number, message: string, public data?: unknown) { 
+    super(message); 
+  } 
+}
 
 export async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...options?.headers } });
-  if (!response.ok) { const body = await response.json().catch(() => ({})); throw new ApiError(response.status, body.detail ?? 'The request could not be completed.'); }
+  if (!response.ok) { 
+    const body = await response.json().catch(() => ({})); 
+    throw new ApiError(response.status, body.detail ?? 'The request could not be completed.', body);
+  }
   return response.json() as Promise<T>;
+}
+
+// Generic request helpers for non-JSON content (e.g., multipart/form-data)
+export async function requestRaw<T>(path: string, options?: RequestInit): Promise<T> {
+  const response = await fetch(`${baseUrl}${path}`, options);
+  if (!response.ok) { 
+    const body = await response.json().catch(() => ({})); 
+    throw new ApiError(response.status, body.detail ?? 'The request could not be completed.', body);
+  }
+  return response.json() as Promise<T>;
+}
+
+export async function get<T>(path: string): Promise<T> {
+  return request<T>(path, { method: 'GET' });
+}
+
+export async function post<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, { method: 'POST', body: JSON.stringify(body) });
+}
+
+export async function postForm<T>(path: string, formData: FormData): Promise<T> {
+  return requestRaw<T>(path, { method: 'POST', body: formData });
+}
+
+export async function patch<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, { method: 'PATCH', body: JSON.stringify(body) });
+}
+
+export async function del<T>(path: string): Promise<T> {
+  return request<T>(path, { method: 'DELETE' });
 }
 
 export interface Skill {
@@ -144,6 +181,12 @@ export const api = {
   getSpeechFeatures: (sessionId: string) => request<Record<string, unknown>>(`/speech/sessions/${sessionId}/features`),
   createSpeechSession: (payload: SpeechSessionCreatePayload) => request<{ id: string; session_id: string; trial_id?: string | null }>('/speech/sessions', { method: 'POST', body: JSON.stringify(payload) }),
   getModalitySummary: (assessmentId: string) => request<ModalitySummaryResponse>(`/assessments/${assessmentId}/modality-summary`),
+
+  // Speech demo endpoints
+  getSpeechDemoProviders: () => request<{ current_provider: string; current_provider_status: string; providers: Record<string, unknown> }>('/speech/demo/providers'),
+  transcribeSpeechDemo: (formData: FormData) => postForm<{ transcript: unknown; provider: string; provider_version: string; audio_info: unknown }>('/speech/demo/transcribe', formData),
+  compareSpeechDemo: (formData: FormData) => postForm<{ audio_info: unknown; results: Record<string, unknown> }>('/speech/demo/compare', formData),
+  getSpeechDemoModels: () => request<{ huggingface_whisper: unknown; faster_whisper: unknown }>('/speech/demo/models'),
 };
 
 export interface PracticeActivity {

@@ -15,6 +15,7 @@ class User(Base):
     role: Mapped[str] = mapped_column(String(32), default="parent", index=True)
     is_active: Mapped[bool] = mapped_column(default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     children: Mapped[list["ChildProfile"]] = relationship(back_populates="owner")
     educator_assignments: Mapped[list["EducatorLearnerAssignment"]] = relationship(back_populates="educator")
 
