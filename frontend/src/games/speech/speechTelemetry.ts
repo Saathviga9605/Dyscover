@@ -24,12 +24,16 @@ export interface SpeechTrialEvidence {
   retriedNoSpeech: number;
 }
 
-export function buildSpeechEvidence(task: {
-  taskId: string;
-  expectedText: string;
-  kind: SpeechPromptKind;
-  level: number;
-}, result: SpeechRecognitionResult, grade: SpeechGrade): SpeechTrialEvidence {
+export function buildSpeechEvidence(
+  task: {
+    taskId: string;
+    expectedText: string;
+    kind: SpeechPromptKind;
+    level: number;
+  },
+  result: SpeechRecognitionResult,
+  grade: SpeechGrade
+): SpeechTrialEvidence {
   const tokenizedExpected = normalizeText(task.expectedText).split(' ').filter(Boolean);
   return {
     taskId: task.taskId,
@@ -76,7 +80,9 @@ export function numericFeatures(evidence: SpeechTrialEvidence): Record<string, n
     text_token_count: expectedTokens.length,
     text_unique_token_count: uniqueExpected.size,
     text_type_token_ratio: expectedTokens.length ? uniqueExpected.size / expectedTokens.length : 0,
-    speech_transcript_token_ratio: transcriptTokens.length ? uniqueTranscript.size / transcriptTokens.length : 0,
+    speech_transcript_token_ratio: transcriptTokens.length
+      ? uniqueTranscript.size / transcriptTokens.length
+      : 0,
     stimulus_difficulty: evidence.level,
     speech_task_kind: kindCode(evidence.kind),
   };
@@ -99,7 +105,9 @@ function kindCode(kind: SpeechPromptKind): number {
   }
 }
 
-export function featureRecords(features: Record<string, number>): Record<string, { value: number; available: boolean }> {
+export function featureRecords(
+  features: Record<string, number>
+): Record<string, { value: number; available: boolean }> {
   const records: Record<string, { value: number; available: boolean }> = {};
   for (const [name, value] of Object.entries(features)) {
     if (!Number.isFinite(value)) continue;

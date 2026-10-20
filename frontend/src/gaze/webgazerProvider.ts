@@ -11,7 +11,9 @@ type WebGazerHandle = {
   end: () => void;
   pause: () => void;
   resume: () => void;
-  setGazeListener: (listener: (data: { x: number; y: number; t?: number } | null) => void) => WebGazerHandle;
+  setGazeListener: (
+    listener: (data: { x: number; y: number; t?: number } | null) => void
+  ) => WebGazerHandle;
   showVideo: (show: boolean) => WebGazerHandle;
   showPredictionPoints: (show: boolean) => WebGazerHandle;
   showFaceOverlay: (show: boolean) => WebGazerHandle;
@@ -40,22 +42,29 @@ function loadWebGazerScript(): Promise<void> {
     }
     if (injectedWebGazerScript?.isConnected) {
       const existing = injectedWebGazerScript;
-      const timeout = window.setTimeout(() => reject(new Error('WebGazer could not be loaded.')), 15000);
+      const timeout = window.setTimeout(
+        () => reject(new Error('WebGazer could not be loaded.')),
+        15000
+      );
       existing.onload = () => {
         window.clearTimeout(timeout);
-        window.webgazer ? resolve() : reject(new Error('WebGazer loaded but unavailable.'));
+        if (window.webgazer) {
+          resolve();
+        } else {
+          reject(new Error('WebGazer loaded but unavailable.'));
+        }
       };
       existing.onerror = () => {
         window.clearTimeout(timeout);
         reject(new Error('WebGazer could not be loaded.'));
       };
-      return;
     }
     const script = document.createElement('script');
     script.src = WEBAZER_CDN;
     script.async = true;
     injectedWebGazerScript = script;
-    script.onload = () => (window.webgazer ? resolve() : reject(new Error('WebGazer loaded but unavailable.')));
+    script.onload = () =>
+      window.webgazer ? resolve() : reject(new Error('WebGazer loaded but unavailable.'));
     script.onerror = () => reject(new Error('WebGazer could not be loaded.'));
     document.head.appendChild(script);
   });
@@ -81,7 +90,10 @@ export class WebGazerEyeTrackingProvider implements EyeTrackingProvider {
 
   async requestAccess(): Promise<boolean> {
     if (!browserSupportsEyeTrackingCapability()) {
-      this.mark('UNAVAILABLE', 'Eye tracking requires a secure (HTTPS) connection with camera access.');
+      this.mark(
+        'UNAVAILABLE',
+        'Eye tracking requires a secure (HTTPS) connection with camera access.'
+      );
       return false;
     }
     this.mark('REQUESTED', 'Loading the eye-tracking engine…');
@@ -105,20 +117,22 @@ export class WebGazerEyeTrackingProvider implements EyeTrackingProvider {
     }
   }
 
-  async beginCalibration(): Promise<void> {
+  beginCalibration(): Promise<void> {
     const webgazer = window.webgazer;
     if (!webgazer) {
       this.mark('ERROR', 'Eye tracking is not ready to calibrate.');
-      return;
+      return Promise.resolve();
     }
     webgazer.addMouseEventListeners();
     this.mark('CALIBRATING', 'Look at each dot and click it.');
+    return Promise.resolve();
   }
 
-  async setCalibrationPoint(x: number, y: number): Promise<void> {
+  setCalibrationPoint(x: number, y: number): Promise<void> {
     const webgazer = window.webgazer;
-    if (!webgazer) return;
+    if (!webgazer) return Promise.resolve();
     webgazer.recordScreenPosition(x, y, 'click');
+    return Promise.resolve();
   }
 
   finishCalibration(): void {
@@ -126,7 +140,7 @@ export class WebGazerEyeTrackingProvider implements EyeTrackingProvider {
     this.mark('READY');
   }
 
-  async startTracking(onSample: (x: number, y: number, confidence?: number) => void): Promise<void> {
+  startTracking(onSample: (x: number, y: number, confidence?: number) => void): Promise<void> {
     const webgazer = window.webgazer;
     if (!webgazer) {
       this.mark('ERROR', 'Eye tracking is not ready.');
@@ -134,7 +148,7 @@ export class WebGazerEyeTrackingProvider implements EyeTrackingProvider {
     }
     this.onSample = onSample;
     this.lastSampleAt = performance.now();
-    webgazer.setGazeListener((data) => {
+    webgazer.setGazeListener(data => {
       if (data && Number.isFinite(data.x) && Number.isFinite(data.y)) {
         this.lastSampleAt = performance.now();
         if (this.phase === 'DEGRADED') this.mark('TRACKING');
@@ -148,17 +162,19 @@ export class WebGazerEyeTrackingProvider implements EyeTrackingProvider {
         this.mark('DEGRADED', 'No face detected — check lighting and camera position.');
       }
     }, WATCHDOG_INTERVAL_MS);
+    return Promise.resolve();
   }
 
-  async stopTracking(): Promise<void> {
+  stopTracking(): Promise<void> {
     window.clearInterval(this.watchdogTimer);
     this.watchdogTimer = undefined;
     if (window.webgazer) window.webgazer.pause();
     this.onSample = null;
     this.mark('STOPPED');
+    return Promise.resolve();
   }
 
-  async cleanup(): Promise<void> {
+  cleanup(): Promise<void> {
     window.clearInterval(this.watchdogTimer);
     this.watchdogTimer = undefined;
     this.onSample = null;
@@ -170,6 +186,7 @@ export class WebGazerEyeTrackingProvider implements EyeTrackingProvider {
       }
     }
     this.listener = null;
+    return Promise.resolve();
   }
 }
 

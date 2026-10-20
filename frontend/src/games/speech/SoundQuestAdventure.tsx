@@ -14,7 +14,7 @@ export function SoundQuestAdventure({ trial, onResponse }: SpeechGameViewProps) 
     if (result.speechDetected && storyParts.length) {
       setUnlocked(current => Math.min(current + 1, storyParts.length));
     }
-    onResponse(result as unknown as SpeechResponseRecord);
+    onResponse(result);
   };
 
   return (
@@ -28,7 +28,13 @@ export function SoundQuestAdventure({ trial, onResponse }: SpeechGameViewProps) 
           ))}
         </div>
       ) : null}
-      <SpeechRound title={trial.stimulus.levelName} levelName={trial.stimulus.levelName} levelSubtitle={trial.stimulus.levelSubtitle} promptText={trial.stimulus.promptText} onResult={onResult} />
+      <SpeechRound
+        title={trial.stimulus.levelName}
+        levelName={trial.stimulus.levelName}
+        levelSubtitle={trial.stimulus.levelSubtitle}
+        promptText={trial.stimulus.promptText}
+        onResult={onResult}
+      />
     </div>
   );
 }

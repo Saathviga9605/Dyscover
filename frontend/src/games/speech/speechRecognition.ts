@@ -1,4 +1,11 @@
-export type SpeechRecognitionErrorType = 'no-speech' | 'not-allowed' | 'service-not-allowed' | 'audio-capture' | 'network' | 'aborted' | 'unknown';
+export type SpeechRecognitionErrorType =
+  | 'no-speech'
+  | 'not-allowed'
+  | 'service-not-allowed'
+  | 'audio-capture'
+  | 'network'
+  | 'aborted'
+  | 'unknown';
 
 export interface SpeechRecognitionResult {
   transcript: string;
@@ -48,8 +55,19 @@ type SpeechRecognitionCtor = { new (): WebSpeechRecognitionLike };
 
 export function createRecognitionInstance(): WebSpeechRecognitionLike | null {
   if (typeof window === 'undefined') return null;
-  const Ctor = (window as unknown as { SpeechRecognition?: SpeechRecognitionCtor; webkitSpeechRecognition?: SpeechRecognitionCtor }).SpeechRecognition
-    ?? (window as unknown as { SpeechRecognition?: SpeechRecognitionCtor; webkitSpeechRecognition?: SpeechRecognitionCtor }).webkitSpeechRecognition;
+  const Ctor =
+    (
+      window as unknown as {
+        SpeechRecognition?: SpeechRecognitionCtor;
+        webkitSpeechRecognition?: SpeechRecognitionCtor;
+      }
+    ).SpeechRecognition ??
+    (
+      window as unknown as {
+        SpeechRecognition?: SpeechRecognitionCtor;
+        webkitSpeechRecognition?: SpeechRecognitionCtor;
+      }
+    ).webkitSpeechRecognition;
   if (!Ctor) return null;
   try {
     return new Ctor();
@@ -62,9 +80,15 @@ export const SPEECH_PROVIDER_NAME = 'webkit-speech-v1';
 const DEFAULT_BUDGET_MS = 12000;
 
 export function speechSupported(): boolean {
-  return typeof window !== 'undefined'
-    && Boolean((window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).SpeechRecognition
-      ?? (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).webkitSpeechRecognition);
+  return (
+    typeof window !== 'undefined' &&
+    Boolean(
+      (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown })
+        .SpeechRecognition ??
+      (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown })
+        .webkitSpeechRecognition
+    )
+  );
 }
 
 interface Deferred {
@@ -130,7 +154,7 @@ export class SpeechRecognitionController {
       if (!this.speechStartedAt) this.speechStartedAt = performance.now();
       this.onSpeechStart?.();
     };
-    recognition.onresult = (event) => {
+    recognition.onresult = event => {
       let final = '';
       let confidence = 0;
       for (let i = 0; i < event.results.length; i += 1) {
@@ -158,8 +182,8 @@ export class SpeechRecognitionController {
         });
       }
     };
-    recognition.onerror = (event) => {
-      const code = (event.error as string) ?? 'unknown';
+    recognition.onerror = event => {
+      const code = event.error ?? 'unknown';
       if (code === 'no-speech' && this.noSpeechRetries < this.maxNoSpeechRetries) {
         this.noSpeechRetries += 1;
         window.setTimeout(() => {
@@ -177,7 +201,9 @@ export class SpeechRecognitionController {
         this.settle(this.errorResult('no-speech'));
         return;
       }
-      const type = (['not-allowed', 'service-not-allowed', 'audio-capture', 'network', 'aborted'] as const).includes(code as never)
+      const type = (
+        ['not-allowed', 'service-not-allowed', 'audio-capture', 'network', 'aborted'] as const
+      ).includes(code as never)
         ? (code as SpeechRecognitionErrorType)
         : 'unknown';
       this.settle(this.errorResult(type));
@@ -185,7 +211,8 @@ export class SpeechRecognitionController {
     recognition.onend = () => undefined;
 
     this.timer = window.setTimeout(() => {
-      if (!this.called()) this.settle(this.errorResult(this.speechStartedAt ? 'unknown' : 'no-speech'));
+      if (!this.called())
+        this.settle(this.errorResult(this.speechStartedAt ? 'unknown' : 'no-speech'));
     }, this.budgetMs);
 
     try {
@@ -232,7 +259,10 @@ export class SpeechRecognitionController {
     this.active = false;
   }
 
-  private errorResult(errorType: SpeechRecognitionErrorType, durationMs?: number): SpeechRecognitionResult {
+  private errorResult(
+    errorType: SpeechRecognitionErrorType,
+    durationMs?: number
+  ): SpeechRecognitionResult {
     return {
       transcript: '',
       confidence: 0,

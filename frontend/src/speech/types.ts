@@ -20,7 +20,8 @@ export interface SpeechAnalysisResult {
   features: Record<string, number>;
 }
 
-export type SpeechProviderPhase = 'UNAVAILABLE' | 'NOT_CONFIGURED' | 'REQUESTED' | 'READY' | 'LISTENING' | 'PROCESSING' | 'ERROR';
+export type SpeechProviderPhase =
+  'UNAVAILABLE' | 'NOT_CONFIGURED' | 'REQUESTED' | 'READY' | 'LISTENING' | 'PROCESSING' | 'ERROR';
 
 export interface SpeechCapabilities {
   recognition: boolean;
@@ -29,12 +30,18 @@ export interface SpeechCapabilities {
 }
 
 export function probeSpeechCapabilities(): SpeechCapabilities {
-  if (typeof window === 'undefined') return { recognition: false, audio: false, secureContext: false };
+  if (typeof window === 'undefined')
+    return { recognition: false, audio: false, secureContext: false };
   const recognition =
-    typeof window.SpeechRecognition !== 'undefined' || typeof (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition !== 'undefined';
+    typeof window.SpeechRecognition !== 'undefined' ||
+    typeof (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition !==
+      'undefined';
   return {
     recognition,
-    audio: typeof navigator !== 'undefined' && !!navigator.mediaDevices && typeof navigator.mediaDevices.getUserMedia === 'function',
+    audio:
+      typeof navigator !== 'undefined' &&
+      !!navigator.mediaDevices &&
+      typeof navigator.mediaDevices.getUserMedia === 'function',
     secureContext: window.isSecureContext,
   };
 }
@@ -72,12 +79,19 @@ export function decideCorrectness(similarity: number, difficulty: number): boole
 }
 
 function levenshtein(a: string, b: string): number {
-  const matrix: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  const matrix: number[][] = Array.from({ length: a.length + 1 }, (_, i): number[] => [
+    i,
+    ...Array(b.length).fill(0),
+  ]);
   for (let j = 0; j <= b.length; j += 1) matrix[0][j] = j;
   for (let i = 1; i <= a.length; i += 1) {
     for (let j = 1; j <= b.length; j += 1) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost);
+      matrix[i][j] = Math.min(
+        matrix[i - 1][j] + 1,
+        matrix[i][j - 1] + 1,
+        matrix[i - 1][j - 1] + cost
+      );
     }
   }
   return matrix[a.length][b.length];

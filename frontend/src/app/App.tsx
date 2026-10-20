@@ -1,6 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Link, NavLink, Route, Routes } from 'react-router-dom';
-import { AccessibilityPanel, Badge, Button, Card, Mascot, MascotBubble, PageHeader, ProgressBar, SectionHeader } from '../components/ui';
+import {
+  AccessibilityPanel,
+  Badge,
+  Button,
+  Card,
+  Mascot,
+  MascotBubble,
+  PageHeader,
+  ProgressBar,
+  SectionHeader,
+} from '../components/ui';
 import { GameRunner } from '../games/GameRunner';
 import { SpeechAssessmentRunner } from '../games/SpeechAssessmentRunner';
 import { ChildAssessmentHub } from './ChildAssessmentHub';
@@ -11,54 +21,653 @@ import { EducatorDashboard } from './EducatorDashboard';
 import { LanguageProvider, LanguageSwitcher, useLanguage } from '../l10n';
 import type { MessageKey } from '../l10n/messages/en';
 
-const nav: ReadonlyArray<readonly [string, MessageKey]> = [['/', 'nav.explore'], ['/how-it-works', 'nav.howItWorks'], ['/research', 'nav.research']];
+const nav: ReadonlyArray<readonly [string, MessageKey]> = [
+  ['/', 'nav.explore'],
+  ['/how-it-works', 'nav.howItWorks'],
+  ['/research', 'nav.research'],
+];
 
 function Layout({ children }: { children: React.ReactNode }) {
   const { t } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  return <div className="app-shell">
-    <nav className={`site-nav ${menuOpen ? 'menu-open' : ''}`}>
-      <Link className="brand" to="/" onClick={() => setMenuOpen(false)}><span className="brand-mark">✦</span><span>Dyscover</span></Link>
-      <button className="menu-button" onClick={() => setMenuOpen(value => !value)} aria-expanded={menuOpen} aria-label={t('nav.toggleAria')}><span /><span /><span /></button>
-      <div className="nav-links">{nav.map(([to, label]) => <NavLink key={to} to={to} onClick={() => setMenuOpen(false)} className={({ isActive }) => isActive ? 'active' : ''}>{t(label)}</NavLink>)}<span className="nav-divider" /><NavLink to="/parent/dashboard" onClick={() => setMenuOpen(false)} className="parent-link">{t('nav.forParents')}</NavLink><NavLink to="/educator/dashboard" onClick={() => setMenuOpen(false)} className="parent-link">Educators</NavLink><Link className="nav-cta" to="/child/home" onClick={() => setMenuOpen(false)}>{t('nav.startScreening')} <span>↗</span></Link><LanguageSwitcher /><button className="settings-button" onClick={() => setSettingsOpen(value => !value)} aria-label={t('nav.settingsAria')} aria-expanded={settingsOpen}>Aa</button></div>
-      <AccessibilityPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
-    </nav>
-    <main className="main">{children}</main>
-    <footer className="footer"><div><Link className="brand footer-brand" to="/"><span className="brand-mark">✦</span>Dyscover</Link><p>{t('footer.tagline')}</p></div><div className="footer-links"><Link to="/about">{t('footer.about')}</Link><Link to="/contact">{t('footer.contact')}</Link><Link to="/research">{t('nav.research')}</Link></div><small>{t('footer.legal')}</small></footer>
-    <LexiWidget />
-  </div>;
+  return (
+    <div className="app-shell">
+      <nav className={`site-nav ${menuOpen ? 'menu-open' : ''}`}>
+        <Link className="brand" to="/" onClick={() => setMenuOpen(false)}>
+          <span className="brand-mark">✦</span>
+          <span>Dyscover</span>
+        </Link>
+        <button
+          className="menu-button"
+          onClick={() => setMenuOpen(value => !value)}
+          aria-expanded={menuOpen}
+          aria-label={t('nav.toggleAria')}
+        >
+          <span />
+          <span />
+          <span />
+        </button>
+        <div className="nav-links">
+          {nav.map(([to, label]) => (
+            <NavLink
+              key={to}
+              to={to}
+              onClick={() => setMenuOpen(false)}
+              className={({ isActive }) => (isActive ? 'active' : '')}
+            >
+              {t(label)}
+            </NavLink>
+          ))}
+          <span className="nav-divider" />
+          <NavLink
+            to="/parent/dashboard"
+            onClick={() => setMenuOpen(false)}
+            className="parent-link"
+          >
+            {t('nav.forParents')}
+          </NavLink>
+          <NavLink
+            to="/educator/dashboard"
+            onClick={() => setMenuOpen(false)}
+            className="parent-link"
+          >
+            Educators
+          </NavLink>
+          <Link className="nav-cta" to="/child/home" onClick={() => setMenuOpen(false)}>
+            {t('nav.startScreening')} <span>↗</span>
+          </Link>
+          <LanguageSwitcher />
+          <button
+            className="settings-button"
+            onClick={() => setSettingsOpen(value => !value)}
+            aria-label={t('nav.settingsAria')}
+            aria-expanded={settingsOpen}
+          >
+            Aa
+          </button>
+        </div>
+        <AccessibilityPanel open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      </nav>
+      <main className="main">{children}</main>
+      <footer className="footer">
+        <div>
+          <Link className="brand footer-brand" to="/">
+            <span className="brand-mark">✦</span>Dyscover
+          </Link>
+          <p>{t('footer.tagline')}</p>
+        </div>
+        <div className="footer-links">
+          <Link to="/about">{t('footer.about')}</Link>
+          <Link to="/contact">{t('footer.contact')}</Link>
+          <Link to="/research">{t('nav.research')}</Link>
+        </div>
+        <small>{t('footer.legal')}</small>
+      </footer>
+      <LexiWidget />
+    </div>
+  );
 }
 
-function FloatingDecor() { return <><span className="float-shape shape-star">✦</span><span className="float-shape shape-cross">+</span><span className="float-shape shape-dot" /><span className="float-shape shape-letter">a</span></>; }
+function FloatingDecor() {
+  return (
+    <>
+      <span className="float-shape shape-star">✦</span>
+      <span className="float-shape shape-cross">+</span>
+      <span className="float-shape shape-dot" />
+      <span className="float-shape shape-letter">a</span>
+    </>
+  );
+}
 
-function Home() { const { t } = useLanguage(); return <>
-  <section className="home-hero">
-    <FloatingDecor />
-    <div className="hero-copy"><span className="eyebrow">{t('home.eyebrow')}</span><h1>{t('home.title', { you: t('home.titleWord') })}</h1><p className="hero-lede">{t('home.lede')}</p><div className="actions"><Link className="button button-sun" to="/child/home">{t('home.start')} <span>→</span></Link><Link className="text-link" to="/how-it-works">{t('home.seeHow')} <span>↗</span></Link></div><p className="hero-note"><span>✦</span> {t('home.note')}</p></div>
-    <div className="hero-scene"><div className="scene-sun" /><div className="scene-cloud cloud-one" /><div className="scene-cloud cloud-two" /><div className="scene-hill hill-back" /><div className="scene-hill hill-front" /><div className="scene-path" /><div className="scene-book"><span>abc</span></div><div className="scene-star star-one">✦</div><div className="scene-star star-two">✦</div><Mascot mood="excited" size="large" /></div>
-  </section>
-  <section className="section intro-section"><div className="section-heading centered"><span className="eyebrow">{t('home.noticeEyebrow')}</span><h2>{t('home.noticeTitle')}</h2><p>{t('home.noticeCopy')}</p></div><div className="story-grid"><Card className="story-card story-card-lavender"><span className="story-number">01</span><div className="story-icon icon-loop">↻</div><h3>{t('home.card1Title')}</h3><p>{t('home.card1Copy')}</p><Link className="card-link" to="/child/home">{t('home.card1Link')} <span>→</span></Link></Card><Card className="story-card story-card-blue"><span className="story-number">02</span><div className="story-icon icon-spark">✦</div><h3>{t('home.card2Title')}</h3><p>{t('home.card2Copy')}</p><Link className="card-link" to="/research">{t('home.card2Link')} <span>→</span></Link></Card><Card className="story-card story-card-mint"><span className="story-number">03</span><div className="story-icon icon-leaf">⌁</div><h3>{t('home.card3Title')}</h3><p>{t('home.card3Copy')}</p><Link className="card-link" to="/about">{t('home.card3Link')} <span>→</span></Link></Card></div></section>
-  <section className="section signals-section"><div className="signals-art"><div className="signal-orbit orbit-one" /><div className="signal-orbit orbit-two" /><div className="signal-core"><span>✦</span></div><span className="signal-chip chip-one">{t('home.signalTiming')}</span><span className="signal-chip chip-two">{t('home.chipChoices')}</span><span className="signal-chip chip-three">{t('home.chipWords')}</span><span className="signal-chip chip-four">{t('home.chipFocus')}</span></div><div className="signals-copy"><span className="eyebrow">{t('home.signalEyebrow')}</span><h2>{t('home.signalTitle')}</h2><p>{t('home.signalCopy')}</p><div className="signal-list"><div><strong>01</strong><span>{t('home.signalResponse')}</span></div><div><strong>02</strong><span>{t('home.signalTiming')}</span></div><div><strong>03</strong><span>{t('home.signalInteraction')}</span></div></div><Link className="text-link" to="/research">{t('home.researchLink')} <span>↗</span></Link></div></section>
-  <section className="section parent-preview"><div className="section-heading"><span className="eyebrow">{t('home.parentEyebrow')}</span><h2>{t('home.parentTitle')}</h2><p>{t('home.parentCopy')}</p></div><div className="preview-window"><div className="preview-topbar"><span className="preview-dot" /><span className="preview-dot" /><span className="preview-dot" /><span className="preview-label">{t('home.previewWindowLabel')} <b>{t('parent.modeNote')}</b></span></div><div className="preview-body"><div className="preview-welcome"><span className="eyebrow">{t('home.previewWelcome')}</span><h3>{t('home.previewTitle')}</h3><p>{t('home.previewLatest')}</p></div><div className="preview-chart"><div className="chart-line"><i /><i /><i /><i /><i /><i /></div><div className="chart-labels"><span>{t('home.card1Title')}</span><span>{t('home.card2Title')}</span><span>{t('home.card3Title')}</span></div></div><div className="preview-metrics"><div><span>{t('home.previewObserved')}</span><strong>04</strong></div><div><span>{t('home.previewActivities')}</span><strong>--</strong></div><div><span>{t('home.previewNext')}</span><strong>{t('home.previewReady')}</strong></div></div></div></div><Link className="text-link preview-link" to="/parent/dashboard">{t('home.parentVisit')} <span>↗</span></Link></section>
-  <section className="lexi-banner"><Mascot mood="happy" size="medium" /><div><span className="eyebrow">{t('home.lexiEyebrow')}</span><h2>{t('home.lexiTitle')}</h2><p>{t('home.lexiCopy')}</p></div><button className="button button-light" onClick={() => document.querySelector<HTMLButtonElement>('.lexi-toggle')?.click()}>{t('home.lexiCta')} <span>→</span></button></section>
-  <section className="section care-section"><div className="section-heading centered"><span className="eyebrow">{t('home.careEyebrow')}</span><h2>{t('home.careTitle')}</h2></div><div className="care-grid"><div><span className="care-icon">◌</span><h3>{t('home.careAccessibleTitle')}</h3><p>{t('home.careAccessibleCopy')}</p></div><div><span className="care-icon">⌂</span><h3>{t('home.carePrivacyTitle')}</h3><p>{t('home.carePrivacyCopy')}</p></div><div><span className="care-icon">✧</span><h3>{t('home.careDiagnosticTitle')}</h3><p>{t('home.careDiagnosticCopy')}</p></div></div></section>
-  <section className="final-cta"><span className="eyebrow">{t('home.ctaEyebrow')}</span><h2>{t('home.ctaTitle')}</h2><p>{t('home.ctaCopy')}</p><Link className="button button-sun" to="/child/home">{t('home.ctaStart')} <span>→</span></Link></section>
-</>; }
+function Home() {
+  const { t } = useLanguage();
+  return (
+    <>
+      <section className="home-hero">
+        <FloatingDecor />
+        <div className="hero-copy">
+          <span className="eyebrow">{t('home.eyebrow')}</span>
+          <h1>{t('home.title', { you: t('home.titleWord') })}</h1>
+          <p className="hero-lede">{t('home.lede')}</p>
+          <div className="actions">
+            <Link className="button button-sun" to="/child/home">
+              {t('home.start')} <span>→</span>
+            </Link>
+            <Link className="text-link" to="/how-it-works">
+              {t('home.seeHow')} <span>↗</span>
+            </Link>
+          </div>
+          <p className="hero-note">
+            <span>✦</span> {t('home.note')}
+          </p>
+        </div>
+        <div className="hero-scene">
+          <div className="scene-sun" />
+          <div className="scene-cloud cloud-one" />
+          <div className="scene-cloud cloud-two" />
+          <div className="scene-hill hill-back" />
+          <div className="scene-hill hill-front" />
+          <div className="scene-path" />
+          <div className="scene-book">
+            <span>abc</span>
+          </div>
+          <div className="scene-star star-one">✦</div>
+          <div className="scene-star star-two">✦</div>
+          <Mascot mood="excited" size="large" />
+        </div>
+      </section>
+      <section className="section intro-section">
+        <div className="section-heading centered">
+          <span className="eyebrow">{t('home.noticeEyebrow')}</span>
+          <h2>{t('home.noticeTitle')}</h2>
+          <p>{t('home.noticeCopy')}</p>
+        </div>
+        <div className="story-grid">
+          <Card className="story-card story-card-lavender">
+            <span className="story-number">01</span>
+            <div className="story-icon icon-loop">↻</div>
+            <h3>{t('home.card1Title')}</h3>
+            <p>{t('home.card1Copy')}</p>
+            <Link className="card-link" to="/child/home">
+              {t('home.card1Link')} <span>→</span>
+            </Link>
+          </Card>
+          <Card className="story-card story-card-blue">
+            <span className="story-number">02</span>
+            <div className="story-icon icon-spark">✦</div>
+            <h3>{t('home.card2Title')}</h3>
+            <p>{t('home.card2Copy')}</p>
+            <Link className="card-link" to="/research">
+              {t('home.card2Link')} <span>→</span>
+            </Link>
+          </Card>
+          <Card className="story-card story-card-mint">
+            <span className="story-number">03</span>
+            <div className="story-icon icon-leaf">⌁</div>
+            <h3>{t('home.card3Title')}</h3>
+            <p>{t('home.card3Copy')}</p>
+            <Link className="card-link" to="/about">
+              {t('home.card3Link')} <span>→</span>
+            </Link>
+          </Card>
+        </div>
+      </section>
+      <section className="section signals-section">
+        <div className="signals-art">
+          <div className="signal-orbit orbit-one" />
+          <div className="signal-orbit orbit-two" />
+          <div className="signal-core">
+            <span>✦</span>
+          </div>
+          <span className="signal-chip chip-one">{t('home.signalTiming')}</span>
+          <span className="signal-chip chip-two">{t('home.chipChoices')}</span>
+          <span className="signal-chip chip-three">{t('home.chipWords')}</span>
+          <span className="signal-chip chip-four">{t('home.chipFocus')}</span>
+        </div>
+        <div className="signals-copy">
+          <span className="eyebrow">{t('home.signalEyebrow')}</span>
+          <h2>{t('home.signalTitle')}</h2>
+          <p>{t('home.signalCopy')}</p>
+          <div className="signal-list">
+            <div>
+              <strong>01</strong>
+              <span>{t('home.signalResponse')}</span>
+            </div>
+            <div>
+              <strong>02</strong>
+              <span>{t('home.signalTiming')}</span>
+            </div>
+            <div>
+              <strong>03</strong>
+              <span>{t('home.signalInteraction')}</span>
+            </div>
+          </div>
+          <Link className="text-link" to="/research">
+            {t('home.researchLink')} <span>↗</span>
+          </Link>
+        </div>
+      </section>
+      <section className="section parent-preview">
+        <div className="section-heading">
+          <span className="eyebrow">{t('home.parentEyebrow')}</span>
+          <h2>{t('home.parentTitle')}</h2>
+          <p>{t('home.parentCopy')}</p>
+        </div>
+        <div className="preview-window">
+          <div className="preview-topbar">
+            <span className="preview-dot" />
+            <span className="preview-dot" />
+            <span className="preview-dot" />
+            <span className="preview-label">
+              {t('home.previewWindowLabel')} <b>{t('parent.modeNote')}</b>
+            </span>
+          </div>
+          <div className="preview-body">
+            <div className="preview-welcome">
+              <span className="eyebrow">{t('home.previewWelcome')}</span>
+              <h3>{t('home.previewTitle')}</h3>
+              <p>{t('home.previewLatest')}</p>
+            </div>
+            <div className="preview-chart">
+              <div className="chart-line">
+                <i />
+                <i />
+                <i />
+                <i />
+                <i />
+                <i />
+              </div>
+              <div className="chart-labels">
+                <span>{t('home.card1Title')}</span>
+                <span>{t('home.card2Title')}</span>
+                <span>{t('home.card3Title')}</span>
+              </div>
+            </div>
+            <div className="preview-metrics">
+              <div>
+                <span>{t('home.previewObserved')}</span>
+                <strong>04</strong>
+              </div>
+              <div>
+                <span>{t('home.previewActivities')}</span>
+                <strong>--</strong>
+              </div>
+              <div>
+                <span>{t('home.previewNext')}</span>
+                <strong>{t('home.previewReady')}</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+        <Link className="text-link preview-link" to="/parent/dashboard">
+          {t('home.parentVisit')} <span>↗</span>
+        </Link>
+      </section>
+      <section className="lexi-banner">
+        <Mascot mood="happy" size="medium" />
+        <div>
+          <span className="eyebrow">{t('home.lexiEyebrow')}</span>
+          <h2>{t('home.lexiTitle')}</h2>
+          <p>{t('home.lexiCopy')}</p>
+        </div>
+        <button
+          className="button button-light"
+          onClick={() => document.querySelector<HTMLButtonElement>('.lexi-toggle')?.click()}
+        >
+          {t('home.lexiCta')} <span>→</span>
+        </button>
+      </section>
+      <section className="section care-section">
+        <div className="section-heading centered">
+          <span className="eyebrow">{t('home.careEyebrow')}</span>
+          <h2>{t('home.careTitle')}</h2>
+        </div>
+        <div className="care-grid">
+          <div>
+            <span className="care-icon">◌</span>
+            <h3>{t('home.careAccessibleTitle')}</h3>
+            <p>{t('home.careAccessibleCopy')}</p>
+          </div>
+          <div>
+            <span className="care-icon">⌂</span>
+            <h3>{t('home.carePrivacyTitle')}</h3>
+            <p>{t('home.carePrivacyCopy')}</p>
+          </div>
+          <div>
+            <span className="care-icon">✧</span>
+            <h3>{t('home.careDiagnosticTitle')}</h3>
+            <p>{t('home.careDiagnosticCopy')}</p>
+          </div>
+        </div>
+      </section>
+      <section className="final-cta">
+        <span className="eyebrow">{t('home.ctaEyebrow')}</span>
+        <h2>{t('home.ctaTitle')}</h2>
+        <p>{t('home.ctaCopy')}</p>
+        <Link className="button button-sun" to="/child/home">
+          {t('home.ctaStart')} <span>→</span>
+        </Link>
+      </section>
+    </>
+  );
+}
 
-function About() { const { t } = useLanguage(); return <><section className="split-hero about-hero"><div><span className="eyebrow">{t('about.eyebrow')}</span><h1>{t('about.title')}</h1><p className="hero-lede">{t('about.lede')}</p></div><div className="about-illustration"><div className="letter-tile tile-a">a</div><div className="letter-tile tile-b">b</div><div className="letter-tile tile-c">?</div><div className="about-sun">✦</div><Mascot mood="happy" size="medium" /></div></section><section className="section narrative-section"><SectionHeader eyebrow={t('about.narrativeEyebrow')} title={t('about.narrativeTitle')} /><div className="topic-grid">{[['Reading', 'about.topicReading', 'about.topicReadingCopy'], ['Writing', 'about.topicWriting', 'about.topicWritingCopy'], ['Spelling', 'about.topicSpelling', 'about.topicSpellingCopy'], ['Sound patterns', 'about.topicSounds', 'about.topicSoundsCopy']].map(([_, title, copy], index) => <Card key={title} className={`topic-card topic-${index}`}><span className="topic-index">0{index + 1}</span><h3>{t(title as MessageKey)}</h3><p>{t(copy as MessageKey)}</p></Card>)}</div></section><section className="section promise-section"><div className="promise-card"><MascotBubble mood="thinking">{t('about.promiseBubble')}</MascotBubble><div><span className="eyebrow">{t('about.promiseEyebrow')}</span><h2>{t('about.promiseTitle')}</h2><p>{t('about.promiseCopy')}</p></div></div><div className="not-card"><span className="eyebrow">{t('about.notEyebrow')}</span><h2>{t('about.notTitle')}</h2><p>{t('about.notCopy')}</p><Link className="text-link" to="/research">{t('about.limitationsLink')} <span>↗</span></Link></div></section></>; }
+function About() {
+  const { t } = useLanguage();
+  return (
+    <>
+      <section className="split-hero about-hero">
+        <div>
+          <span className="eyebrow">{t('about.eyebrow')}</span>
+          <h1>{t('about.title')}</h1>
+          <p className="hero-lede">{t('about.lede')}</p>
+        </div>
+        <div className="about-illustration">
+          <div className="letter-tile tile-a">a</div>
+          <div className="letter-tile tile-b">b</div>
+          <div className="letter-tile tile-c">?</div>
+          <div className="about-sun">✦</div>
+          <Mascot mood="happy" size="medium" />
+        </div>
+      </section>
+      <section className="section narrative-section">
+        <SectionHeader eyebrow={t('about.narrativeEyebrow')} title={t('about.narrativeTitle')} />
+        <div className="topic-grid">
+          {[
+            ['Reading', 'about.topicReading', 'about.topicReadingCopy'],
+            ['Writing', 'about.topicWriting', 'about.topicWritingCopy'],
+            ['Spelling', 'about.topicSpelling', 'about.topicSpellingCopy'],
+            ['Sound patterns', 'about.topicSounds', 'about.topicSoundsCopy'],
+          ].map(([_, title, copy], index) => (
+            <Card key={title} className={`topic-card topic-${index}`}>
+              <span className="topic-index">0{index + 1}</span>
+              <h3>{t(title)}</h3>
+              <p>{t(copy)}</p>
+            </Card>
+          ))}
+        </div>
+      </section>
+      <section className="section promise-section">
+        <div className="promise-card">
+          <MascotBubble mood="thinking">{t('about.promiseBubble')}</MascotBubble>
+          <div>
+            <span className="eyebrow">{t('about.promiseEyebrow')}</span>
+            <h2>{t('about.promiseTitle')}</h2>
+            <p>{t('about.promiseCopy')}</p>
+          </div>
+        </div>
+        <div className="not-card">
+          <span className="eyebrow">{t('about.notEyebrow')}</span>
+          <h2>{t('about.notTitle')}</h2>
+          <p>{t('about.notCopy')}</p>
+          <Link className="text-link" to="/research">
+            {t('about.limitationsLink')} <span>↗</span>
+          </Link>
+        </div>
+      </section>
+    </>
+  );
+}
 
-function HowItWorks() { const { t } = useLanguage(); const steps: Array<[string, MessageKey, MessageKey]> = [['01', 'how.step1Title', 'how.step1Copy'], ['02', 'how.step2Title', 'how.step2Copy'], ['03', 'how.step3Title', 'how.step3Copy'], ['04', 'how.step4Title', 'how.step4Copy'], ['05', 'how.step5Title', 'how.step5Copy']]; return <><PageHeader eyebrow={t('how.eyebrow')} title={t('how.title')} ><p className="page-lede">{t('how.lede')}</p></PageHeader><section className="journey"><div className="journey-line" />{steps.map(([number, title, copy], index) => <div className={`journey-step journey-step-${index + 1}`} key={number}><div className="journey-node"><span>{number}</span></div><div className="journey-copy"><span className="eyebrow">{t('how.stepLabel', { number })}</span><h2>{t(title)}</h2><p>{t(copy)}</p></div><div className="journey-art">{index === 0 && <span>⌂</span>}{index === 1 && <span>✦</span>}{index === 2 && <span>⌕</span>}{index === 3 && <span>◌</span>}{index === 4 && <span>⌁</span>}</div></div>)}</section><section className="section centered-callout"><MascotBubble mood="excited">{t('how.bubble')}</MascotBubble><Link className="button button-sun" to="/child/home">{t('how.enterChild')} <span>→</span></Link></section></>; }
+function HowItWorks() {
+  const { t } = useLanguage();
+  const steps: Array<[string, MessageKey, MessageKey]> = [
+    ['01', 'how.step1Title', 'how.step1Copy'],
+    ['02', 'how.step2Title', 'how.step2Copy'],
+    ['03', 'how.step3Title', 'how.step3Copy'],
+    ['04', 'how.step4Title', 'how.step4Copy'],
+    ['05', 'how.step5Title', 'how.step5Copy'],
+  ];
+  return (
+    <>
+      <PageHeader eyebrow={t('how.eyebrow')} title={t('how.title')}>
+        <p className="page-lede">{t('how.lede')}</p>
+      </PageHeader>
+      <section className="journey">
+        <div className="journey-line" />
+        {steps.map(([number, title, copy], index) => (
+          <div className={`journey-step journey-step-${index + 1}`} key={number}>
+            <div className="journey-node">
+              <span>{number}</span>
+            </div>
+            <div className="journey-copy">
+              <span className="eyebrow">{t('how.stepLabel', { number })}</span>
+              <h2>{t(title)}</h2>
+              <p>{t(copy)}</p>
+            </div>
+            <div className="journey-art">
+              {index === 0 && <span>⌂</span>}
+              {index === 1 && <span>✦</span>}
+              {index === 2 && <span>⌕</span>}
+              {index === 3 && <span>◌</span>}
+              {index === 4 && <span>⌁</span>}
+            </div>
+          </div>
+        ))}
+      </section>
+      <section className="section centered-callout">
+        <MascotBubble mood="excited">{t('how.bubble')}</MascotBubble>
+        <Link className="button button-sun" to="/child/home">
+          {t('how.enterChild')} <span>→</span>
+        </Link>
+      </section>
+    </>
+  );
+}
 
-function Research() { const { t } = useLanguage(); return <><PageHeader eyebrow={t('research.eyebrow')} title={t('research.title')}><p className="page-lede">{t('research.lede')}</p></PageHeader><section className="research-flow"><div className="research-grid-bg" /><div className="research-flow-step"><span>01</span><strong>{t('research.flow1Title')}</strong><small>{t('research.flow1Small')}</small></div><i>↓</i><div className="research-flow-step"><span>02</span><strong>{t('research.flow2Title')}</strong><small>{t('research.flow2Small')}</small></div><i>↓</i><div className="research-flow-step"><span>03</span><strong>{t('research.flow3Title')}</strong><small>{t('research.flow3Small')}</small></div><i>↓</i><div className="research-flow-step"><span>04</span><strong>{t('research.flow4Title')}</strong><small>{t('research.flow4Small')}</small></div></section><section className="section current-future"><Card className="current-card"><Badge>{t('research.currentBadge')}</Badge><h2>{t('research.currentTitle')}</h2><p>{t('research.currentCopy')}</p><div className="feature-pills"><span>{t('research.pillEvents')}</span><span>{t('research.pillTiming')}</span><span>{t('research.pillAccuracy')}</span><span>{t('research.pillFixations')}</span></div></Card><Card className="future-card"><Badge>{t('research.futureBadge')}</Badge><h2>{t('research.futureTitle')}</h2><p>{t('research.futureCopy')}</p><div className="gaze-visual"><span className="gaze-cross">+</span><span className="gaze-ring ring-one" /><span className="gaze-ring ring-two" /></div></Card></section><section className="section research-note"><Mascot mood="thinking" size="small" /><div><span className="eyebrow">{t('research.noteEyebrow')}</span><h2>{t('research.noteTitle')}</h2><p>{t('research.noteCopy')}</p></div></section></>; }
+function Research() {
+  const { t } = useLanguage();
+  return (
+    <>
+      <PageHeader eyebrow={t('research.eyebrow')} title={t('research.title')}>
+        <p className="page-lede">{t('research.lede')}</p>
+      </PageHeader>
+      <section className="research-flow">
+        <div className="research-grid-bg" />
+        <div className="research-flow-step">
+          <span>01</span>
+          <strong>{t('research.flow1Title')}</strong>
+          <small>{t('research.flow1Small')}</small>
+        </div>
+        <i>↓</i>
+        <div className="research-flow-step">
+          <span>02</span>
+          <strong>{t('research.flow2Title')}</strong>
+          <small>{t('research.flow2Small')}</small>
+        </div>
+        <i>↓</i>
+        <div className="research-flow-step">
+          <span>03</span>
+          <strong>{t('research.flow3Title')}</strong>
+          <small>{t('research.flow3Small')}</small>
+        </div>
+        <i>↓</i>
+        <div className="research-flow-step">
+          <span>04</span>
+          <strong>{t('research.flow4Title')}</strong>
+          <small>{t('research.flow4Small')}</small>
+        </div>
+      </section>
+      <section className="section current-future">
+        <Card className="current-card">
+          <Badge>{t('research.currentBadge')}</Badge>
+          <h2>{t('research.currentTitle')}</h2>
+          <p>{t('research.currentCopy')}</p>
+          <div className="feature-pills">
+            <span>{t('research.pillEvents')}</span>
+            <span>{t('research.pillTiming')}</span>
+            <span>{t('research.pillAccuracy')}</span>
+            <span>{t('research.pillFixations')}</span>
+          </div>
+        </Card>
+        <Card className="future-card">
+          <Badge>{t('research.futureBadge')}</Badge>
+          <h2>{t('research.futureTitle')}</h2>
+          <p>{t('research.futureCopy')}</p>
+          <div className="gaze-visual">
+            <span className="gaze-cross">+</span>
+            <span className="gaze-ring ring-one" />
+            <span className="gaze-ring ring-two" />
+          </div>
+        </Card>
+      </section>
+      <section className="section research-note">
+        <Mascot mood="thinking" size="small" />
+        <div>
+          <span className="eyebrow">{t('research.noteEyebrow')}</span>
+          <h2>{t('research.noteTitle')}</h2>
+          <p>{t('research.noteCopy')}</p>
+        </div>
+      </section>
+    </>
+  );
+}
 
-function Contact() { const { t } = useLanguage(); const [sent, setSent] = useState(false); return <><section className="split-hero contact-hero"><div><span className="eyebrow">{t('contact.eyebrow')}</span><h1>{t('contact.title')}</h1><p className="hero-lede">{t('contact.lede')}</p><div className="contact-doodle"><span>✦</span><span>↗</span><span>◌</span><span>⌁</span></div><p className="contact-email">support@dyscover.org</p></div><Card className="contact-form-card">{sent ? <div className="form-success"><Mascot mood="happy" size="small" /><h2>{t('contact.successTitle')}</h2><p>{t('contact.successCopy')}</p><button className="text-link" onClick={() => setSent(false)}>{t('contact.sendAnother')} <span>↗</span></button></div> : <form onSubmit={(event) => { event.preventDefault(); setSent(true); }}><span className="eyebrow">{t('contact.formTitle')}</span><label htmlFor="name">{t('contact.formName')}<input id="name" name="name" required /></label><label htmlFor="email">{t('contact.formEmail')}<input id="email" name="email" type="email" required /></label><label htmlFor="message">{t('contact.formMessage')}<textarea id="message" name="message" rows={5} required /></label><Button type="submit">{t('contact.formSend')} <span>→</span></Button></form>}</Card></section></>; }
+function Contact() {
+  const { t } = useLanguage();
+  const [sent, setSent] = useState(false);
+  return (
+    <>
+      <section className="split-hero contact-hero">
+        <div>
+          <span className="eyebrow">{t('contact.eyebrow')}</span>
+          <h1>{t('contact.title')}</h1>
+          <p className="hero-lede">{t('contact.lede')}</p>
+          <div className="contact-doodle">
+            <span>✦</span>
+            <span>↗</span>
+            <span>◌</span>
+            <span>⌁</span>
+          </div>
+          <p className="contact-email">support@dyscover.org</p>
+        </div>
+        <Card className="contact-form-card">
+          {sent ? (
+            <div className="form-success">
+              <Mascot mood="happy" size="small" />
+              <h2>{t('contact.successTitle')}</h2>
+              <p>{t('contact.successCopy')}</p>
+              <button className="text-link" onClick={() => setSent(false)}>
+                {t('contact.sendAnother')} <span>↗</span>
+              </button>
+            </div>
+          ) : (
+            <form
+              onSubmit={event => {
+                event.preventDefault();
+                setSent(true);
+              }}
+            >
+              <span className="eyebrow">{t('contact.formTitle')}</span>
+              <label htmlFor="name">
+                {t('contact.formName')}
+                <input id="name" name="name" required />
+              </label>
+              <label htmlFor="email">
+                {t('contact.formEmail')}
+                <input id="email" name="email" type="email" required />
+              </label>
+              <label htmlFor="message">
+                {t('contact.formMessage')}
+                <textarea id="message" name="message" rows={5} required />
+              </label>
+              <Button type="submit">
+                {t('contact.formSend')} <span>→</span>
+              </Button>
+            </form>
+          )}
+        </Card>
+      </section>
+    </>
+  );
+}
 
+function ChildHome() {
+  const { t } = useLanguage();
+  return (
+    <div className="child-space">
+      <div className="child-topbar">
+        <Link className="child-brand" to="/">
+          <span className="brand-mark">✦</span>Dyscover
+        </Link>
+        <LanguageSwitcher />
+        <Link className="child-exit" to="/">
+          {t('child.topbarGrownups')} <span>↗</span>
+        </Link>
+      </div>
+      <section className="child-welcome">
+        <div className="child-copy">
+          <span className="child-kicker">{t('child.welcomeKicker')}</span>
+          <h1>{t('child.welcomeTitle')}</h1>
+          <p>{t('child.welcomeCopy')}</p>
+          <MascotBubble mood="happy">{t('child.welcomeBubble')}</MascotBubble>
+          <Link className="child-start" to="/child/assessment">
+            {t('child.start')} <span>→</span>
+          </Link>
+        </div>
+        <div className="child-scene">
+          <div className="child-moon">✦</div>
+          <div className="child-cloud cloud-one" />
+          <div className="child-cloud cloud-two" />
+          <div className="child-ground" />
+          <div className="child-path" />
+          <Mascot mood="excited" size="large" />
+        </div>
+      </section>
+      <section className="child-journey-card">
+        <div className="child-card-heading">
+          <div>
+            <span className="child-kicker">{t('child.journeyKicker')}</span>
+            <h2>{t('child.journeyTitle')}</h2>
+          </div>
+          <span className="journey-count">
+            {t('child.journeyCount', { done: '0', total: '5' })}
+          </span>
+        </div>
+        <div className="star-progress">
+          <span className="active">✦</span>
+          <i />
+          <span>✦</span>
+          <i />
+          <span>✦</span>
+          <i />
+          <span>✦</span>
+          <i />
+          <span>✦</span>
+        </div>
+        <div className="child-quick-links">
+          <Link to="/child/assessment">
+            <span>✦</span>
+            <strong>{t('child.activitiesTitle')}</strong>
+            <small>{t('child.activitiesCopy')}</small>
+          </Link>
+          <Link to="/child/practice">
+            <span>⌁</span>
+            <strong>{t('child.practiceTitle')}</strong>
+            <small>{t('child.practiceCopy')}</small>
+          </Link>
+          <Link to="/parent/dashboard">
+            <span>◌</span>
+            <strong>{t('child.grownupsTitle')}</strong>
+            <small>{t('child.grownupsCopy')}</small>
+          </Link>
+        </div>
+      </section>
+    </div>
+  );
+}
 
-function ChildHome() { const { t } = useLanguage(); return <div className="child-space"><div className="child-topbar"><Link className="child-brand" to="/"><span className="brand-mark">✦</span>Dyscover</Link><LanguageSwitcher /><Link className="child-exit" to="/">{t('child.topbarGrownups')} <span>↗</span></Link></div><section className="child-welcome"><div className="child-copy"><span className="child-kicker">{t('child.welcomeKicker')}</span><h1>{t('child.welcomeTitle')}</h1><p>{t('child.welcomeCopy')}</p><MascotBubble mood="happy">{t('child.welcomeBubble')}</MascotBubble><Link className="child-start" to="/child/assessment">{t('child.start')} <span>→</span></Link></div><div className="child-scene"><div className="child-moon">✦</div><div className="child-cloud cloud-one" /><div className="child-cloud cloud-two" /><div className="child-ground" /><div className="child-path" /><Mascot mood="excited" size="large" /></div></section><section className="child-journey-card"><div className="child-card-heading"><div><span className="child-kicker">{t('child.journeyKicker')}</span><h2>{t('child.journeyTitle')}</h2></div><span className="journey-count">{t('child.journeyCount', { done: '0', total: '5' })}</span></div><div className="star-progress"><span className="active">✦</span><i /><span>✦</span><i /><span>✦</span><i /><span>✦</span><i /><span>✦</span></div><div className="child-quick-links"><Link to="/child/assessment"><span>✦</span><strong>{t('child.activitiesTitle')}</strong><small>{t('child.activitiesCopy')}</small></Link><Link to="/child/practice"><span>⌁</span><strong>{t('child.practiceTitle')}</strong><small>{t('child.practiceCopy')}</small></Link><Link to="/parent/dashboard"><span>◌</span><strong>{t('child.grownupsTitle')}</strong><small>{t('child.grownupsCopy')}</small></Link></div></section></div>; }
+function Assessment() {
+  return <ChildAssessmentHub />;
+}
+function VisualAssessment() {
+  return <GameRunner />;
+}
+function SpeechAssessment() {
+  return <SpeechAssessmentRunner />;
+}
 
-function Assessment() { return <ChildAssessmentHub />; }
-function VisualAssessment() { return <GameRunner />; }
-function SpeechAssessment() { return <SpeechAssessmentRunner />; }
-
-export function App() { return <LanguageProvider><Layout><Routes><Route path="/" element={<Home />} /><Route path="/about" element={<About />} /><Route path="/how-it-works" element={<HowItWorks />} /><Route path="/research" element={<Research />} /><Route path="/contact" element={<Contact />} /><Route path="/parent/dashboard" element={<ParentDashboard />} /><Route path="/educator/dashboard" element={<EducatorDashboard />} /><Route path="/child/home" element={<ChildHome />} /><Route path="/child/assessment" element={<Assessment />} /><Route path="/child/assessment/visual" element={<VisualAssessment />} /><Route path="/child/assessment/speech" element={<SpeechAssessment />} /><Route path="/child/practice" element={<PracticeRunner />} /><Route path="*" element={<Home />} /></Routes></Layout></LanguageProvider>; }
+export function App() {
+  return (
+    <LanguageProvider>
+      <Layout>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/how-it-works" element={<HowItWorks />} />
+          <Route path="/research" element={<Research />} />
+          <Route path="/contact" element={<Contact />} />
+          <Route path="/parent/dashboard" element={<ParentDashboard />} />
+          <Route path="/educator/dashboard" element={<EducatorDashboard />} />
+          <Route path="/child/home" element={<ChildHome />} />
+          <Route path="/child/assessment" element={<Assessment />} />
+          <Route path="/child/assessment/visual" element={<VisualAssessment />} />
+          <Route path="/child/assessment/speech" element={<SpeechAssessment />} />
+          <Route path="/child/practice" element={<PracticeRunner />} />
+          <Route path="*" element={<Home />} />
+        </Routes>
+      </Layout>
+    </LanguageProvider>
+  );
+}

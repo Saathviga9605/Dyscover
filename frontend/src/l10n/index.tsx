@@ -4,20 +4,20 @@ import { messages as enMessages, type MessageKey } from './messages/en';
 import { messages as taMessages } from './messages/ta';
 
 const RESOURCES: Record<LanguageCode, Record<string, string>> = {
-  en: enMessages as Record<string, string>,
+  en: enMessages,
   ta: { ...enMessages, ...taMessages },
 };
 
 export interface LanguageContextValue {
   language: LanguageCode;
   setLanguage: (language: LanguageCode) => void;
-  t: (key: MessageKey | string, params?: Record<string, string | number>) => string;
+  t: (key: MessageKey, params?: Record<string, string | number>) => string;
   locale: string;
 }
 
 function interpolate(template: string, params?: Record<string, string | number>): string {
   if (!params) return template;
-  return template.replace(/\{(\w+)\}/g, (match, name) => {
+  return template.replace(/\{(\w+)\}/g, (match, name: string) => {
     const value = params[name];
     return value === undefined ? match : String(value);
   });
@@ -47,12 +47,12 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const t = useCallback(
-    (key: MessageKey | string, params?: Record<string, string | number>) => {
+    (key: string, params?: Record<string, string | number>) => {
       const table = RESOURCES[language];
-      const template = table[key] ?? enMessages[key as MessageKey] ?? String(key);
+      const template = table[key] ?? enMessages[key] ?? String(key);
       return interpolate(template, params);
     },
-    [language],
+    [language]
   );
 
   const value = useMemo<LanguageContextValue>(() => {
@@ -66,19 +66,20 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
 
 export function useLanguage(): LanguageContextValue {
   const context = useContext(LanguageContext);
-  if (context !== undefined) {
-    return context;
-  }
+  const fallbackValue = useMemo<LanguageContextValue>(
+    () => ({
+      language: DEFAULT_LANGUAGE,
+      setLanguage: () => undefined,
+      t: (key: string, params?: Record<string, string | number>) => {
+        const template = enMessages[key] ?? String(key);
+        return interpolate(template, params);
+      },
+      locale: 'en-US',
+    }),
+    []
+  );
 
-  return useMemo<LanguageContextValue>(() => ({
-    language: DEFAULT_LANGUAGE,
-    setLanguage: () => undefined,
-    t: (key: MessageKey | string, params?: Record<string, string | number>) => {
-      const template = enMessages[key as MessageKey] ?? String(key);
-      return interpolate(template, params);
-    },
-    locale: 'en-US',
-  }), []);
+  return context ?? fallbackValue;
 }
 
 export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
@@ -88,7 +89,7 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
       {!compact && <span className="language-switcher-label">{t('lang.switchLabel')}</span>}
       <select
         value={language}
-        onChange={(event) => setLanguage(event.target.value as LanguageCode)}
+        onChange={event => setLanguage(event.target.value as LanguageCode)}
         aria-label={t('lang.switchAria')}
       >
         <option value="en">{t('lang.en')}</option>

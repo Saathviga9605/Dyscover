@@ -9,7 +9,10 @@ export function stimulusSignature(stimulus: unknown, gameId: string): string {
 export class StimulusSpacing {
   private readonly recent: string[] = [];
 
-  constructor(private readonly window = 4, private readonly maxRetries = 6) {}
+  constructor(
+    private readonly window = 4,
+    private readonly maxRetries = 6
+  ) {}
 
   isRecent(stimulus: unknown, gameId: string): boolean {
     if (this.window <= 0) return false;

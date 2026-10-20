@@ -2,7 +2,11 @@ export { captureRegions, regionForPoint, specsForGame } from './aoi';
 export { GazeCollector, resolveRegion, sanitizeCoordinates, toGazeBatchPayload } from './collector';
 export { computeGazeFeatures } from './features';
 export { FixationEngine } from './fixationEngine';
-export { browserSupportsEyeTrackingCapability, createFallbackProvider, NoopEyeTrackingProvider } from './provider';
+export {
+  browserSupportsEyeTrackingCapability,
+  createFallbackProvider,
+  NoopEyeTrackingProvider,
+} from './provider';
 export { createEyeTrackingProvider, WebGazerEyeTrackingProvider } from './webgazerProvider';
 export { useGazeTracking, type GazeStats, type GazeTrackingController } from './useGazeTracking';
 export { CalibrationOverlay } from './CalibrationOverlay';

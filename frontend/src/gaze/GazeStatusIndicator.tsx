@@ -1,6 +1,9 @@
 import type { EyeTrackingPhase } from './types';
 
-const PHASE_LABELS: Record<EyeTrackingPhase, { label: string; tone: 'off' | 'ready' | 'busy' | 'error' }> = {
+const PHASE_LABELS: Record<
+  EyeTrackingPhase,
+  { label: string; tone: 'off' | 'ready' | 'busy' | 'error' }
+> = {
   UNAVAILABLE: { label: 'Eye tracking unavailable', tone: 'off' },
   NOT_CONFIGURED: { label: 'Eye tracking off', tone: 'off' },
   REQUESTED: { label: 'Getting the eye tracker ready…', tone: 'busy' },

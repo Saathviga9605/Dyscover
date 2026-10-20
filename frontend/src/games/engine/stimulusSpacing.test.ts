@@ -3,7 +3,9 @@ import type { GameDefinition, Trial } from './types';
 import { GameEngine } from './engine';
 import { StimulusSpacing, stimulusSignature } from './stimulusSpacing';
 
-interface PoolStimulus { item: string; }
+interface PoolStimulus {
+  item: string;
+}
 
 function trialFrom(item: string): Trial {
   return {
@@ -68,11 +70,24 @@ describe('StimulusSpacing', () => {
 
 describe('GameEngine stimulus uniqueness', () => {
   let calls = 0;
-  beforeEach(() => { calls = 0; });
+  beforeEach(() => {
+    calls = 0;
+  });
 
   it('regenerates immediately-repeated stimuli without repeating in the recent window', () => {
     const base = poolDefinition(['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h']);
-    const definition = { ...base, createTrial: (input: { index: number; difficulty: number; random: { pick<T>(items: T[]): T }; sessionId: string }) => { calls += 1; return base.createTrial(input as never); } };
+    const definition = {
+      ...base,
+      createTrial: (input: {
+        index: number;
+        difficulty: number;
+        random: { pick<T>(items: T[]): T };
+        sessionId: string;
+      }) => {
+        calls += 1;
+        return base.createTrial(input as never);
+      },
+    };
     const engine = new GameEngine(definition, undefined, 7);
     engine.start();
     const trials = Array.from({ length: 8 }, () => engine.beginTrial());
@@ -91,15 +106,29 @@ describe('GameEngine stimulus uniqueness', () => {
     const pool = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
     const first = new GameEngine(poolDefinition(pool), undefined, 99);
     const second = new GameEngine(poolDefinition(pool), undefined, 99);
-    first.start(); second.start();
+    first.start();
+    second.start();
     const trials = Array.from({ length: 6 }, () => first.beginTrial());
     const replay = Array.from({ length: 6 }, () => second.beginTrial());
-    expect(trials.map(t => (t.stimulus as PoolStimulus).item)).toEqual(replay.map(t => (t.stimulus as PoolStimulus).item));
+    expect(trials.map(t => (t.stimulus as PoolStimulus).item)).toEqual(
+      replay.map(t => (t.stimulus as PoolStimulus).item)
+    );
   });
 
   it('persists exactly one trial and its telemetry per beginTrial despite retries', () => {
     const base = poolDefinition(['a', 'b']);
-    const definition = { ...base, createTrial: (input: { index: number; difficulty: number; random: { pick<T>(items: T[]): T }; sessionId: string }) => { calls += 1; return base.createTrial(input as never); } };
+    const definition = {
+      ...base,
+      createTrial: (input: {
+        index: number;
+        difficulty: number;
+        random: { pick<T>(items: T[]): T };
+        sessionId: string;
+      }) => {
+        calls += 1;
+        return base.createTrial(input as never);
+      },
+    };
     const engine = new GameEngine(definition, undefined, 13);
     engine.start();
     Array.from({ length: 6 }, () => engine.beginTrial());

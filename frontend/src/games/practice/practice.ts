@@ -21,11 +21,29 @@ export function seedForSessionId(sessionId: string): number {
 }
 
 /** Engine event types mirrored into persisted practice telemetry. */
-export const MIRRORED_PRACTICE_EVENTS = new Set(['STIMULUS_SHOWN', 'RESPONSE_SUBMITTED', 'TRIAL_TIMEOUT', 'HINT_SHOWN']);
+export const MIRRORED_PRACTICE_EVENTS = new Set([
+  'STIMULUS_SHOWN',
+  'RESPONSE_SUBMITTED',
+  'TRIAL_TIMEOUT',
+  'HINT_SHOWN',
+]);
 
 /** Canonical event types the practice endpoint accepts (subset of the shared contract). */
-export const ALLOWED_PRACTICE_EVENTS = new Set(['SESSION_STARTED', 'SESSION_PAUSED', 'SESSION_RESUMED', 'STIMULUS_SHOWN', 'RESPONSE_SUBMITTED', 'TRIAL_TIMEOUT', 'HINT_SHOWN', 'SESSION_COMPLETED', 'SESSION_ABANDONED']);
+export const ALLOWED_PRACTICE_EVENTS = new Set([
+  'SESSION_STARTED',
+  'SESSION_PAUSED',
+  'SESSION_RESUMED',
+  'STIMULUS_SHOWN',
+  'RESPONSE_SUBMITTED',
+  'TRIAL_TIMEOUT',
+  'HINT_SHOWN',
+  'SESSION_COMPLETED',
+  'SESSION_ABANDONED',
+]);
 
-export function toPracticeEvent(event: AssessmentEvent): { event_type: string; payload: Record<string, unknown> } {
-  return { event_type: event.eventType, payload: event.payload as Record<string, unknown> };
+export function toPracticeEvent(event: AssessmentEvent): {
+  event_type: string;
+  payload: Record<string, unknown>;
+} {
+  return { event_type: event.eventType, payload: event.payload };
 }

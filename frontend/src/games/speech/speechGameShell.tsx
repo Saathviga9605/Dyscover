@@ -16,7 +16,16 @@ export interface SpeechRoundProps {
   budgetMs?: number;
 }
 
-export function SpeechRound({ title, levelName, levelSubtitle, promptText, children, onResult, onInterim, budgetMs }: SpeechRoundProps) {
+export function SpeechRound({
+  title,
+  levelName,
+  levelSubtitle,
+  promptText,
+  children,
+  onResult,
+  onInterim,
+  budgetMs,
+}: SpeechRoundProps) {
   const [phase, setPhase] = useState<SpeechListenPhase>('idle');
   const [listening, setListening] = useState(false);
   const [interim, setInterim] = useState('');

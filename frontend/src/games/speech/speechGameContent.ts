@@ -67,9 +67,29 @@ export const LETTER_BUBBLE_POP: SpeechGameContent = {
   title: 'Letter Bubble Pop',
   description: 'Say the letters you see to pop the bubbles.',
   levels: [
-    { name: 'Level 1 — Basic Letter Pop', subtitle: 'Normal letters appear and your child says the letter to pop it', kind: 'letter', pool: ['a', 'm', 'o', 's'], minTrials: 4 },
-    { name: 'Level 2 — Confusing Letters Pop', subtitle: 'Say both similar letters shown together', kind: 'letter-pair', pool: ['b d', 'p q', 'm n', 'u v'], minTrials: 4 },
-    { name: 'Level 3 — Rapid Pop', subtitle: 'Fast naming mode — say each letter or shape quickly', kind: 'ran', pool: ['b', 'triangle', 'q', 'circle', 'v', 'square', 'm', 'star'], minTrials: 6, hideAfterMs: 5000, totalTimeMs: 15000 },
+    {
+      name: 'Level 1 — Basic Letter Pop',
+      subtitle: 'Normal letters appear and your child says the letter to pop it',
+      kind: 'letter',
+      pool: ['a', 'm', 'o', 's'],
+      minTrials: 4,
+    },
+    {
+      name: 'Level 2 — Confusing Letters Pop',
+      subtitle: 'Say both similar letters shown together',
+      kind: 'letter-pair',
+      pool: ['b d', 'p q', 'm n', 'u v'],
+      minTrials: 4,
+    },
+    {
+      name: 'Level 3 — Rapid Pop',
+      subtitle: 'Fast naming mode — say each letter or shape quickly',
+      kind: 'ran',
+      pool: ['b', 'triangle', 'q', 'circle', 'v', 'square', 'm', 'star'],
+      minTrials: 6,
+      hideAfterMs: 5000,
+      totalTimeMs: 15000,
+    },
   ],
 };
 
@@ -78,10 +98,39 @@ export const MAZE_RUNNER_RUSH: SpeechGameContent = {
   title: 'Maze Runner Rush',
   description: 'Name each word as it flashes on the path.',
   levels: [
-    { name: 'Level 1 — Slow Flash Naming', subtitle: 'Slow images, letters, and words appear', kind: 'word', pool: ['apple', 'sun', 't', 'book', 'fish', 'car'], minTrials: 6, totalTimeMs: 18000 },
-    { name: 'Level 2 — Rapid Naming Pathway', subtitle: 'Faster words with less answer time', kind: 'ran', pool: ['star', 'lamp', 'pen', 'goat', 'ring', 'tree'], minTrials: 6, hideAfterMs: 3000, totalTimeMs: 8000 },
-    { name: 'Level 3 — Distraction Maze', subtitle: 'Flashing words under distraction', kind: 'word', pool: ['planet', 'window', 'basket', 'silver', 'garden', 'rocket'], minTrials: 6, hideAfterMs: 2500, totalTimeMs: 10000, distractionMode: true, flashMode: true },
+    {
+      name: 'Level 1 — Slow Flash Naming',
+      subtitle: 'Slow images, letters, and words appear',
+      kind: 'word',
+      pool: ['apple', 'sun', 't', 'book', 'fish', 'car'],
+      minTrials: 6,
+      totalTimeMs: 18000,
+    },
+    {
+      name: 'Level 2 — Rapid Naming Pathway',
+      subtitle: 'Faster words with less answer time',
+      kind: 'ran',
+      pool: ['star', 'lamp', 'pen', 'goat', 'ring', 'tree'],
+      minTrials: 6,
+      hideAfterMs: 3000,
+      totalTimeMs: 8000,
+    },
+    {
+      name: 'Level 3 — Distraction Maze',
+      subtitle: 'Flashing words under distraction',
+      kind: 'word',
+      pool: ['planet', 'window', 'basket', 'silver', 'garden', 'rocket'],
+      minTrials: 6,
+      hideAfterMs: 2500,
+      totalTimeMs: 10000,
+      distractionMode: true,
+      flashMode: true,
+    },
   ],
 };
 
-export const SPEECH_GAME_CONTENTS: readonly SpeechGameContent[] = [SOUND_QUEST_ADVENTURE, LETTER_BUBBLE_POP, MAZE_RUNNER_RUSH];
+export const SPEECH_GAME_CONTENTS: readonly SpeechGameContent[] = [
+  SOUND_QUEST_ADVENTURE,
+  LETTER_BUBBLE_POP,
+  MAZE_RUNNER_RUSH,
+];

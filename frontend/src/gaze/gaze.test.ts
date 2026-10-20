@@ -32,7 +32,16 @@ function fakeProvider(): EyeTrackingProvider & { samples: Array<[number, number,
 }
 
 function samplePoint(x: number, y: number, t: number): GazeSample {
-  return { schemaVersion: '1.0', timestampMs: t, x, y, quality: 'tracking', viewportWidth: 1280, viewportHeight: 720, provider: 'test' };
+  return {
+    schemaVersion: '1.0',
+    timestampMs: t,
+    x,
+    y,
+    quality: 'tracking',
+    viewportWidth: 1280,
+    viewportHeight: 720,
+    provider: 'test',
+  };
 }
 
 describe('gaze coordinate sanitization', () => {
@@ -72,7 +81,17 @@ describe('fixation engine', () => {
   });
 
   it('classifies a fixation by the region under its centroid', () => {
-    const regions: AoiRegion[] = [{ label: 'target', type: 'target', left: 0, top: 0, width: 100, height: 100, available: true }];
+    const regions: AoiRegion[] = [
+      {
+        label: 'target',
+        type: 'target',
+        left: 0,
+        top: 0,
+        width: 100,
+        height: 100,
+        available: true,
+      },
+    ];
     const engine = new FixationEngine((x, y) => resolveRegion(x, y, regions), 40, 100);
     engine.push(samplePoint(50, 50, 0));
     engine.push(samplePoint(50, 51, 30));
@@ -88,9 +107,33 @@ describe('fixation engine', () => {
 describe('gaze feature extraction (deterministic, numeric)', () => {
   it('computes the canonical aggregate features', () => {
     const features = computeGazeFeatures(10, [
-      { startTime: 0, endTime: 220, durationMs: 220, x: 100, y: 100, targetType: 'target', targetId: 'target' },
-      { startTime: 300, endTime: 480, durationMs: 180, x: 400, y: 90, targetType: 'option', targetId: 'option' },
-      { startTime: 600, endTime: 840, durationMs: 240, x: 100, y: 105, targetType: 'target', targetId: 'target' },
+      {
+        startTime: 0,
+        endTime: 220,
+        durationMs: 220,
+        x: 100,
+        y: 100,
+        targetType: 'target',
+        targetId: 'target',
+      },
+      {
+        startTime: 300,
+        endTime: 480,
+        durationMs: 180,
+        x: 400,
+        y: 90,
+        targetType: 'option',
+        targetId: 'option',
+      },
+      {
+        startTime: 600,
+        endTime: 840,
+        durationMs: 240,
+        x: 100,
+        y: 105,
+        targetType: 'target',
+        targetId: 'target',
+      },
     ]);
     expect(features.gaze_sample_count).toBe(10);
     expect(features.gaze_fixation_count).toBe(3);
@@ -116,7 +159,12 @@ describe('gaze collector', () => {
   it('marks out-of-order samples and degrades quality', () => {
     const provider = fakeProvider();
     let now = 1000;
-    const collector = new GazeCollector({ provider, viewportWidth: 1280, viewportHeight: 720, estimateNow: () => now });
+    const collector = new GazeCollector({
+      provider,
+      viewportWidth: 1280,
+      viewportHeight: 720,
+      estimateNow: () => now,
+    });
     now = 1000;
     collector.ingest(10, 10);
     now = 800;
@@ -129,7 +177,12 @@ describe('gaze collector', () => {
 
   it('drops invalid coordinates without recording them', () => {
     const provider = fakeProvider();
-    const collector = new GazeCollector({ provider, viewportWidth: 1280, viewportHeight: 720, estimateNow: () => 5 });
+    const collector = new GazeCollector({
+      provider,
+      viewportWidth: 1280,
+      viewportHeight: 720,
+      estimateNow: () => 5,
+    });
     collector.ingest(50, 700);
     collector.ingest(Infinity, 10);
     collector.ingest(-1, 10);
@@ -143,7 +196,12 @@ describe('gaze collector', () => {
 describe('gaze batch payload is numeric-only (parent safe)', () => {
   it('never carries image, video, or raw blob data', () => {
     const provider = fakeProvider();
-    const collector = new GazeCollector({ provider, viewportWidth: 1280, viewportHeight: 720, estimateNow: () => 5 });
+    const collector = new GazeCollector({
+      provider,
+      viewportWidth: 1280,
+      viewportHeight: 720,
+      estimateNow: () => 5,
+    });
     collector.ingest(100, 100);
     const data = collector.completeTrial('t1');
     const payload = toGazeBatchPayload(data);
@@ -156,7 +214,11 @@ describe('gaze batch payload is numeric-only (parent safe)', () => {
       expect(Number.isFinite(sample.y)).toBe(true);
       expect(Array.isArray(sample.x)).toBe(false);
     }
-    expect(payload.samples.every(sample => !('image' in sample) && !('raw' in sample) && !('blob' in sample))).toBe(true);
+    expect(
+      payload.samples.every(
+        sample => !('image' in sample) && !('raw' in sample) && !('blob' in sample)
+      )
+    ).toBe(true);
   });
 
   it('reports unavailable when no gaze was captured', () => {
@@ -170,13 +232,26 @@ describe('gaze batch payload is numeric-only (parent safe)', () => {
 
 describe('AOI capture and classification', () => {
   beforeEach(() => {
-    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (this: Element) {
+    vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+      this: Element
+    ) {
       const element = this as HTMLElement;
       const width = parseFloat(element.style.width) || 0;
       const height = parseFloat(element.style.height) || 0;
-      return { left: 0, top: 0, width, height, right: width, bottom: height, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+      return {
+        left: 0,
+        top: 0,
+        width,
+        height,
+        right: width,
+        bottom: height,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      };
     });
-    document.body.innerHTML = '<div class="flash-stimulus" style="left:0;top:0;width:120px;height:80px">cat</div><button class="word-option" style="left:0;top:0;width:100px;height:50px">cat</button>';
+    document.body.innerHTML =
+      '<div class="flash-stimulus" style="left:0;top:0;width:120px;height:80px">cat</div><button class="word-option" style="left:0;top:0;width:100px;height:50px">cat</button>';
   });
 
   afterEach(() => {
@@ -253,7 +328,8 @@ describe('webgazer provider (stubbed script)', () => {
     const onSample = vi.fn();
     await provider.startTracking(onSample);
     expect(provider.phase).toBe('TRACKING');
-    const listener = (window.webgazer!.setGazeListener as ReturnType<typeof vi.fn>).mock.calls[0][0] as (data: { x: number; y: number }) => void;
+    const listener = (window.webgazer!.setGazeListener as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as (data: { x: number; y: number }) => void;
     listener({ x: 12, y: 34 });
     expect(onSample).toHaveBeenCalledWith(12, 34);
     await provider.cleanup();
@@ -328,7 +404,8 @@ describe('calibration-completion path', () => {
     act(() => result.current.finalizeCalibration());
     expect(result.current.calibrationCompleted).toBe(true);
     await result.current.beginTrial('trial-1');
-    const gazeListener = (window.webgazer!.setGazeListener as ReturnType<typeof vi.fn>).mock.calls[0][0] as (data: { x: number; y: number }) => void;
+    const gazeListener = (window.webgazer!.setGazeListener as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as (data: { x: number; y: number }) => void;
     gazeListener({ x: 60, y: 60 });
     const data = result.current.harvestTrial('trial-1');
     expect(data).not.toBeNull();
@@ -341,7 +418,8 @@ describe('calibration-completion path', () => {
     const { result } = renderHook(() => useGazeTracking('word-flash'));
     await result.current.enable();
     await result.current.beginTrial('trial-2');
-    const gazeListener = (window.webgazer!.setGazeListener as ReturnType<typeof vi.fn>).mock.calls[0][0] as (data: { x: number; y: number }) => void;
+    const gazeListener = (window.webgazer!.setGazeListener as ReturnType<typeof vi.fn>).mock
+      .calls[0][0] as (data: { x: number; y: number }) => void;
     gazeListener({ x: 60, y: 60 });
     const data = result.current.harvestTrial('trial-2');
     expect(data).not.toBeNull();

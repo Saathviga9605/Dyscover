@@ -34,8 +34,12 @@ export interface GazeTrackingController {
 const STATS_THROTTLE_MS = 250;
 
 export function useGazeTracking(gameId: string): GazeTrackingController {
-  const [capable] = useState(() => typeof window !== 'undefined' && browserSupportsEyeTrackingCapability());
-  const [consented, setConsented] = useState(() => (typeof window !== 'undefined' ? window.localStorage.getItem(CONSENT_KEY) === 'true' : false));
+  const [capable] = useState(
+    () => typeof window !== 'undefined' && browserSupportsEyeTrackingCapability()
+  );
+  const [consented, setConsented] = useState(() =>
+    typeof window !== 'undefined' ? window.localStorage.getItem(CONSENT_KEY) === 'true' : false
+  );
   const [phase, setPhase] = useState<EyeTrackingPhase>('NOT_CONFIGURED');
   const [message, setMessage] = useState<string>();
   const [previewStream, setPreviewStream] = useState<MediaStream | null>(null);
@@ -151,7 +155,7 @@ export function useGazeTracking(gameId: string): GazeTrackingController {
         // Tracking could not start; the trial proceeds without gaze.
       }
     },
-    [gameId],
+    [gameId]
   );
 
   const harvestTrial = useCallback((trialRef: string): GazeTrialData | null => {

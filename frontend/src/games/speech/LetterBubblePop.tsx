@@ -33,7 +33,7 @@ export function LetterBubblePop({ trial, onResponse }: SpeechGameViewProps) {
         levelName={trial.stimulus.levelName}
         levelSubtitle={trial.stimulus.levelSubtitle}
         promptText={letters.length > 1 ? letters.join(' ').toUpperCase() : prompt.toUpperCase()}
-        onResult={result => onResponse(result as unknown as SpeechResponseRecord)}
+        onResult={result => onResponse(result)}
         budgetMs={trial.stimulus.totalTimeMs}
       >
         <div className={`bubble-row ${hidden ? 'bubbles-hidden' : ''}`}>

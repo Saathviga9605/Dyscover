@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { ALLOWED_PRACTICE_EVENTS, MIRRORED_PRACTICE_EVENTS, practiceGameFor, seedForSessionId, toPracticeEvent } from './practice';
+import {
+  ALLOWED_PRACTICE_EVENTS,
+  MIRRORED_PRACTICE_EVENTS,
+  practiceGameFor,
+  seedForSessionId,
+  toPracticeEvent,
+} from './practice';
 import { PRACTICE_COPY } from './practiceCopy';
 
 describe('practice activity mapping', () => {
@@ -34,13 +40,27 @@ describe('practice event contract mapping', () => {
   });
 
   it('maps an engine event to the wire payload shape', () => {
-    const event = toPracticeEvent({ eventType: 'RESPONSE_SUBMITTED', payload: { correct: true } } as never);
+    const event = toPracticeEvent({
+      eventType: 'RESPONSE_SUBMITTED',
+      payload: { correct: true },
+    } as never);
     expect(event).toEqual({ event_type: 'RESPONSE_SUBMITTED', payload: { correct: true } });
   });
 });
 
 describe('practice copy is encouragement-led and non-clinical', () => {
-  const prohibited = ['dyslex', 'diagnos', 'disorder', 'deficit', 'severity', 'probab', 'risk', 'impair', 'treat', 'score'];
+  const prohibited = [
+    'dyslex',
+    'diagnos',
+    'disorder',
+    'deficit',
+    'severity',
+    'probab',
+    'risk',
+    'impair',
+    'treat',
+    'score',
+  ];
 
   it('contains no diagnostic, risk, or performance-judgement language', () => {
     const texts = Object.values(PRACTICE_COPY);

@@ -43,17 +43,32 @@ describe('activity availability gating', () => {
 
 describe('plan gating', () => {
   it('assessmentPlanFor keeps only available games per language', () => {
-    expect(assessmentPlanFor('en')).toEqual(['letter-detective', 'mirror-match', 'word-flash', 'sequence-quest', 'word-maze']);
+    expect(assessmentPlanFor('en')).toEqual([
+      'letter-detective',
+      'mirror-match',
+      'word-flash',
+      'sequence-quest',
+      'word-maze',
+    ]);
     expect(assessmentPlanFor('ta')).toEqual(['mirror-match']);
   });
 
   it('speechAssessmentPlanFor is empty for Tamil', () => {
-    expect(speechAssessmentPlanFor('en')).toEqual(['sound-quest-adventure', 'letter-bubble-pop', 'maze-runner-rush']);
+    expect(speechAssessmentPlanFor('en')).toEqual([
+      'sound-quest-adventure',
+      'letter-bubble-pop',
+      'maze-runner-rush',
+    ]);
     expect(speechAssessmentPlanFor('ta')).toEqual([]);
   });
 
   it('practicePlanFor narrows for Tamil', () => {
-    expect(practicePlanFor('en')).toEqual(['symbol-match', 'word-builder', 'sequence-recall', 'visual-search']);
+    expect(practicePlanFor('en')).toEqual([
+      'symbol-match',
+      'word-builder',
+      'sequence-recall',
+      'visual-search',
+    ]);
     expect(practicePlanFor('ta')).toEqual(['symbol-match']);
   });
 });

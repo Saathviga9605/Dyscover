@@ -26,7 +26,9 @@ export function MazeRunnerRush({ trial, onResponse }: SpeechGameViewProps) {
   const modifier = [
     trial.stimulus.flashMode ? 'maze-flash' : '',
     trial.stimulus.distractionMode ? 'maze-distraction' : '',
-  ].filter(Boolean).join(' ');
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <div className={`maze-rush ${modifier}`}>
@@ -35,7 +37,7 @@ export function MazeRunnerRush({ trial, onResponse }: SpeechGameViewProps) {
         levelName={trial.stimulus.levelName}
         levelSubtitle={trial.stimulus.levelSubtitle}
         promptText={trial.stimulus.promptText}
-        onResult={result => onResponse(result as unknown as SpeechResponseRecord)}
+        onResult={result => onResponse(result)}
         budgetMs={trial.stimulus.totalTimeMs}
       >
         <div className={`maze-path-target ${hidden ? 'target-hidden' : ''}`} aria-live="polite">

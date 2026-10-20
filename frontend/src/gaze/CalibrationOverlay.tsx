@@ -21,7 +21,12 @@ export interface CalibrationOverlayProps {
   previewStream?: MediaStream | null;
 }
 
-export function CalibrationOverlay({ onFinished, onCancel, onCapturePoint, previewStream }: CalibrationOverlayProps) {
+export function CalibrationOverlay({
+  onFinished,
+  onCancel,
+  onCapturePoint,
+  previewStream,
+}: CalibrationOverlayProps) {
   const [index, setIndex] = useState(0);
   const overlayRef = useRef<HTMLDivElement>(null);
 
@@ -40,7 +45,7 @@ export function CalibrationOverlay({ onFinished, onCancel, onCapturePoint, previ
         setIndex(step + 1);
       }
     },
-    [onCapturePoint, onFinished],
+    [onCapturePoint, onFinished]
   );
 
   useEffect(() => {
@@ -57,7 +62,9 @@ export function CalibrationOverlay({ onFinished, onCancel, onCapturePoint, previ
           <span>Camera preview</span>
         </div>
       ) : null}
-      <p className="calibration-copy">Look at the dot, then click it. This teaches the eye tracker where you are looking.</p>
+      <p className="calibration-copy">
+        Look at the dot, then click it. This teaches the eye tracker where you are looking.
+      </p>
       <p className="calibration-progress">
         Point {index + 1} of {CALIBRATION_POINTS.length}
       </p>

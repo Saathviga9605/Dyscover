@@ -6,7 +6,8 @@ describe('GameEngine', () => {
   it('creates reproducible trials and ordered events', () => {
     const first = new GameEngine(letterDetective, undefined, 12345);
     const second = new GameEngine(letterDetective, undefined, 12345);
-    first.start(); second.start();
+    first.start();
+    second.start();
     const firstTrial = first.beginTrial();
     const secondTrial = second.beginTrial();
     expect(firstTrial.stimulus).toEqual(secondTrial.stimulus);

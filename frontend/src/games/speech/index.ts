@@ -6,4 +6,11 @@ export * from './speechGameContent';
 export * from './speechMatching';
 export * from './speechRecognition';
 export * from './speechTelemetry';
-export { speechAssessmentPlan, soundQuestAdventure, letterBubblePop, mazeRunnerRush, type SpeechTrial, type SpeechResponseRecord } from './speechDefinitions';
+export {
+  speechAssessmentPlan,
+  soundQuestAdventure,
+  letterBubblePop,
+  mazeRunnerRush,
+  type SpeechTrial,
+  type SpeechResponseRecord,
+} from './speechDefinitions';

@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 
-export function GazeVideo({ stream, className }: { stream?: MediaStream | null; className?: string }) {
+export function GazeVideo({
+  stream,
+  className,
+}: {
+  stream?: MediaStream | null;
+  className?: string;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const video = videoRef.current;
@@ -21,7 +27,13 @@ export function LiveGazePreview({ stream, active }: LiveGazePreviewProps) {
 
   if (collapsed) {
     return (
-      <button type="button" className="gaze-preview gaze-preview-collapsed" onClick={() => setCollapsed(false)} aria-label="Show camera preview" title="Show camera preview">
+      <button
+        type="button"
+        className="gaze-preview gaze-preview-collapsed"
+        onClick={() => setCollapsed(false)}
+        aria-label="Show camera preview"
+        title="Show camera preview"
+      >
         <span className="gaze-preview-dot" />
       </button>
     );
@@ -33,7 +45,13 @@ export function LiveGazePreview({ stream, active }: LiveGazePreviewProps) {
       <div className="gaze-preview-label">
         <span className={`gaze-preview-dot ${active ? 'active' : ''}`} />
         <span>Eye tracking active</span>
-        <button type="button" className="gaze-preview-minimize" onClick={() => setCollapsed(true)} aria-label="Hide camera preview" title="Hide camera preview">
+        <button
+          type="button"
+          className="gaze-preview-minimize"
+          onClick={() => setCollapsed(true)}
+          aria-label="Hide camera preview"
+          title="Hide camera preview"
+        >
           –
         </button>
       </div>

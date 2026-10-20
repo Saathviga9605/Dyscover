@@ -1,15 +1,26 @@
-const baseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api';
+const baseUrl: string = (import.meta.env.VITE_API_URL as string) ?? 'http://localhost:8000/api';
 
-export class ApiError extends Error { 
-  constructor(public status: number, message: string, public data?: unknown) { 
-    super(message); 
-  } 
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    message: string,
+    public readonly data: unknown
+  ) {
+    super(message);
+  }
+}
+
+interface ErrorResponse {
+  detail?: string;
 }
 
 export async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${baseUrl}${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...options?.headers } });
-  if (!response.ok) { 
-    const body = await response.json().catch(() => ({})); 
+  const response = await fetch(`${baseUrl}${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+  });
+  if (!response.ok) {
+    const body = (await response.json().catch(() => ({}))) as ErrorResponse;
     throw new ApiError(response.status, body.detail ?? 'The request could not be completed.', body);
   }
   return response.json() as Promise<T>;
@@ -18,9 +29,13 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
 // Generic request helpers for non-JSON content (e.g., multipart/form-data)
 export async function requestRaw<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, options);
-  if (!response.ok) { 
-    const body = await response.json().catch(() => ({})); 
-    throw new ApiError(response.status, body.detail ?? 'The request could not be completed.', body);
+  if (!response.ok) {
+    const errorBody = (await response.json().catch(() => ({}))) as ErrorResponse;
+    throw new ApiError(
+      response.status,
+      errorBody.detail ?? 'The request could not be completed.',
+      errorBody
+    );
   }
   return response.json() as Promise<T>;
 }
@@ -141,52 +156,158 @@ export interface EducatorLearnerSummary {
 
 export const api = {
   health: () => request<{ status: string; version: string }>('/health'),
-  createChild: (payload: { display_name: string }) => request<{ id: string; display_name: string; created_at: string }>('/children', { method: 'POST', body: JSON.stringify(payload) }),
-  createAssessment: (payload: { child_id: string; version: string; language?: string; locale?: string; content_version?: string }) => request<{ id: string; child_id: string; version: string; status: string; started_at?: string }>('/assessments', { method: 'POST', body: JSON.stringify(payload) }),
-  createTrial: (assessmentId: string, gameId: string, trial: Record<string, unknown>) => request<{ id: string }>(`/assessments/${assessmentId}/games/${gameId}/trials`, { method: 'POST', body: JSON.stringify(trial) }),
-  createEvent: (trialId: string, event: Record<string, unknown>) => request(`/trials/${trialId}/events`, { method: 'POST', body: JSON.stringify(event) }),
-  createSummary: (assessmentId: string, summary: Record<string, unknown>) => request(`/assessments/${assessmentId}/summary`, { method: 'POST', body: JSON.stringify(summary) }),
-  listAssessments: (childId: string) => request<Array<{ id: string; completed_at?: string; status: string }>>(`/children/${childId}/assessments`),
-  getProfile: (sessionId: string) => request<{ session_id: string; mode: string; domains: Record<string, { status: string; accuracy?: number }>; observations: string[]; data_quality: Record<string, unknown>; model: { status: string; limitations: string[] }; limitations: string[] }>(`/ml/profile/session/${sessionId}`),
-  getEducatorLearners: (educatorId?: string) => request<EducatorLearnerSummary[]>(`/educator/learners`, {
-    headers: educatorId ? { 'X-User-Id': educatorId } : undefined,
-  }),
-  getEducatorLearnerSummary: (childId: string, educatorId?: string) => request<EducatorLearnerSummary>(`/educator/learners/${childId}/summary`, {
-    headers: educatorId ? { 'X-User-Id': educatorId } : undefined,
-  }),
-  authorizeEducatorLearner: (childId: string, educatorId?: string) => request<{ child_id: string; educator_id: string; status: string; authorized: boolean }>(`/educator/learners/${childId}/authorize`, {
-    method: 'POST',
-    headers: educatorId ? { 'X-User-Id': educatorId } : undefined,
-  }),
+  createChild: (payload: { display_name: string }) =>
+    request<{ id: string; display_name: string; created_at: string }>('/children', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  createAssessment: (payload: {
+    child_id: string;
+    version: string;
+    language?: string;
+    locale?: string;
+    content_version?: string;
+  }) =>
+    request<{ id: string; child_id: string; version: string; status: string; started_at?: string }>(
+      '/assessments',
+      { method: 'POST', body: JSON.stringify(payload) }
+    ),
+  createTrial: (assessmentId: string, gameId: string, trial: Record<string, unknown>) =>
+    request<{ id: string }>(`/assessments/${assessmentId}/games/${gameId}/trials`, {
+      method: 'POST',
+      body: JSON.stringify(trial),
+    }),
+  createEvent: (trialId: string, event: Record<string, unknown>) =>
+    request(`/trials/${trialId}/events`, { method: 'POST', body: JSON.stringify(event) }),
+  createSummary: (assessmentId: string, summary: Record<string, unknown>) =>
+    request(`/assessments/${assessmentId}/summary`, {
+      method: 'POST',
+      body: JSON.stringify(summary),
+    }),
+  listAssessments: (childId: string) =>
+    request<Array<{ id: string; completed_at?: string; status: string }>>(
+      `/children/${childId}/assessments`
+    ),
+  getProfile: (sessionId: string) =>
+    request<{
+      session_id: string;
+      mode: string;
+      domains: Record<string, { status: string; accuracy?: number }>;
+      observations: string[];
+      data_quality: Record<string, unknown>;
+      model: { status: string; limitations: string[] };
+      limitations: string[];
+    }>(`/ml/profile/session/${sessionId}`),
+  getEducatorLearners: (educatorId?: string) =>
+    request<EducatorLearnerSummary[]>(`/educator/learners`, {
+      headers: educatorId ? { 'X-User-Id': educatorId } : undefined,
+    }),
+  getEducatorLearnerSummary: (childId: string, educatorId?: string) =>
+    request<EducatorLearnerSummary>(`/educator/learners/${childId}/summary`, {
+      headers: educatorId ? { 'X-User-Id': educatorId } : undefined,
+    }),
+  authorizeEducatorLearner: (childId: string, educatorId?: string) =>
+    request<{ child_id: string; educator_id: string; status: string; authorized: boolean }>(
+      `/educator/learners/${childId}/authorize`,
+      {
+        method: 'POST',
+        headers: educatorId ? { 'X-User-Id': educatorId } : undefined,
+      }
+    ),
 
-  getPersonalizationProfile: (childId: string) => request<PersonalizationProfile>(`/personalization/children/${childId}/profile`),
-  getPersonalizationDifficulty: (childId: string, gameId: string) => request<DifficultyDecision>(`/personalization/children/${childId}/difficulty/${gameId}`),
-  getPersonalizationRecommendations: (childId: string, language?: string) => request<PersonalizationRecommendations>(`/personalization/children/${childId}/recommendations${language ? `?language=${language}` : ''}`),
-  getPersonalizationProgress: (childId: string) => request<ProgressResponse>(`/personalization/children/${childId}/progress`),
+  getPersonalizationProfile: (childId: string) =>
+    request<PersonalizationProfile>(`/personalization/children/${childId}/profile`),
+  getPersonalizationDifficulty: (childId: string, gameId: string) =>
+    request<DifficultyDecision>(`/personalization/children/${childId}/difficulty/${gameId}`),
+  getPersonalizationRecommendations: (childId: string, language?: string) =>
+    request<PersonalizationRecommendations>(
+      `/personalization/children/${childId}/recommendations${language ? `?language=${language}` : ''}`
+    ),
+  getPersonalizationProgress: (childId: string) =>
+    request<ProgressResponse>(`/personalization/children/${childId}/progress`),
 
-  listRemedialActivities: (childId?: string, language?: string) => request<PracticeActivity[]>(`/remedial/activities${[childId && `child_id=${childId}`, language && `language=${language}`].filter(Boolean).join('&') ? `?${[childId && `child_id=${childId}`, language && `language=${language}`].filter(Boolean).join('&')}` : ''}`),
-  getNextPracticeActivity: (childId: string, language?: string, capabilitiesOverride?: string) => request<NextPracticeActivity>(`/remedial/children/${childId}/next-activity${[language && `language=${language}`, capabilitiesOverride && `capabilities=${capabilitiesOverride}`].filter(Boolean).join('&') ? `?${[language && `language=${language}`, capabilitiesOverride && `capabilities=${capabilitiesOverride}`].filter(Boolean).join('&')}` : ''}`),
-  getSpeechTasks: (activityId: string, count = 5, seed = 0, language?: string) => request<SpeechTasksResponse>(`/remedial/activities/${activityId}/speech-tasks?count=${count}&seed=${seed}${language ? `&language=${language}` : ''}`),
-  createPracticeSession: (payload: { child_id: string; activity_id: string; difficulty?: number | null; language?: string }) => request<PracticeSessionStatus>('/remedial/sessions', { method: 'POST', body: JSON.stringify(payload) }),
-  startPracticeSession: (sessionId: string) => request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/start`, { method: 'POST' }),
-  recordPracticeEvent: (sessionId: string, event: { event_type: string; payload: Record<string, unknown> }) => request<Record<string, unknown>>(`/remedial/sessions/${sessionId}/events`, { method: 'POST', body: JSON.stringify(event) }),
-  completePracticeSession: (sessionId: string) => request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/complete`, { method: 'POST' }),
-  abandonPracticeSession: (sessionId: string) => request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/abandon`, { method: 'POST' }),
-  getPracticeProgress: (childId: string) => request<PracticeProgress>(`/remedial/children/${childId}/practice/progress`),
+  listRemedialActivities: (childId?: string, language?: string) =>
+    request<PracticeActivity[]>(
+      `/remedial/activities${[childId && `child_id=${childId}`, language && `language=${language}`].filter(Boolean).join('&') ? `?${[childId && `child_id=${childId}`, language && `language=${language}`].filter(Boolean).join('&')}` : ''}`
+    ),
+  getNextPracticeActivity: (childId: string, language?: string, capabilitiesOverride?: string) =>
+    request<NextPracticeActivity>(
+      `/remedial/children/${childId}/next-activity${[language && `language=${language}`, capabilitiesOverride && `capabilities=${capabilitiesOverride}`].filter(Boolean).join('&') ? `?${[language && `language=${language}`, capabilitiesOverride && `capabilities=${capabilitiesOverride}`].filter(Boolean).join('&')}` : ''}`
+    ),
+  getSpeechTasks: (activityId: string, count = 5, seed = 0, language?: string) =>
+    request<SpeechTasksResponse>(
+      `/remedial/activities/${activityId}/speech-tasks?count=${count}&seed=${seed}${language ? `&language=${language}` : ''}`
+    ),
+  createPracticeSession: (payload: {
+    child_id: string;
+    activity_id: string;
+    difficulty?: number | null;
+    language?: string;
+  }) =>
+    request<PracticeSessionStatus>('/remedial/sessions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  startPracticeSession: (sessionId: string) =>
+    request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/start`, { method: 'POST' }),
+  recordPracticeEvent: (
+    sessionId: string,
+    event: { event_type: string; payload: Record<string, unknown> }
+  ) =>
+    request<Record<string, unknown>>(`/remedial/sessions/${sessionId}/events`, {
+      method: 'POST',
+      body: JSON.stringify(event),
+    }),
+  completePracticeSession: (sessionId: string) =>
+    request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/complete`, { method: 'POST' }),
+  abandonPracticeSession: (sessionId: string) =>
+    request<PracticeSessionStatus>(`/remedial/sessions/${sessionId}/abandon`, { method: 'POST' }),
+  getPracticeProgress: (childId: string) =>
+    request<PracticeProgress>(`/remedial/children/${childId}/practice/progress`),
 
   getGazeStatus: () => request<GazeStatusResponse>('/gaze/status'),
-  postGazeBatch: (trialId: string, batch: GazeBatchPayload) => request<GazeBatchResponse>(`/gaze/trials/${trialId}/gaze`, { method: 'POST', body: JSON.stringify(batch) }),
+  postGazeBatch: (trialId: string, batch: GazeBatchPayload) =>
+    request<GazeBatchResponse>(`/gaze/trials/${trialId}/gaze`, {
+      method: 'POST',
+      body: JSON.stringify(batch),
+    }),
   getGazeBatch: (trialId: string) => request<GazeBatchResponse>(`/gaze/trials/${trialId}/gaze`),
-  storeSpeechFeatures: (sessionId: string, features: Record<string, unknown>) => request<Record<string, unknown>>(`/speech/sessions/${sessionId}/features`, { method: 'POST', body: JSON.stringify({ features }) }),
-  getSpeechFeatures: (sessionId: string) => request<Record<string, unknown>>(`/speech/sessions/${sessionId}/features`),
-  createSpeechSession: (payload: SpeechSessionCreatePayload) => request<{ id: string; session_id: string; trial_id?: string | null }>('/speech/sessions', { method: 'POST', body: JSON.stringify(payload) }),
-  getModalitySummary: (assessmentId: string) => request<ModalitySummaryResponse>(`/assessments/${assessmentId}/modality-summary`),
+  storeSpeechFeatures: (sessionId: string, features: Record<string, unknown>) =>
+    request<Record<string, unknown>>(`/speech/sessions/${sessionId}/features`, {
+      method: 'POST',
+      body: JSON.stringify({ features }),
+    }),
+  getSpeechFeatures: (sessionId: string) =>
+    request<Record<string, unknown>>(`/speech/sessions/${sessionId}/features`),
+  createSpeechSession: (payload: SpeechSessionCreatePayload) =>
+    request<{ id: string; session_id: string; trial_id?: string | null }>('/speech/sessions', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  getModalitySummary: (assessmentId: string) =>
+    request<ModalitySummaryResponse>(`/assessments/${assessmentId}/modality-summary`),
 
   // Speech demo endpoints
-  getSpeechDemoProviders: () => request<{ current_provider: string; current_provider_status: string; providers: Record<string, unknown> }>('/speech/demo/providers'),
-  transcribeSpeechDemo: (formData: FormData) => postForm<{ transcript: unknown; provider: string; provider_version: string; audio_info: unknown }>('/speech/demo/transcribe', formData),
-  compareSpeechDemo: (formData: FormData) => postForm<{ audio_info: unknown; results: Record<string, unknown> }>('/speech/demo/compare', formData),
-  getSpeechDemoModels: () => request<{ huggingface_whisper: unknown; faster_whisper: unknown }>('/speech/demo/models'),
+  getSpeechDemoProviders: () =>
+    request<{
+      current_provider: string;
+      current_provider_status: string;
+      providers: Record<string, unknown>;
+    }>('/speech/demo/providers'),
+  transcribeSpeechDemo: (formData: FormData) =>
+    postForm<{
+      transcript: unknown;
+      provider: string;
+      provider_version: string;
+      audio_info: unknown;
+    }>('/speech/demo/transcribe', formData),
+  compareSpeechDemo: (formData: FormData) =>
+    postForm<{ audio_info: unknown; results: Record<string, unknown> }>(
+      '/speech/demo/compare',
+      formData
+    ),
+  getSpeechDemoModels: () =>
+    request<{ huggingface_whisper: unknown; faster_whisper: unknown }>('/speech/demo/models'),
 };
 
 export interface PracticeActivity {
@@ -294,9 +415,20 @@ export interface PracticeActivityRecord {
 
 export interface PracticeProgress {
   child_id: string;
-  totals: { sessions_attempted: number; sessions_completed: number; activities_completed: number; activities_available: number };
+  totals: {
+    sessions_attempted: number;
+    sessions_completed: number;
+    activities_completed: number;
+    activities_available: number;
+  };
   by_activity: PracticeActivityRecord[];
-  recent_completed: Array<{ id: string; activity_id: string; activity_name: string; difficulty: number; completed_at: string }>;
+  recent_completed: Array<{
+    id: string;
+    activity_id: string;
+    activity_name: string;
+    difficulty: number;
+    completed_at: string;
+  }>;
   note: string;
 }
 

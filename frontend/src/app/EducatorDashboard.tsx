@@ -10,7 +10,9 @@ export function EducatorDashboard() {
   useEffect(() => {
     const educatorId = localStorage.getItem('dyscover-educator-id');
     if (!educatorId) {
-      setError('Add an educator ID in localStorage as dyscover-educator-id to view this dashboard.');
+      setError(
+        'Add an educator ID in localStorage as dyscover-educator-id to view this dashboard.'
+      );
       setLoading(false);
       return;
     }
@@ -18,14 +20,19 @@ export function EducatorDashboard() {
     api
       .getEducatorLearners(educatorId)
       .then(setLearners)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'The educator dashboard could not be loaded.'))
+      .catch((err: unknown) =>
+        setError(err instanceof Error ? err.message : 'The educator dashboard could not be loaded.')
+      )
       .finally(() => setLoading(false));
   }, []);
 
   return (
     <div className="parent-space">
       <PageHeader eyebrow="Educator workspace" title="Learner overview">
-        <p className="page-lede">Review authorized learner summaries, completed activity history, and educational support opportunities without exposing raw assessment traces.</p>
+        <p className="page-lede">
+          Review authorized learner summaries, completed activity history, and educational support
+          opportunities without exposing raw assessment traces.
+        </p>
       </PageHeader>
 
       <div className="dashboard">
@@ -35,15 +42,27 @@ export function EducatorDashboard() {
             <h2>{learners.length}</h2>
             <p>Only learners with a valid educator authorization are listed here.</p>
           </div>
-          <div className="dashboard-map"><span>✦</span><span>✦</span><span>✦</span><span>✦</span><i /></div>
+          <div className="dashboard-map">
+            <span>✦</span>
+            <span>✦</span>
+            <span>✦</span>
+            <span>✦</span>
+            <i />
+          </div>
         </Card>
 
         {loading ? (
-          <Card className="wide"><EmptyState>Loading learner observations…</EmptyState></Card>
+          <Card className="wide">
+            <EmptyState>Loading learner observations…</EmptyState>
+          </Card>
         ) : error ? (
-          <Card className="wide"><EmptyState>{error}</EmptyState></Card>
+          <Card className="wide">
+            <EmptyState>{error}</EmptyState>
+          </Card>
         ) : learners.length === 0 ? (
-          <Card className="wide"><EmptyState>No learners are currently authorized for this educator.</EmptyState></Card>
+          <Card className="wide">
+            <EmptyState>No learners are currently authorized for this educator.</EmptyState>
+          </Card>
         ) : (
           learners.map(learner => (
             <Card key={learner.child_id} className="wide">
@@ -56,22 +75,35 @@ export function EducatorDashboard() {
 
               <div className="domain-list">
                 {learner.language_context.length ? (
-                  <div key="language-context"><span>Language context</span><strong>{learner.language_context.join(', ')}</strong></div>
+                  <div key="language-context">
+                    <span>Language context</span>
+                    <strong>{learner.language_context.join(', ')}</strong>
+                  </div>
                 ) : null}
                 {learner.domains.length ? (
                   learner.domains.map(domain => (
                     <div key={`${learner.child_id}-${domain.domain}`}>
                       <span>{domain.domain}</span>
-                      <strong>{domain.accuracy !== null && domain.accuracy !== undefined ? `${domain.accuracy}% accurate` : `${domain.evidence_trials} trials`}</strong>
+                      <strong>
+                        {domain.accuracy !== null && domain.accuracy !== undefined
+                          ? `${domain.accuracy}% accurate`
+                          : `${domain.evidence_trials} trials`}
+                      </strong>
                     </div>
                   ))
                 ) : (
-                  <div><span>Observations</span><strong>No direct domain evidence yet</strong></div>
+                  <div>
+                    <span>Observations</span>
+                    <strong>No direct domain evidence yet</strong>
+                  </div>
                 )}
               </div>
 
               <div className="observed-list">
-                <p><strong>Practice:</strong> {learner.practice_summary.completed_sessions} completed sessions across {learner.practice_summary.activity_count} activities.</p>
+                <p>
+                  <strong>Practice:</strong> {learner.practice_summary.completed_sessions} completed
+                  sessions across {learner.practice_summary.activity_count} activities.
+                </p>
               </div>
             </Card>
           ))

@@ -13,26 +13,48 @@ const numericBatch: GazeBatchPayload = {
   providerVersion: 'webgazer-1.0',
   quality: 'tracking',
   schemaVersion: '1.0',
-  samples: [{ x: 100, y: 200, timestamp_ms: 1234, quality: 'tracking', viewport_width: 1280, viewport_height: 720 }],
-  fixations: [{ start_timestamp_ms: 1000, end_timestamp_ms: 2000, duration_ms: 1000, x: 100, y: 200 }],
+  samples: [
+    {
+      x: 100,
+      y: 200,
+      timestamp_ms: 1234,
+      quality: 'tracking',
+      viewport_width: 1280,
+      viewport_height: 720,
+    },
+  ],
+  fixations: [
+    { start_timestamp_ms: 1000, end_timestamp_ms: 2000, duration_ms: 1000, x: 100, y: 200 },
+  ],
 };
 
 function stubLocalStorage() {
   const store = new Map<string, string>();
   vi.stubGlobal('localStorage', {
     getItem: (key: string) => store.get(key) ?? null,
-    setItem: (key: string, value: string) => { store.set(key, value); },
-    removeItem: (key: string) => { store.delete(key); },
-    clear: () => { store.clear(); },
+    setItem: (key: string, value: string) => {
+      store.set(key, value);
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+    clear: () => {
+      store.clear();
+    },
     key: (index: number) => Array.from(store.keys())[index] ?? null,
-    get length() { return store.size; },
+    get length() {
+      return store.size;
+    },
   });
 }
 
 describe('multimodal observation continues when gaze is present only as numbers', () => {
   beforeEach(() => {
     stubLocalStorage();
-    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('offline'))));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.reject(new Error('offline')))
+    );
   });
 
   afterEach(() => {
@@ -40,7 +62,10 @@ describe('multimodal observation continues when gaze is present only as numbers'
   });
 
   it('persists the gaze batch to the numeric endpoint when a backend trial exists', async () => {
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ ok: true, json: async () => ({ samples_created: 1 }) })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve({ ok: true, json: async () => ({ samples_created: 1 }) }))
+    );
     await persistGazeBatch('trial-1', 'backend-1', numericBatch);
     const fetchMock = fetch as unknown as ReturnType<typeof vi.fn>;
     const [url, init] = fetchMock.mock.calls[0] as [string, { body?: string }];
@@ -68,7 +93,18 @@ describe('gaze batch exposes no labels, thresholds, or probabilities', () => {
   it('payload contains only coordinates, times, and quality flags', () => {
     const data = {
       trialRef: 'trial-1',
-      samples: [{ schemaVersion: '1.0', timestampMs: 5, x: 1, y: 2, quality: 'tracking' as const, viewportWidth: 1280, viewportHeight: 720, provider: 'webgazer' }],
+      samples: [
+        {
+          schemaVersion: '1.0',
+          timestampMs: 5,
+          x: 1,
+          y: 2,
+          quality: 'tracking' as const,
+          viewportWidth: 1280,
+          viewportHeight: 720,
+          provider: 'webgazer',
+        },
+      ],
       fixations: [],
       quality: 'tracking' as const,
       features: {},

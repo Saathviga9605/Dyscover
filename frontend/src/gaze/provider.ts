@@ -3,7 +3,12 @@ import type { EyeTrackingPhase, EyeTrackingProvider } from './types';
 export function browserSupportsEyeTrackingCapability(): boolean {
   if (typeof window === 'undefined') return false;
   if (!window.isSecureContext) return false;
-  if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
+  if (
+    typeof navigator === 'undefined' ||
+    !navigator.mediaDevices ||
+    !navigator.mediaDevices.getUserMedia
+  )
+    return false;
   return true;
 }
 
@@ -39,16 +44,20 @@ export class NoopEyeTrackingProvider implements EyeTrackingProvider {
     this.mark('UNAVAILABLE');
   }
 
-  async startTracking(_onSample: (x: number, y: number, confidence?: number) => void): Promise<void> {
+  async startTracking(
+    _onSample: (x: number, y: number, confidence?: number) => void
+  ): Promise<void> {
     throw new Error('No eye-tracking provider is available.');
   }
 
-  async stopTracking(): Promise<void> {
+  stopTracking(): Promise<void> {
     this.mark('STOPPED');
+    return Promise.resolve();
   }
 
-  async cleanup(): Promise<void> {
+  cleanup(): Promise<void> {
     this.listener = null;
+    return Promise.resolve();
   }
 }
 

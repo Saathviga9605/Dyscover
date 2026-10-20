@@ -9,4 +9,10 @@ import { mirrorMatch } from './mirrorMatch';
 import { wordFlash } from './wordFlash';
 import { sequenceQuest } from './sequenceQuest';
 import { wordMaze } from './wordMaze';
-export const assessmentPlan: Array<GameDefinition<any>> = [letterDetective, mirrorMatch, wordFlash, sequenceQuest, wordMaze];
+export const assessmentPlan: Array<GameDefinition<any>> = [
+  letterDetective,
+  mirrorMatch,
+  wordFlash,
+  sequenceQuest,
+  wordMaze,
+];

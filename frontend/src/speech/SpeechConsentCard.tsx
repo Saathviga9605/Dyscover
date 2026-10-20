@@ -12,7 +12,14 @@ export interface SpeechConsentCardProps {
   onDisable: () => void;
 }
 
-export function SpeechConsentCard({ capabilities, consented, phase, message, onEnable, onDisable }: SpeechConsentCardProps) {
+export function SpeechConsentCard({
+  capabilities,
+  consented,
+  phase,
+  message,
+  onEnable,
+  onDisable,
+}: SpeechConsentCardProps) {
   const { t } = useLanguage();
   const [busy, setBusy] = useState(false);
   const usable = capabilities.recognition || capabilities.audio;
@@ -52,7 +59,10 @@ export function SpeechConsentCard({ capabilities, consented, phase, message, onE
   );
 }
 
-export function SpeechConsentGate({ children, ...props }: SpeechConsentCardProps & { children?: ReactNode }) {
+export function SpeechConsentGate({
+  children,
+  ...props
+}: SpeechConsentCardProps & { children?: ReactNode }) {
   const { consented } = props;
   return <>{consented ? children : <SpeechConsentCard {...props} />}</>;
 }

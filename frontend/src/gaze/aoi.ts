@@ -45,7 +45,15 @@ export function captureRegions(gameId: string, root: ParentNode | null = documen
   for (const spec of specs) {
     const elements = Array.from(root.querySelectorAll<HTMLElement>(spec.selector));
     if (!elements.length) {
-      regions.push({ label: spec.label, type: spec.type, left: 0, top: 0, width: 0, height: 0, available: false });
+      regions.push({
+        label: spec.label,
+        type: spec.type,
+        left: 0,
+        top: 0,
+        width: 0,
+        height: 0,
+        available: false,
+      });
       continue;
     }
     for (const element of elements) {
@@ -68,7 +76,12 @@ export function captureRegions(gameId: string, root: ParentNode | null = documen
 export function regionForPoint(x: number, y: number, regions: AoiRegion[]): RegionRef | null {
   for (const region of regions) {
     if (!region.available) continue;
-    if (x >= region.left && x <= region.left + region.width && y >= region.top && y <= region.top + region.height) {
+    if (
+      x >= region.left &&
+      x <= region.left + region.width &&
+      y >= region.top &&
+      y <= region.top + region.height
+    ) {
       return { type: region.type, label: region.label, elementId: region.elementId };
     }
   }

@@ -19,7 +19,11 @@ export class FixationEngine {
   private readonly minDurationMs: number;
   private cluster: Cluster | null = null;
 
-  constructor(private readonly resolveRegion: Resolver, radius = FIXATION_RADIUS, minDurationMs = FIXATION_MIN_DURATION_MS) {
+  constructor(
+    private readonly resolveRegion: Resolver,
+    radius = FIXATION_RADIUS,
+    minDurationMs = FIXATION_MIN_DURATION_MS
+  ) {
     this.radius = radius;
     this.minDurationMs = minDurationMs;
   }

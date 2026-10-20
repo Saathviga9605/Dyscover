@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLanguage } from '../l10n';
-import { Mascot, MascotBubble } from '../components/ui';
 import { api } from '../services/apiClient';
 
 interface ProviderInfo {
@@ -62,7 +61,7 @@ export function SpeechDemo({ onClose }: SpeechDemoProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    loadProviders();
+    void loadProviders();
   }, []);
 
   const loadProviders = async () => {
@@ -70,7 +69,9 @@ export function SpeechDemo({ onClose }: SpeechDemoProps) {
       const response = await api.getSpeechDemoProviders();
       setProviders(response.providers as Record<string, ProviderInfo>);
       // Auto-select first available provider
-      const available = Object.entries(response.providers).find(([, v]) => (v as ProviderInfo).available);
+      const available = Object.entries(response.providers).find(
+        ([, v]) => (v as ProviderInfo).available
+      );
       if (available) {
         setSelectedProvider(available[0]);
       }
@@ -113,8 +114,11 @@ export function SpeechDemo({ onClose }: SpeechDemoProps) {
 
       const response = await api.transcribeSpeechDemo(formData);
       setResult(response as DemoTranscriptionResponse);
-    } catch (e: any) {
-      setError(e.data?.detail?.message || e.message || t('speech.demo.transcriptionFailed'));
+    } catch (e: unknown) {
+      const error = e as { data?: { detail?: { message?: string } }; message?: string };
+      setError(
+        error.data?.detail?.message || error.message || t('speech.demo.transcriptionFailed')
+      );
     } finally {
       setUploading(false);
     }
@@ -143,8 +147,9 @@ export function SpeechDemo({ onClose }: SpeechDemoProps) {
 
       const response = await api.compareSpeechDemo(formData);
       setCompareResult(response as DemoCompareResponse);
-    } catch (e: any) {
-      setError(e.data?.detail?.message || e.message || t('speech.demo.comparisonFailed'));
+    } catch (e: unknown) {
+      const error = e as { data?: { detail?: { message?: string } }; message?: string };
+      setError(error.data?.detail?.message || error.message || t('speech.demo.comparisonFailed'));
     } finally {
       setComparing(false);
     }
@@ -175,7 +180,10 @@ export function SpeechDemo({ onClose }: SpeechDemoProps) {
         <h3>{t('speech.demo.providerSelection')}</h3>
         <div className="provider-grid">
           {Object.entries(providers).map(([key, provider]) => (
-            <label key={key} className={`provider-card ${selectedProvider === key ? 'selected' : ''} ${!provider.available ? 'unavailable' : ''}`}>
+            <label
+              key={key}
+              className={`provider-card ${selectedProvider === key ? 'selected' : ''} ${!provider.available ? 'unavailable' : ''}`}
+            >
               <input
                 type="radio"
                 name="provider"
@@ -188,7 +196,9 @@ export function SpeechDemo({ onClose }: SpeechDemoProps) {
                 <strong>{provider.name}</strong>
                 {provider.model && <span className="provider-model">{provider.model}</span>}
                 {provider.language && <span className="provider-lang">{provider.language}</span>}
-                <span className={`provider-status ${provider.available ? 'available' : 'unavailable'}`}>
+                <span
+                  className={`provider-status ${provider.available ? 'available' : 'unavailable'}`}
+                >
                   {provider.available ? t('speech.demo.available') : t('speech.demo.unavailable')}
                 </span>
               </div>
@@ -202,7 +212,7 @@ export function SpeechDemo({ onClose }: SpeechDemoProps) {
         <div className="settings-row">
           <label>
             <span>{t('speech.demo.language')}</span>
-            <select value={language} onChange={(e) => setLanguage(e.target.value)}>
+            <select value={language} onChange={e => setLanguage(e.target.value)}>
               <option value="en">English</option>
               <option value="ta">Tamil</option>
               <option value="hi">Hindi</option>
@@ -212,11 +222,7 @@ export function SpeechDemo({ onClose }: SpeechDemoProps) {
             </select>
           </label>
           <label className="consent-label">
-            <input
-              type="checkbox"
-              checked={consent}
-              onChange={(e) => setConsent(e.target.checked)}
-            />
+            <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} />
             <span>{t('speech.demo.consentLabel')}</span>
           </label>
         </div>
@@ -239,7 +245,8 @@ export function SpeechDemo({ onClose }: SpeechDemoProps) {
         </label>
         {fileInputRef.current?.files?.[0] && (
           <p className="selected-file">
-            📄 {fileInputRef.current.files[0].name} ({(fileInputRef.current.files[0].size / 1024).toFixed(1)} KB)
+            📄 {fileInputRef.current.files[0].name} (
+            {(fileInputRef.current.files[0].size / 1024).toFixed(1)} KB)
           </p>
         )}
       </div>
@@ -247,14 +254,14 @@ export function SpeechDemo({ onClose }: SpeechDemoProps) {
       <div className="demo-actions">
         <button
           className="btn btn-primary"
-          onClick={transcribe}
+          onClick={() => void transcribe()}
           disabled={uploading || !fileInputRef.current?.files?.[0] || !consent}
         >
           {uploading ? t('speech.demo.transcribing') : t('speech.demo.transcribe')}
         </button>
         <button
           className="btn btn-secondary"
-          onClick={compare}
+          onClick={() => void compare()}
           disabled={comparing || !fileInputRef.current?.files?.[0] || !consent}
         >
           {comparing ? t('speech.demo.comparing') : t('speech.demo.compare')}
@@ -300,10 +307,14 @@ export function SpeechDemo({ onClose }: SpeechDemoProps) {
                 {res.status === 'success' && res.transcript && (
                   <>
                     <span className="badge">{res.provider_version}</span>
-                    <div className="transcript-text">{res.transcript.text || t('speech.demo.emptyTranscript')}</div>
+                    <div className="transcript-text">
+                      {res.transcript.text || t('speech.demo.emptyTranscript')}
+                    </div>
                   </>
                 )}
-                {res.status === 'unavailable' && <p className="status-unavailable">{t('speech.demo.unavailable')}</p>}
+                {res.status === 'unavailable' && (
+                  <p className="status-unavailable">{t('speech.demo.unavailable')}</p>
+                )}
                 {res.status === 'error' && <p className="status-error">{res.error}</p>}
               </div>
             ))}

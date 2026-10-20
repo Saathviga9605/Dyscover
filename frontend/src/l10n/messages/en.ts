@@ -1,4 +1,4 @@
-export const messages = {
+export const messages: Record<string, string> = {
   'nav.explore': 'Explore',
   'nav.howItWorks': 'How it works',
   'nav.research': 'Research',
@@ -20,13 +20,15 @@ export const messages = {
   'home.eyebrow': 'A little world for curious minds',
   'home.title': 'Discover how {you} learn.',
   'home.titleWord': 'you',
-  'home.lede': 'Every mind has its own way of finding the words. Dyscover makes early learning patterns easier to notice, understand, and support.',
+  'home.lede':
+    'Every mind has its own way of finding the words. Dyscover makes early learning patterns easier to notice, understand, and support.',
   'home.start': 'Start the adventure',
   'home.seeHow': 'See how it works',
   'home.note': 'Gentle activities. Clearer conversations. No labels.',
   'home.noticeEyebrow': 'Learning looks different for everyone',
   'home.noticeTitle': 'Noticing is the first step.',
-  'home.noticeCopy': 'Good support starts with curiosity, not assumptions. Dyscover uses short, playful activities to build a fuller picture of how a child interacts with words, symbols, and patterns.',
+  'home.noticeCopy':
+    'Good support starts with curiosity, not assumptions. Dyscover uses short, playful activities to build a fuller picture of how a child interacts with words, symbols, and patterns.',
   'home.card1Title': 'Play without pressure',
   'home.card1Copy': 'Small activities feel like an adventure, not a test.',
   'home.card1Link': 'Meet the explorer',
@@ -38,7 +40,8 @@ export const messages = {
   'home.card3Link': 'Why it matters',
   'home.signalEyebrow': 'A fuller picture',
   'home.signalTitle': 'Built around the way children interact.',
-  'home.signalCopy': 'Every response tells a small part of the story. Dyscover can organize accuracy, reaction time, hesitation, and interaction events at the trial level. Optional gaze research stays separate and consent-based.',
+  'home.signalCopy':
+    'Every response tells a small part of the story. Dyscover can organize accuracy, reaction time, hesitation, and interaction events at the trial level. Optional gaze research stays separate and consent-based.',
   'home.signalResponse': 'Response',
   'home.signalTiming': 'Timing',
   'home.signalInteraction': 'Interaction',
@@ -48,7 +51,8 @@ export const messages = {
   'home.researchLink': 'Explore the research direction',
   'home.parentEyebrow': 'For grown-ups',
   'home.parentTitle': 'A calmer view of the journey.',
-  'home.parentCopy': 'The parent space is designed for thoughtful conversations, not alarming scores.',
+  'home.parentCopy':
+    'The parent space is designed for thoughtful conversations, not alarming scores.',
   'home.previewWelcome': 'Good morning',
   'home.previewTitle': "Let's see what Alex explored.",
   'home.previewLatest': 'Latest screening · just now',
@@ -65,11 +69,14 @@ export const messages = {
   'home.careEyebrow': 'Designed with care',
   'home.careTitle': 'Warmth and intelligence, together.',
   'home.careAccessibleTitle': 'Accessible',
-  'home.careAccessibleCopy': 'Readable type, clear focus, reduced motion, and room to go at your own pace.',
+  'home.careAccessibleCopy':
+    'Readable type, clear focus, reduced motion, and room to go at your own pace.',
   'home.carePrivacyTitle': 'Privacy-aware',
-  'home.carePrivacyCopy': 'Only the information needed for a thoughtful screening experience belongs here.',
+  'home.carePrivacyCopy':
+    'Only the information needed for a thoughtful screening experience belongs here.',
   'home.careDiagnosticTitle': 'Non-diagnostic',
-  'home.careDiagnosticCopy': 'We describe observed patterns, never a label or a clinical conclusion.',
+  'home.careDiagnosticCopy':
+    'We describe observed patterns, never a label or a clinical conclusion.',
   'home.ctaEyebrow': 'Your next little step',
   'home.ctaTitle': 'Ready to explore?',
   'home.ctaCopy': 'Come see what learning can look like when curiosity leads the way.',
@@ -77,7 +84,8 @@ export const messages = {
 
   'about.eyebrow': 'About Dyscover',
   'about.title': "Different doesn't mean less.",
-  'about.lede': 'Dyslexia is a language-based learning difference. With the right support, children can find confident, creative ways to learn.',
+  'about.lede':
+    'Dyslexia is a language-based learning difference. With the right support, children can find confident, creative ways to learn.',
   'about.narrativeEyebrow': 'A little more context',
   'about.narrativeTitle': 'Some words take a different path.',
   'about.topicReading': 'Reading',
@@ -91,10 +99,12 @@ export const messages = {
   'about.promiseBubble': 'Dyscover is here to help adults ask better questions.',
   'about.promiseEyebrow': 'What Dyscover does',
   'about.promiseTitle': 'It creates space to notice.',
-  'about.promiseCopy': 'Interactive activities can help families and educators organize observations about language, symbols, timing, and interaction.',
+  'about.promiseCopy':
+    'Interactive activities can help families and educators organize observations about language, symbols, timing, and interaction.',
   'about.notEyebrow': 'What Dyscover does not do',
   'about.notTitle': 'It never gives a diagnosis.',
-  'about.notCopy': 'This is a screening and support experience, not a clinical evaluation. Observed indicators are one part of a much bigger picture.',
+  'about.notCopy':
+    'This is a screening and support experience, not a clinical evaluation. Observed indicators are one part of a much bigger picture.',
   'about.limitationsLink': 'Read our limitations',
 
   'how.eyebrow': 'How Dyscover works',
@@ -119,7 +129,8 @@ export const messages = {
   'research.lede': 'The world can feel playful while the architecture underneath stays careful.',
   'research.currentBadge': 'Current architecture',
   'research.currentTitle': 'Ready to hold thoughtful observations.',
-  'research.currentCopy': 'Stage 1 defines the path from child profile to assessment session, game, trial, event, and optional research signal.',
+  'research.currentCopy':
+    'Stage 1 defines the path from child profile to assessment session, game, trial, event, and optional research signal.',
   'research.pillEvents': 'trial events',
   'research.pillTiming': 'timing',
   'research.pillAccuracy': 'accuracy',
@@ -134,14 +145,17 @@ export const messages = {
   'research.flow4Small': 'clearer conversations',
   'research.futureBadge': 'Research direction',
   'research.futureTitle': 'Ready to learn, not ready to claim.',
-  'research.futureCopy': 'Future work can validate features and models with care. No clinical thresholds or hard-coded probabilities belong here.',
+  'research.futureCopy':
+    'Future work can validate features and models with care. No clinical thresholds or hard-coded probabilities belong here.',
   'research.noteEyebrow': 'A useful boundary',
   'research.noteTitle': 'Patterns are not diagnoses.',
-  'research.noteCopy': 'Any result should be interpreted alongside context and, when needed, professional evaluation.',
+  'research.noteCopy':
+    'Any result should be interpreted alongside context and, when needed, professional evaluation.',
 
   'contact.eyebrow': 'Contact',
   'contact.title': 'Bring a thoughtful question.',
-  'contact.lede': "We'd love to hear from parents, educators, researchers, and curious collaborators.",
+  'contact.lede':
+    "We'd love to hear from parents, educators, researchers, and curious collaborators.",
   'contact.formTitle': 'Say hello',
   'contact.formName': 'Your name',
   'contact.formEmail': 'Email address',
@@ -197,10 +211,12 @@ export const messages = {
 
   'hub.notAvailableEyebrow': 'Not available in your language',
   'hub.notAvailableHeadline': 'These adventures are available in {languageName} only.',
-  'hub.notAvailableCopy': "We don't silently translate activities. Choose an activity that is offered in {languageName}, or switch the language.",
+  'hub.notAvailableCopy':
+    "We don't silently translate activities. Choose an activity that is offered in {languageName}, or switch the language.",
   'hub.notAvailableSwitch': 'Switch language',
   'hub.notAvailableNone': 'Nothing here yet',
-  'hub.notAvailableNoneCopy': 'There are no curated listening adventures for {languageName} yet. You can still play the visual adventures.',
+  'hub.notAvailableNoneCopy':
+    'There are no curated listening adventures for {languageName} yet. You can still play the visual adventures.',
   'hub.langOnly': '{languageName} only',
 
   'game.shell.leave': 'Leave activity',
@@ -262,13 +278,17 @@ export const messages = {
   'game.connectFallback': 'We could not connect, so this adventure will keep your progress nearby.',
 
   'speech.micNeverSaved': 'The microphone is never saved or uploaded.',
-  'speech.browserUnsupported': 'This browser does not offer speech recognition, so the microphone cannot be used here.',
+  'speech.browserUnsupported':
+    'This browser does not offer speech recognition, so the microphone cannot be used here.',
   'speech.exitAria': 'Leave the listening adventures',
   'speech.cardUnavailableTitle': 'Read aloud practice',
-  'speech.cardUnavailableCopy': 'This activity needs a microphone so your child can say the words aloud. A microphone is not available on this device, so this activity is skipped — other practice activities still work.',
+  'speech.cardUnavailableCopy':
+    'This activity needs a microphone so your child can say the words aloud. A microphone is not available on this device, so this activity is skipped — other practice activities still work.',
   'speech.cardTitle': 'Use the microphone for this activity?',
-  'speech.cardConsentedCopy': 'The microphone is available. Your child can say each prompt aloud. The audio is never saved or uploaded.',
-  'speech.cardRequestCopy': 'With permission, your child can say each prompt aloud so the activity can hear the answer. Audio is only used for the moment, then discarded — it is never saved or uploaded.',
+  'speech.cardConsentedCopy':
+    'The microphone is available. Your child can say each prompt aloud. The audio is never saved or uploaded.',
+  'speech.cardRequestCopy':
+    'With permission, your child can say each prompt aloud so the activity can hear the answer. Audio is only used for the moment, then discarded — it is never saved or uploaded.',
   'speech.cardEnable': 'Yes, let this activity listen',
   'speech.cardDisable': 'Turn the microphone off',
   'speech.checkingMic': 'Checking the microphone…',
@@ -276,7 +296,8 @@ export const messages = {
   'speech.count': 'Say {index} of {total}',
   'speech.listening': 'Listening…',
   'speech.tapToSay': 'Tap here, then say it',
-  'speech.errorListening': 'We could not hear the microphone. Please check that it is allowed and try again.',
+  'speech.errorListening':
+    'We could not hear the microphone. Please check that it is allowed and try again.',
   'speech.listeningBubble': 'I’m listening…',
   'speech.feedbackAlmost': 'Almost! Let’s try the next one.',
 
@@ -298,8 +319,10 @@ export const messages = {
   'practice.notAvailableYet': 'That activity is not available just yet.',
   'practice.speechKicker': '✦ read-aloud practice ✦',
   'practice.speechTitle': 'Say it out loud',
-  'practice.speechIntroCopy': 'Optional activities where your child reads a word or letter aloud. Choose this when you would like to practice speech together.',
-  'practice.speechConsentedCopy': 'Microphone permission is on for this activity. Say each prompt aloud when it appears — the audio is used only for the moment.',
+  'practice.speechIntroCopy':
+    'Optional activities where your child reads a word or letter aloud. Choose this when you would like to practice speech together.',
+  'practice.speechConsentedCopy':
+    'Microphone permission is on for this activity. Say each prompt aloud when it appears — the audio is used only for the moment.',
   'practice.speechStart': 'Start read-aloud practice',
   'practice.noSpeechNow': 'No speech activity is available just now.',
   'practice.speechNotReady': 'That speech activity is not ready just yet.',
@@ -330,7 +353,8 @@ export const messages = {
   'practice.activitiesWord': 'activities',
   'practice.accuracyInPractice': '{percent}% accurate in practice',
   'practice.completedCount': '{count} completed',
-  'practice.suggestionNone': 'Suggested practice will appear here once there is enough activity to choose from.',
+  'practice.suggestionNone':
+    'Suggested practice will appear here once there is enough activity to choose from.',
   'practice.progressAttempts': 'tries',
   'practice.progressCompleted': 'done',
   'practice.activitiesAvailable': 'activities available',
@@ -349,13 +373,16 @@ export const messages = {
   'parent.backLink': 'Back to Dyscover',
   'parent.headerEyebrow': "Good morning, Alex's parent",
   'parent.headerTitle': 'A quiet place to see what was observed.',
-  'parent.headerLede': 'Observed activity data is shown carefully and never treated as a diagnosis.',
+  'parent.headerLede':
+    'Observed activity data is shown carefully and never treated as a diagnosis.',
   'parent.welcomeBadge': 'Latest screening profile',
   'parent.readyBadge': 'Ready to explore',
   'parent.welcomeTitle': 'Here is what the activity recorded.',
   'parent.welcomeReadyTitle': 'The map is ready when you are.',
-  'parent.welcomeCopy': 'This research-mode profile contains structured observations from completed activities.',
-  'parent.welcomeReadyCopy': 'Start with a playful session, then return here to explore what was observed.',
+  'parent.welcomeCopy':
+    'This research-mode profile contains structured observations from completed activities.',
+  'parent.welcomeReadyCopy':
+    'Start with a playful session, then return here to explore what was observed.',
   'parent.runAnother': 'Run another session',
   'parent.startSession': 'Start a session',
   'parent.profileCard': 'Assessment profile',
@@ -366,16 +393,19 @@ export const messages = {
   'parent.noDomains': 'No domain observations available yet.',
   'parent.modelStatus': 'Model status',
   'parent.modelUnavailable': 'Unavailable',
-  'parent.modelNotice': 'No validated ML model is registered. Activity observations remain available and are not converted into a clinical prediction.',
+  'parent.modelNotice':
+    'No validated ML model is registered. Activity observations remain available and are not converted into a clinical prediction.',
   'parent.suggestionsTitle': 'Practice suggestions',
   'parent.stage5Badge': 'Stage 5 personalization',
   'parent.startingPoint': 'A starting point',
-  'parent.suggestionsNone': 'Activity suggestions will appear here once enough observations have been gathered.',
+  'parent.suggestionsNone':
+    'Activity suggestions will appear here once enough observations have been gathered.',
   'parent.progressTitle': 'Progress',
   'parent.cumulativeBadge': 'Cumulative',
   'parent.welcomeEyebrow': 'Good morning',
   'parent.observedTitle': 'Observed areas',
-  'parent.observedCopy': 'Patterns noticed in playful activities. Observations only — not a diagnosis.',
+  'parent.observedCopy':
+    'Patterns noticed in playful activities. Observations only — not a diagnosis.',
   'parent.evidenceState': 'State',
   'parent.evidenceCount': '{count} recorded',
   'parent.recentTitle': 'Recent activities',
@@ -409,9 +439,11 @@ export const messages = {
   'modal.gazeNotRecorded': 'Not recorded in the latest screening',
   'modal.gazeSamplesRecorded': '{samples} gaze samples recorded',
   'modal.gazeTrialsPercent': '{percent}% of trials had gaze data',
-  'modal.speechRecordedLine': 'Recorded · {trials} listening {trialWord}, {captured} with a captured answer',
+  'modal.speechRecordedLine':
+    'Recorded · {trials} listening {trialWord}, {captured} with a captured answer',
   'modal.speechTrialsPercent': '{percent}% of trials had speech features',
-  'modal.privacyNote': 'Only numeric summaries are stored. The camera image and microphone audio are never saved or uploaded.',
+  'modal.privacyNote':
+    'Only numeric summaries are stored. The camera image and microphone audio are never saved or uploaded.',
 
   'dashboard.metrics.observed': 'Observed areas',
   'dashboard.metrics.activities': 'Activities',
@@ -423,7 +455,8 @@ export const messages = {
   'dashboard.speechNone': 'No speech research recorded.',
 
   'speech.demo.title': 'Speech Transcription Demo',
-  'speech.demo.description': 'Upload an audio file to test speech recognition with configured providers.',
+  'speech.demo.description':
+    'Upload an audio file to test speech recognition with configured providers.',
   'speech.demo.providerSelection': 'Speech Provider',
   'speech.demo.settings': 'Settings',
   'speech.demo.uploadAudio': 'Upload Audio',
@@ -445,6 +478,6 @@ export const messages = {
   'speech.demo.available': 'Available',
   'speech.demo.unavailable': 'Unavailable',
   'common.close': 'Close',
-} as const;
+};
 
 export type MessageKey = keyof typeof messages;

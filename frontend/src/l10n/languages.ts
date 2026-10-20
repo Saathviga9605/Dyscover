@@ -17,7 +17,7 @@ export const LANGUAGES: LanguageDefinition[] = [
   { code: 'ta', name: 'Tamil', nativeName: 'தமிழ்', locale: 'ta-IN', default: false },
 ];
 
-const SUPPORTED_LANGUAGES = new Set<string>(LANGUAGES.map((language) => language.code));
+const SUPPORTED_LANGUAGES = new Set<string>(LANGUAGES.map(language => language.code));
 
 const ASSESSMENT_ACTIVITIES: Record<string, ReadonlySet<string>> = {
   'letter-detective': new Set(['en']),
@@ -45,9 +45,24 @@ const ACTIVITY_LANGUAGES: Record<string, ReadonlySet<string>> = {
   ...PRACTICE_ACTIVITIES,
 };
 
-const ASSESSMENT_PLAN: string[] = ['letter-detective', 'mirror-match', 'word-flash', 'sequence-quest', 'word-maze'];
-const SPEECH_ASSESSMENT_PLAN: string[] = ['sound-quest-adventure', 'letter-bubble-pop', 'maze-runner-rush'];
-const PRACTICE_PLAN: string[] = ['symbol-match', 'word-builder', 'sequence-recall', 'visual-search'];
+const ASSESSMENT_PLAN: string[] = [
+  'letter-detective',
+  'mirror-match',
+  'word-flash',
+  'sequence-quest',
+  'word-maze',
+];
+const SPEECH_ASSESSMENT_PLAN: string[] = [
+  'sound-quest-adventure',
+  'letter-bubble-pop',
+  'maze-runner-rush',
+];
+const PRACTICE_PLAN: string[] = [
+  'symbol-match',
+  'word-builder',
+  'sequence-recall',
+  'visual-search',
+];
 
 export function isSupported(value: string | null | undefined): value is LanguageCode {
   return typeof value === 'string' && SUPPORTED_LANGUAGES.has(value);
@@ -59,19 +74,22 @@ export function resolveLanguage(value: string | null | undefined): LanguageCode 
 
 export function localeFor(value: string | null | undefined): string {
   const resolved = resolveLanguage(value);
-  return LANGUAGES.find((language) => language.code === resolved)?.locale ?? LANGUAGES[0].locale;
+  return LANGUAGES.find(language => language.code === resolved)?.locale ?? LANGUAGES[0].locale;
 }
 
 export function languageName(value: LanguageCode): string {
-  return LANGUAGES.find((language) => language.code === value)?.name ?? DEFAULT_LANGUAGE;
+  return LANGUAGES.find(language => language.code === value)?.name ?? DEFAULT_LANGUAGE;
 }
 
 export function languageNativeName(value: LanguageCode): string {
-  return LANGUAGES.find((language) => language.code === value)?.nativeName ?? nativeLanguageName(DEFAULT_LANGUAGE);
+  return (
+    LANGUAGES.find(language => language.code === value)?.nativeName ??
+    nativeLanguageName(DEFAULT_LANGUAGE)
+  );
 }
 
 function nativeLanguageName(value: LanguageCode): string {
-  return LANGUAGES.find((language) => language.code === value)?.nativeName ?? 'English';
+  return LANGUAGES.find(language => language.code === value)?.nativeName ?? 'English';
 }
 
 export function isActivityAvailable(activityId: string, language: LanguageCode): boolean {
@@ -90,15 +108,15 @@ export function languagesForActivity(activityId: string): string[] {
 }
 
 export function assessmentPlanFor(language: LanguageCode): string[] {
-  return ASSESSMENT_PLAN.filter((gameId) => isActivityAvailable(gameId, language));
+  return ASSESSMENT_PLAN.filter(gameId => isActivityAvailable(gameId, language));
 }
 
 export function speechAssessmentPlanFor(language: LanguageCode): string[] {
-  return SPEECH_ASSESSMENT_PLAN.filter((gameId) => isActivityAvailable(gameId, language));
+  return SPEECH_ASSESSMENT_PLAN.filter(gameId => isActivityAvailable(gameId, language));
 }
 
 export function practicePlanFor(language: LanguageCode): string[] {
-  return PRACTICE_PLAN.filter((activityId) => isActivityAvailable(activityId, language));
+  return PRACTICE_PLAN.filter(activityId => isActivityAvailable(activityId, language));
 }
 
 export function getStoredLanguage(): LanguageCode {

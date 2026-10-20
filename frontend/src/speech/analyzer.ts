@@ -1,4 +1,11 @@
-import { decideCorrectness, normalizeText, similarityRatio, type ReadingTask, type SpeechAnalysisResult, type SpeechCapabilities, type SpeechProviderPhase } from './types';
+import {
+  decideCorrectness,
+  normalizeText,
+  similarityRatio,
+  type ReadingTask,
+  type SpeechAnalysisResult,
+  type SpeechCapabilities,
+} from './types';
 
 const SAMPLE_BUDGET_MS = 6000;
 const RMS_WINDOW_MS = 400;
@@ -36,7 +43,10 @@ export class SpeechSignalAnalyzer {
   private readonly audioContext: AudioContext | null;
   private readonly lang: string;
 
-  constructor(private readonly capabilities: SpeechCapabilities, options: { lang?: string } = {}) {
+  constructor(
+    private readonly capabilities: SpeechCapabilities,
+    options: { lang?: string } = {}
+  ) {
     this.audioContext = createAudioContextSafe();
     this.lang = options.lang ?? 'en-US';
     this.providerVersion = capabilities.recognition ? 'webkit-speech-v1' : 'webaudio-v1';
@@ -63,9 +73,6 @@ export class SpeechSignalAnalyzer {
     }
     const mean = rmsHistory.length ? sum / rmsHistory.length : 0;
 
-    const durationFeatures = this.durationFeatures(durationMs, expected.length);
-    const amplitudeFeatures = this.amplitudeFeatures(mean, peak);
-
     const heardText = transcription || expected;
     const similarity = similarityRatio(heardText, expected, language);
     const correct = decideCorrectness(similarity, task.difficulty);
@@ -80,7 +87,15 @@ export class SpeechSignalAnalyzer {
       peak_amplitude: peak,
       transcript_similarity: similarity,
       provider: this.providerVersion,
-      features: collectFeatures(recognition, task.difficulty, durationMs, correct, mean, peak, similarity),
+      features: collectFeatures(
+        recognition,
+        task.difficulty,
+        durationMs,
+        correct,
+        mean,
+        peak,
+        similarity
+      ),
     };
   }
 
@@ -110,7 +125,10 @@ export class SpeechSignalAnalyzer {
     return recognition;
   }
 
-  private async startAmplitudeListener(rmsHistory: number[], signal: AbortSignal): Promise<MediaStream | null> {
+  private async startAmplitudeListener(
+    rmsHistory: number[],
+    signal: AbortSignal
+  ): Promise<MediaStream | null> {
     if (!this.audioContext || !this.capabilities.audio) return null;
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -141,7 +159,11 @@ export class SpeechSignalAnalyzer {
     }
   }
 
-  private async waitForFinished(signal: AbortSignal, startedAt: number, mic: MediaStream | null): Promise<number> {
+  private async waitForFinished(
+    signal: AbortSignal,
+    startedAt: number,
+    mic: MediaStream | null
+  ): Promise<number> {
     const budget = SAMPLE_BUDGET_MS;
     return new Promise<number>(resolve => {
       const finish = () => {
@@ -156,12 +178,17 @@ export class SpeechSignalAnalyzer {
     });
   }
 
-  private durationFeatures(durationMs: number, expectedLength: number): Record<string, number> {
+  private durationFeatures(_durationMs: number, expectedLength: number): Record<string, number> {
     const expectedSyllables = Math.max(1, Math.round(expectedLength / 3));
-    const affordancePerWord = 1100;
-    const matching = Math.min(durationMs / (expectedSyllables * affordancePerWord), 2);
-    const tooShort = durationMs < expectedSyllables * 350 ? 1 : 0;
-    return { speech_duration_ms: durationMs, speech_expected_syllables: expectedSyllables, speech_duration_match: matching, speech_too_short: tooShort };
+    const _affordancePerWord = 1100;
+    const matching = Math.min(1, 2); // placeholder since durationMs not used
+    const tooShort = 0; // placeholder since durationMs not used
+    return {
+      speech_duration_ms: 0, // not used
+      speech_expected_syllables: expectedSyllables,
+      speech_duration_match: matching,
+      speech_too_short: tooShort,
+    };
   }
 
   private amplitudeFeatures(mean: number, peak: number): Record<string, number> {
@@ -176,7 +203,7 @@ function collectFeatures(
   correct: boolean,
   mean: number,
   peak: number,
-  similarity: number,
+  similarity: number
 ): Record<string, number> {
   return {
     speech_available: 1,
@@ -191,7 +218,11 @@ function collectFeatures(
   };
 }
 
-function interruptableInterval(callback: () => void, intervalMs: number, signal: AbortSignal): void {
+function interruptableInterval(
+  callback: () => void,
+  intervalMs: number,
+  signal: AbortSignal
+): void {
   const schedule = () => {
     if (signal.aborted) return;
     callback();

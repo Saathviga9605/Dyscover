@@ -36,10 +36,17 @@ function def(): GameDefinition<Trial> {
   };
 }
 
-function play(engine: GameEngine<Trial>, rounds: number, response: 'correct' | 'slow' = 'correct'): void {
+function play(
+  engine: GameEngine<Trial>,
+  rounds: number,
+  response: 'correct' | 'slow' = 'correct'
+): void {
   for (let i = 0; i < rounds; i += 1) {
     const trial = engine.beginTrial(i);
-    const result = response === 'correct' ? { correct: true, score: 1, actualResponse: 'x', metadata: {} } : { correct: false, score: 0, actualResponse: 'x', metadata: {} };
+    const result =
+      response === 'correct'
+        ? { correct: true, score: 1, actualResponse: 'x', metadata: {} }
+        : { correct: false, score: 0, actualResponse: 'x', metadata: {} };
     const updated = engine.recordResponse(trial, 'x', result);
     engine.completeTrial(updated);
   }
@@ -61,7 +68,24 @@ describe('DifficultyManager starting seed', () => {
   });
   it('still adapts around the personalized starting level once enough history exists', () => {
     const manager = new DifficultyManager(1, 5, 2);
-    const trial = (difficulty: number): Trial => ({ trialId: 't', sessionId: 's', gameId: 'd-game', gameVersion: '1.0.0', trialIndex: 0, domain: 'visual-symbol-discrimination', difficulty, startedAt: new Date().toISOString(), stimulus: { item: 'x' }, expectedResponse: 'x', score: 1, attemptCount: 1, errorCount: 0, correct: true, reactionTimeMs: 2000, metadata: {} });
+    const trial = (difficulty: number): Trial => ({
+      trialId: 't',
+      sessionId: 's',
+      gameId: 'd-game',
+      gameVersion: '1.0.0',
+      trialIndex: 0,
+      domain: 'visual-symbol-discrimination',
+      difficulty,
+      startedAt: new Date().toISOString(),
+      stimulus: { item: 'x' },
+      expectedResponse: 'x',
+      score: 1,
+      attemptCount: 1,
+      errorCount: 0,
+      correct: true,
+      reactionTimeMs: 2000,
+      metadata: {},
+    });
     expect(manager.next([])).toBe(2);
     // Three strong, well-timed attempts step from the seeded level, not from the minimum.
     expect(manager.next([trial(2), trial(2), trial(2)])).toBe(3);
