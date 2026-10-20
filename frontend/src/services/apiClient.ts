@@ -14,10 +14,15 @@ interface ErrorResponse {
   detail?: string;
 }
 
+function getAuthHeaders(): HeadersInit {
+  const token = localStorage.getItem('dyscover-access-token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, {
     ...options,
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    headers: { 'Content-Type': 'application/json', ...getAuthHeaders(), ...options?.headers },
   });
   if (!response.ok) {
     const body = (await response.json().catch(() => ({}))) as ErrorResponse;
@@ -156,8 +161,10 @@ export interface EducatorLearnerSummary {
 
 export const api = {
   health: () => request<{ status: string; version: string }>('/health'),
-  createChild: (payload: { display_name: string }) =>
-    request<{ id: string; display_name: string; created_at: string }>('/children', {
+  listChildren: () =>
+    request<Array<{ id: string; display_name: string; birth_year?: number; created_at: string }>>('/children'),
+  createChild: (payload: { display_name: string; birth_year?: number }) =>
+    request<{ id: string; display_name: string; birth_year?: number; created_at: string }>('/children', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
@@ -308,6 +315,32 @@ export const api = {
     ),
   getSpeechDemoModels: () =>
     request<{ huggingface_whisper: unknown; faster_whisper: unknown }>('/speech/demo/models'),
+
+  // Auth methods
+  register: (payload: UserRegister) =>
+    request<UserResponse>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  login: (payload: UserLogin) =>
+    request<TokenResponse>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  logout: () =>
+    request<{ message: string }>('/api/auth/logout', { method: 'POST' }),
+  refreshToken: (refreshToken?: string) =>
+    request<TokenResponse>('/api/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    }),
+  getCurrentUser: () =>
+    request<CurrentUser>('/api/auth/me'),
+  changePassword: (payload: { current_password: string; new_password: string }) =>
+    request<{ message: string }>('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 };
 
 export interface PracticeActivity {
@@ -470,4 +503,40 @@ export interface GazeBatchPayload {
     target_type?: string;
     target_id?: string;
   }>;
+}
+
+// Auth interfaces
+export interface TokenResponse {
+  access_token: string;
+  refresh_token: string;
+  expires_in: number;
+}
+
+export interface CurrentUser {
+  id: string;
+  email: string;
+  display_name: string;
+  role: string;
+  is_active: boolean;
+}
+
+export interface UserResponse {
+  id: string;
+  email: string;
+  display_name: string;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface UserRegister {
+  email: string;
+  password: string;
+  display_name: string;
+  role?: string;
+}
+
+export interface UserLogin {
+  email: string;
+  password: string;
 }

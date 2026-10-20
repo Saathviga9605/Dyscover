@@ -161,6 +161,11 @@ def create_child(payload: ChildCreate, db: Session = Depends(get_db)) -> ChildPr
     return child
 
 
+@app.get("/api/children", response_model=list[ChildResponse])
+def list_children(db: Session = Depends(get_db)) -> list[ChildProfile]:
+    return list(db.scalars(select(ChildProfile).order_by(ChildProfile.created_at.desc())))
+
+
 @app.get("/api/children/{child_id}", response_model=ChildResponse)
 def get_child(child_id: UUID, db: Session = Depends(get_db)) -> ChildProfile:
     child = db.get(ChildProfile, child_id)

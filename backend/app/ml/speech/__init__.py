@@ -1,5 +1,7 @@
 """Speech ML module for Dyscover."""
 
+import torch
+
 from .audio import AudioPreprocessor, AudioConfig, AudioInfo, validate_uploaded_audio, chunk_long_audio
 from .dataset import (
     SpeechManifestEntry,

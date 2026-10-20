@@ -90,7 +90,14 @@ class AudioPreprocessor:
 
     def load_audio(self, audio_path: Path) -> tuple[torch.Tensor, int]:
         """Load audio file as mono tensor at target sample rate."""
-        waveform, sample_rate = torchaudio.load(str(audio_path))
+        try:
+            data, sample_rate = sf.read(str(audio_path), dtype="float32")
+            if data.ndim == 1:
+                waveform = torch.from_numpy(data).unsqueeze(0)
+            else:
+                waveform = torch.from_numpy(data.T)
+        except Exception:
+            waveform, sample_rate = torchaudio.load(str(audio_path))
 
         # Convert to mono if needed
         if self.config.mono and waveform.shape[0] > 1:

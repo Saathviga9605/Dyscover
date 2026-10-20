@@ -124,6 +124,12 @@ export function SectionHeader({
   );
 }
 
+export function Input({
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement>) {
+  return <input className="input" {...props} />;
+}
+
 export function AccessibilityPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [textSize, setTextSize] = useState('normal');
   const [readingStyle, setReadingStyle] = useState('default');

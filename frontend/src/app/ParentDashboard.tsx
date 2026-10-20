@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Badge, Card, EmptyState, Mascot, PageHeader } from '../components/ui';
+import { Link, useNavigate } from 'react-router-dom';
+import { Badge, Button, Card, EmptyState, Input, Mascot, PageHeader } from '../components/ui';
 import { PracticeCard } from '../games/practice/PracticeCard';
 import {
   api,
@@ -13,10 +13,38 @@ import { comparisonRows, dedupeRecommendations, domainLabel, formatPercent } fro
 import { ModalitySummaryCard } from './ModalitySummaryCard';
 import { useLanguage } from '../l10n';
 
-export function ParentDashboard() {
+
   const { t, language } = useLanguage();
+  const navigate = useNavigate();
+  const [showAddChild, setShowAddChild] = useState(false);
   const [profile, setProfile] = useState<Awaited<ReturnType<typeof api.getProfile>> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [children, setChildren] = useState<Array<{ id: string; display_name: string; birth_year?: number }>>([]);
+
+  const [newChildName, setNewChildName] = useState('');
+  const [newChildBirthYear, setNewChildBirthYear] = useState('');
+
+  useEffect(() => {
+    api.listChildren().then(setChildren).catch(() => {});
+  }, []);
+
+  const handleAddChild = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newChildName.trim()) return;
+    try {
+      const created = await api.createChild({
+        display_name: newChildName.trim(),
+        birth_year: newChildBirthYear ? parseInt(newChildBirthYear, 10) : undefined,
+      });
+      setChildren(prev => [created, ...prev]);
+      localStorage.setItem('dyscover-stage2-child-id', created.id);
+      setNewChildName('');
+      setNewChildBirthYear('');
+      setShowAddChild(false);
+    } catch (err) {
+      console.error('Failed to create child', err);
+    }
+  };
   const [personalization, setPersonalization] = useState<{
     profile: PersonalizationProfile | null;
     recommendations: PersonalizationRecommendations | null;
@@ -91,12 +119,81 @@ export function ParentDashboard() {
         <p className="page-lede">{t('parent.headerLede')}</p>
       </PageHeader>
       <div className="dashboard">
+        <Card className="wide child-profiles-card">
+          <div className="card-title-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3>Child Profiles</h3>
+            <button
+              className="button button-small"
+              onClick={() => setShowAddChild(s => !s)}
+            >
+              Add Child
+            </button>
+          </div>
+          {showAddChild && (
+            <form onSubmit={handleAddChild} className="add-child-form" style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div>
+                <label htmlFor="child_name" style={{ display: 'block', marginBottom: '0.25rem' }}>Child Name</label>
+                <Input
+                  id="child_name"
+                  name="display_name"
+                  value={newChildName}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewChildName(e.target.value)}
+                  placeholder="e.g. Child One"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="child_birth_year" style={{ display: 'block', marginBottom: '0.25rem' }}>Birth Year</label>
+                <Input
+                  id="child_birth_year"
+                  name="birth_year"
+                  type="number"
+                  value={newChildBirthYear}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewChildBirthYear(e.target.value)}
+                  placeholder="2018"
+                  min={2010}
+                  max={2030}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <Button type="submit">Create</Button>
+                <Button type="button" secondary onClick={() => setShowAddChild(false)}>Cancel</Button>
+              </div>
+            </form>
+          )}
+          <div className="children-list" style={{ marginTop: '1rem' }}>
+            {children.length === 0 ? (
+              <p className="subtle-text">No child profiles yet. Click &quot;Add Child&quot; to register a child profile.</p>
+            ) : (
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {children.map(c => (
+                  <li
+                    key={c.id}
+                    style={{ padding: '0.5rem 0', borderBottom: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <span><strong>{c.display_name}</strong> {c.birth_year ? `(${c.birth_year})` : ''}</span>
+                    <button
+                      className="button-link"
+                      onClick={() => {
+                        localStorage.setItem('dyscover-stage2-child-id', c.id);
+                        window.location.reload();
+                      }}
+                    >
+                      Select
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Card>
+
         <Card className="wide parent-welcome">
           <div>
             <Badge>{profile ? t('parent.welcomeBadge') : t('parent.readyBadge')}</Badge>
             <h2>{profile ? t('parent.welcomeTitle') : t('parent.welcomeReadyTitle')}</h2>
             <p>{profile ? t('parent.welcomeCopy') : t('parent.welcomeReadyCopy')}</p>
-            <Link className="button" to="/child/home">
+            <button className="button button-sun" onClick={() => navigate('/child/assessment')} style={{ marginRight: "0.5rem" }}>Start Assessment</button><Link className="button" to="/child/home">
               {profile ? t('parent.runAnother') : t('parent.startSession')} <span>→</span>
             </Link>
           </div>

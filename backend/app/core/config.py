@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    secret_key: str = "changeme"  # Can be overridden via .env
     app_name: str = "Dyscover API"
     app_version: str = "0.1.0"
     app_env: str = "development"

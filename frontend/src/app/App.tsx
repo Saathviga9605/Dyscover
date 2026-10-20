@@ -19,6 +19,7 @@ import { LexiWidget } from '../chatbot/LexiWidget';
 import { ParentDashboard } from './ParentDashboard';
 import { EducatorDashboard } from './EducatorDashboard';
 import { LanguageProvider, LanguageSwitcher, useLanguage } from '../l10n';
+import { AuthProvider, LoginPage, RegisterPage, useAuth, UserMenu } from '../auth';
 import type { MessageKey } from '../l10n/messages/en';
 
 const nav: ReadonlyArray<readonly [string, MessageKey]> = [
@@ -31,6 +32,7 @@ function Layout({ children }: { children: React.ReactNode }) {
   const { t } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
+
   return (
     <div className="app-shell">
       <nav className={`site-nav ${menuOpen ? 'menu-open' : ''}`}>
@@ -78,6 +80,7 @@ function Layout({ children }: { children: React.ReactNode }) {
             {t('nav.startScreening')} <span>↗</span>
           </Link>
           <LanguageSwitcher />
+          <UserMenu />
           <button
             className="settings-button"
             onClick={() => setSettingsOpen(value => !value)}
@@ -651,23 +654,27 @@ function SpeechAssessment() {
 export function App() {
   return (
     <LanguageProvider>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/how-it-works" element={<HowItWorks />} />
-          <Route path="/research" element={<Research />} />
-          <Route path="/contact" element={<Contact />} />
-          <Route path="/parent/dashboard" element={<ParentDashboard />} />
-          <Route path="/educator/dashboard" element={<EducatorDashboard />} />
-          <Route path="/child/home" element={<ChildHome />} />
-          <Route path="/child/assessment" element={<Assessment />} />
-          <Route path="/child/assessment/visual" element={<VisualAssessment />} />
-          <Route path="/child/assessment/speech" element={<SpeechAssessment />} />
-          <Route path="/child/practice" element={<PracticeRunner />} />
-          <Route path="*" element={<Home />} />
-        </Routes>
-      </Layout>
+      <AuthProvider>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/how-it-works" element={<HowItWorks />} />
+            <Route path="/research" element={<Research />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/parent/dashboard" element={<ParentDashboard />} />
+            <Route path="/educator/dashboard" element={<EducatorDashboard />} />
+            <Route path="/child/home" element={<ChildHome />} />
+            <Route path="/child/assessment" element={<Assessment />} />
+            <Route path="/child/assessment/visual" element={<VisualAssessment />} />
+            <Route path="/child/assessment/speech" element={<SpeechAssessment />} />
+            <Route path="/child/practice" element={<PracticeRunner />} />
+            <Route path="*" element={<Home />} />
+          </Routes>
+        </Layout>
+      </AuthProvider>
     </LanguageProvider>
   );
 }
