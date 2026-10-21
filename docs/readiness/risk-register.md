@@ -1,6 +1,6 @@
 # Risk Register
 
-Updated 2026-10-21. Part A lists defects **verified** in the code at the start of the 2026-10-20 pass and how they were resolved (with the test that now guards them). Part B lists **open** risks and limitations. Nothing here is a legal opinion or a security certification.
+Updated 2026-10-21 (release pass). Part A lists defects **verified** in the code at the start of the 2026-10-20 pass and how they were resolved (with the test that now guards them). Part B lists **open** risks and limitations. Nothing here is a legal opinion or a security certification.
 
 ## A. Verified defects (resolved)
 
@@ -42,7 +42,7 @@ Updated 2026-10-21. Part A lists defects **verified** in the code at the start o
 | B5 | Licensing | WebGazer is GPLv3 with separate commercial terms. | Loaded at runtime from its own distribution; not bundled. | Legal review before any commercial deployment. |
 | B6 | Lexi | LLM output can be wrong or ignore instructions; no output moderation layer. | Strict system prompt, short replies, disclosure, no child data sent, rate limits. | Live red-team test with a real key; consider moderation API. |
 | B7 | Security | No independent penetration test; no MFA; registration reveals whether an email exists (409). | Rate limits, audit log, timing-equalised login. | Pen test; email verification flow. |
-| B8 | Ops | No backups, monitoring, alerting or TLS configured in this repo; rate-limit state is per process. | Health/readiness probes; logs with request ids. | Managed PostgreSQL with backups + restore drill; shared rate-limit store (Redis) for multiple replicas. |
+| B8 | Ops | No monitoring, alerting or TLS configured in this repo; backups are documented but not scheduled off-host; rate-limit state is per process. | Readiness-based container healthchecks; logs with request ids; `docs/deployment.md` backup/restore/rollback procedures (verified on a local Compose stack and PostgreSQL 16). | Managed PostgreSQL with backups + restore drill; shared rate-limit store (Redis) for multiple replicas. |
 | B9 | Accessibility | Automated axe checks (WCAG 2.1 A/AA rules) on key pages only. | Keyboard flows, labels, focus management, reduced motion. | Manual audit with screen readers and children's usability testing. |
 | B10 | Localization | Tamil strings added in this pass are machine-authored. | Catalog coverage test. | Native-speaker review; Tamil game content does not exist (honestly marked unavailable). |
 | B11 | Data | Legacy SQLite dev databases keep FKs without cascade and some nullable columns. | Explicit-order deletion. | Recreate dev databases from migrations when convenient. |

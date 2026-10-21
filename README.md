@@ -328,14 +328,19 @@ Outputs: `experiment_report.md`, `experiment_metadata.json`, model checkpoints.
 
 ### Backend (development, SQLite)
 
-```bash
+Windows PowerShell (verified 2026-10-21 with Python 3.13.14):
+
+```powershell
 cd backend
-python -m venv .venv
-.venv/Scripts/activate            # Windows  (macOS/Linux: source .venv/bin/activate)
-pip install -r requirements-dev.txt
-cp .env.example .env              # optional: GROQ_API_KEY, DATABASE_URL, ...
-uvicorn app.main:app --reload     # applies Alembic migrations automatically in development
+python -m venv .venv                       # isolated: pyvenv.cfg must say include-system-site-packages = false
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements-dev.txt
+# optional: python -m pip install -r requirements-speech-ml.txt   (offline speech-ML tooling and its tests)
+# optional: create backend\.env with GROQ_API_KEY=..., DATABASE_URL=..., RESEARCH_DEMO_ENABLED=true (dev only)
+python -m uvicorn app.main:app --reload    # applies Alembic migrations automatically in development
 ```
+
+macOS/Linux: the same steps with `source .venv/bin/activate`. If a venv was created with `--system-site-packages`, it silently imports packages from the global or user site; recreate it as above.
 
 API docs: http://localhost:8000/docs (disabled when `APP_ENV=production`).
 
@@ -352,7 +357,7 @@ Register a parent account, add a child profile on the parent dashboard, then cho
 ### Production-style stack (Docker Compose)
 
 ```bash
-cp .env.example .env              # set POSTGRES_PASSWORD and SECRET_KEY (>= 32 random chars)
+cp .env.example .env              # set POSTGRES_PASSWORD and SECRET_KEY (>= 32 random chars); full guide: docs/deployment.md
 docker compose up -d --build      # postgres -> migrate (alembic upgrade head) -> backend -> web
 # open http://localhost:8080  (put TLS in front of "web" for any real deployment)
 ```
@@ -420,9 +425,10 @@ Schema changes: edit `models.py`, then `alembic revision --autogenerate -m "..."
 ```bash
 # Backend (isolated temporary SQLite DB; never touches dyscover.db)
 cd backend
-pytest                                   # all tests incl. speech-ML (needs requirements-speech-ml.txt)
-pytest --ignore=tests/ml/speech          # API + ML without the heavy speech stack
-TEST_DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/empty_db pytest   # run against PostgreSQL
+python -m pytest                         # all tests; speech-ML modules are reported as skipped unless requirements-speech-ml.txt is installed
+TEST_DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/empty_db python -m pytest   # run against an EMPTY PostgreSQL database
+# disposable PostgreSQL for that:  docker run -d --rm --name dyscover-pgtest -e POSTGRES_USER=pgtest -e POSTGRES_PASSWORD=pgtest -e POSTGRES_DB=dyscover_test -p 127.0.0.1:55432:5432 postgres:16-alpine
+python -m app.ml.screening.verify        # research artifact checksum, fresh-process load, registry eligibility
 pip-audit -r requirements.txt            # dependency vulnerabilities
 LIVE_GROQ=1 LIVE_GROQ_API_KEY=... pytest tests/test_chat.py -k live   # optional real Groq request
 
@@ -436,6 +442,8 @@ npx playwright test                      # starts its own backend (temp DB) + Vi
 
 | Document | Description |
 |----------|-------------|
+| [`docs/deployment.md`](docs/deployment.md) | Production deployment, environment checklist, backup/restore, upgrade, rollback |
+| [`docs/readiness/project-completion-checklist.md`](docs/readiness/project-completion-checklist.md) | Release gate and remaining external tasks |
 | [`docs/speech-ml-pipeline.md`](docs/speech-ml-pipeline.md) | Complete Whisper fine-tuning & evaluation guide |
 | [`docs/speech-architecture.md`](docs/speech-architecture.md) | Provider abstraction, API integration, edge deployment roadmap |
 | [`docs/ml-architecture.md`](docs/ml-architecture.md) | Research ML subsystem architecture |

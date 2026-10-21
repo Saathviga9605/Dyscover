@@ -50,3 +50,13 @@ Implemented end to end (training → registry/eligibility gate → `GET /api/scr
   - The output is never shown on the parent screening card.
 - **Not covered:** speech-only assessments and Tamil assessments return explicit statuses instead of scores.
 - See `ai-ml-validation.md` §9.
+
+## Release state (2026-10-21)
+
+Engineering release of the research/educational demo is complete and verified (see `final-integration-report.md` §8 and `project-completion-checklist.md`):
+- PostgreSQL 16 validated: full suite, upgrade with data, rollback, backup and restore.
+- Clean, isolated Python environment.
+- Production Compose stack smoke-tested.
+- Deployment guide in `docs/deployment.md`.
+
+Remaining items are external: hosting/TLS, monitoring, legal review, real-device microphone/camera, clinical data.

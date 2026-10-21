@@ -90,4 +90,41 @@ The penultimate full run found a real race (Lexi duplicated the first reply when
   - Frontend: typecheck 0 errors, lint 0 errors (52 warnings, all in pre-existing files), Vitest **160 passed**, production build OK.
   - Playwright: **19 passed** (4.8 min), with no IntegrityError or traceback in the server log.
 - **Test isolation fix:** `tests/conftest.py` now pins `RESEARCH_DEMO_ENABLED=false` and an empty `SCREENING_MODEL_DIR`. Previously the suite inherited these from a developer's `backend/.env`.
-- **Not verified here:** migration `0004` on PostgreSQL. No PostgreSQL server is available in this environment; on SQLite it passes the zero-diff migration test.
+- **Not verified here:** migration `0004` on PostgreSQL. No PostgreSQL server is available in this environment; on SQLite it passes the zero-diff migration test. *(Resolved in §8.)*
+
+## 8. Release verification (2026-10-21, final working tree)
+
+All results below are fresh runs on this tree (Windows 11, Python 3.13.14, Node 24, Docker 29.8.0).
+
+| Check | Command | Result |
+|---|---|---|
+| Backend, SQLite, full stack incl. speech-ML | `cd backend; python -m pytest -q -rs` | **431 passed, 1 skipped** (live Groq, run separately below), exit 0 |
+| Backend, API-only install | same, without `requirements-speech-ml.txt` | 344 passed, 6 skipped (5 speech-ML modules: optional stack not installed; live Groq) |
+| Backend on PostgreSQL 16.15 | `TEST_DATABASE_URL=postgresql+psycopg://…:55432/dyscover_test python -m pytest` | **344 passed**, 6 skipped. The database ended at `0004_research_predictions` with the expected FKs, cascades and unique constraint |
+| PostgreSQL upgrade with data | 0003 + seeded data → `pg_dump` → `alembic upgrade head` | Row counts unchanged |
+| PostgreSQL research predictions and privacy | (same run) | Insert OK; duplicate rejected; included in export; account deletion leaves 0 orphans |
+| PostgreSQL rollback and restore | `downgrade 0003` → `upgrade head`; backup restored into a new DB and upgraded | Both OK. Autogenerate diff vs. models: `[]` |
+| Live Groq | `LIVE_GROQ=1 LIVE_GROQ_API_KEY=<from backend/.env, not printed> python -m pytest tests/test_chat.py -k live` | **1 passed** |
+| Research artifact | `python -m app.ml.screening.verify` | SHA-256 `16d52b48…f157d` matches. Usable by the research registry; refused by production; exit 0 |
+| Frontend | `npx tsc -b --noEmit`; `npx eslint .`; `npx vitest run`; `npm run build` | 0 errors; 0 errors (52 existing warnings); **160 passed**; build OK |
+| Browser E2E (real backend, migrated temp DB, clean venv) | `npx playwright test` | **19 passed** (4.8 min). No IntegrityError or traceback in the server log |
+| Dependency audit | `pip-audit -r requirements.txt`; `npm audit --omit=dev` | No known vulnerabilities; 0 vulnerabilities |
+| Production Compose stack | `docker compose -p dyscover-release-smoke --env-file <throwaway> up -d --build --wait` | All services healthy; migrate exited 0 |
+| Smoke tests through nginx | (same stack) | Readiness reports `0004`. Register 201; HttpOnly refresh cookie on `/api/auth`; anonymous → 401; parent card `no_assessment` with no result; research route 404 in production |
+| Smoke: hardening | (same stack) | Backend uid 10001, web uid 101; PostgreSQL publishes no port; research artifacts absent from the image; 0 secrets in the JS bundle; 0 secrets or test passwords in the logs |
+| Smoke: config refusals | (same stack) | `RESEARCH_DEMO_ENABLED=true` and a weak `SECRET_KEY` both refused at startup |
+| Backup/restore on the Compose stack | `pg_dump -Fc` / `pg_restore` into `restore_check` | Restored at revision `0004` with all rows |
+
+The throwaway stack, its volume and the disposable PostgreSQL container were removed afterwards. Other Docker projects on the machine were not touched.
+
+### Defects fixed in this pass
+
+1. **The Python venv was not isolated.** `backend/.venv` had `include-system-site-packages = true`, so it imported from the user site-packages (and an unrelated `D:\MIB\…` path). The old venv was kept as `backend/.venv.backup-20261021` and a clean one created. This exposed an undeclared dependency: the speech-ML tests imported `torch`/`soundfile` from the user site.
+2. **Speech-ML test modules errored on an API-only install.** They now `pytest.importorskip` the optional stack, so they show as skipped with an install hint. With the stack installed they all run and pass.
+3. **The backend container healthcheck used liveness** (`/api/health`). It now uses readiness (`/api/health/ready`: database plus schema revision), with a start period, so `web` waits for a usable API.
+4. **nginx dropped some security headers on HTML pages.** `add_header` in `location /` replaced the server-level set, so `X-Frame-Options`, `Referrer-Policy` and `Cross-Origin-Opener-Policy` were missing from HTML responses. They are now repeated in that location (verified with `curl -I`).
+5. **Docs:** `.gitignore` now covers the venv backup; `docs/deployment.md` and `project-completion-checklist.md` were added; the README setup and testing commands were updated to the verified ones.
+
+### Remaining
+
+Only external items remain (host, TLS, monitoring, legal review, real microphone and camera, clinical data); see `project-completion-checklist.md`. Verdict: **Dyscover research-demo engineering release complete.** Nothing has been committed or pushed.

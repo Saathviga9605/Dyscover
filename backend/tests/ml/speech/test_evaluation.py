@@ -4,6 +4,12 @@ from __future__ import annotations
 
 import pytest
 
+# Optional offline stack (requirements-speech-ml.txt); skipped, not failed, without it.
+for _name in ("torch", "soundfile", "transformers", "jiwer"):
+    pytest.importorskip(_name, reason="optional speech-ML stack not installed: pip install -r requirements-speech-ml.txt")
+
+import pytest
+
 from app.ml.speech.evaluation import TextNormalizer, SpeechEvaluator, EvaluationConfig, compare_models
 from app.ml.speech.dataset import SpeechManifestEntry
 

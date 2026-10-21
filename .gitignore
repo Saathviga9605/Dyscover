@@ -16,3 +16,4 @@ frontend/test-results/
 *.tsbuildinfo
 .DS_Store
 .env.example
+.venv.backup-*/

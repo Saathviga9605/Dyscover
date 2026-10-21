@@ -216,3 +216,13 @@ Access requires authentication, research mode enabled (otherwise 404), and the c
 - The simulator's reaction-time and accuracy scales were not calibrated against real children. Real sessions, especially fast automated test clicks, can fall outside the training range; the UI flags this.
 - The research model covers only English visual-run assessments. Speech-only runs return `insufficient_observations`.
 - Using this model for real decisions would require everything in §5 and §8.5.
+
+### 9.8 Release verification (2026-10-21)
+
+Re-verified on the final tree in a clean, isolated venv (scikit-learn 1.6.1, numpy 2.2.2):
+- Artifact SHA-256 matches; it loads in a fresh process (`python -m app.ml.screening.verify`, exit 0); the production registry refuses it.
+- The research tests passed on SQLite and PostgreSQL 16.
+- The Playwright run scored real game results and rendered the API percentage.
+- The production image does not contain the research artifacts, and production refuses `RESEARCH_DEMO_ENABLED`.
+
+The score remains a synthetic-target probability, **not** a real-child dyslexia probability.
