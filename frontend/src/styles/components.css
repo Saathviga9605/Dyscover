@@ -446,3 +446,116 @@ html[data-reduced-motion='true'] .lexi-typing i {
     animation: none;
   }
 }
+
+/* Screening card */
+.screening-result {
+  margin-top: var(--space-3);
+}
+.screening-score {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-4);
+}
+.screening-percent {
+  font-family: var(--font-display);
+  font-size: clamp(2.6rem, 8vw, 3.6rem);
+  line-height: 1;
+  color: var(--color-primary-deep);
+}
+.screening-meter {
+  flex: 1 1 180px;
+  height: 14px;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-soft);
+}
+.screening-meter span {
+  display: block;
+  height: 100%;
+  background: var(--color-primary);
+}
+.screening-band {
+  font-weight: 700;
+}
+.screening-unavailable {
+  padding: var(--space-4);
+  border-left: 4px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background: var(--color-primary-soft);
+}
+.screening-unavailable p {
+  margin: 0 0 var(--space-2);
+}
+.screening-section h4 {
+  margin: var(--space-5) 0 var(--space-2);
+}
+
+/* Synthetic research predictor */
+.research-page {
+  display: grid;
+  gap: var(--space-4, 1rem);
+}
+.research-warning {
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--color-warning, #8a5a00);
+  border-radius: var(--radius-md, 12px);
+  background: var(--color-surface-soft);
+}
+.research-warning p {
+  margin: 0.25rem 0 0;
+}
+.research-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+}
+.research-controls label {
+  display: grid;
+  gap: 0.25rem;
+  min-width: min(100%, 240px);
+}
+.research-controls select {
+  min-height: 44px;
+  padding: 0.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm, 8px);
+  font: inherit;
+}
+.research-score-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: baseline;
+  margin: 0.5rem 0;
+}
+.research-score-label {
+  font-weight: 700;
+}
+.research-result .screening-meter {
+  display: block;
+  max-width: 420px;
+}
+.research-table-wrap {
+  overflow-x: auto;
+}
+.research-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.research-table th,
+.research-table td {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  vertical-align: top;
+}
+.research-flag {
+  font-weight: 400;
+  font-size: 0.875em;
+}
+.research-link {
+  margin: 0;
+}

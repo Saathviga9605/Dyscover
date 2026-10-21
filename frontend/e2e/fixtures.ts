@@ -60,6 +60,14 @@ export async function apiAs(request: APIRequestContext, email: string) {
       expect(response.ok(), `GET ${path} -> ${response.status()}`).toBeTruthy();
       return (await response.json()) as T;
     },
+    post: async <T>(path: string, data?: unknown): Promise<T> => {
+      const response = await request.post(`/api${path}`, {
+        headers: { ...headers, 'X-Requested-With': 'dyscover' },
+        data,
+      });
+      expect(response.ok(), `POST ${path} -> ${response.status()}`).toBeTruthy();
+      return (await response.json()) as T;
+    },
   };
 }
 

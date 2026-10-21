@@ -705,6 +705,152 @@ export const messages: Record<string, string> = {
   'game.maze.finish': "I'm finished",
   'speech.consentRequiredToStart':
     'A grown-up needs to allow the microphone below before this activity can start.',
+  // --- Screening ---
+  'screening.title': 'Dyslexia risk screening',
+  'screening.badge': 'Screening, not a diagnosis',
+  'screening.scoreAria': 'Screening result: {percent} percent.',
+  'screening.meaningProbability':
+    'Estimated chance that a specialist reading assessment would recommend further assessment or reading support for children like yours. This estimate comes from a validated screening model.',
+  'screening.meaningResearch':
+    'Research score from 0 to 100. It is not a probability and should not be read as a chance of dyslexia.',
+  'screening.band.lower':
+    'Lower likelihood that further assessment is needed (specialist-approved range)',
+  'screening.band.moderate':
+    'Some indication that further assessment may help (specialist-approved range)',
+  'screening.band.higher':
+    'Higher likelihood that further assessment is needed (specialist-approved range)',
+  'screening.model': 'Screening model',
+  'screening.assessmentDate': 'Assessment date',
+  'screening.evidenceTitle': 'What this is based on',
+  'screening.evidenceCounts':
+    '{scored} answered activities from the latest completed session. {unscored} were not scored (no answer, or speech was not recognised) and are not counted as mistakes.',
+  'screening.strengths': 'Relative strengths:',
+  'screening.supportAreas': 'Areas where extra practice may help:',
+  'screening.limitsTitle': 'Please keep in mind',
+  'screening.limitNotDiagnosis':
+    'Screening is not a diagnosis. Only a qualified professional can diagnose dyslexia.',
+  'screening.limitLowHigh':
+    'A low result does not rule out dyslexia, and a high result does not confirm it.',
+  'screening.limitFactors':
+    'Tiredness, attention, device, familiarity with games and language background can all affect results.',
+  'screening.nextTitle': 'Helpful next steps',
+  'screening.nextTalk':
+    'If you have concerns about reading, talk with your child’s teacher, a reading specialist or an educational psychologist.',
+  'screening.nextAssessment':
+    'Ask about a formal reading assessment if difficulties continue or worry you — you do not need a screening result to ask.',
+  'screening.nextPractice': 'Keep reading together and use the practice activities while you wait.',
+  'screening.nextProgress':
+    'Look at progress over several sessions; ups and downs between single sessions are normal.',
+  'screening.status.available.title': 'Screening result available',
+  'screening.status.available.copy': '',
+  'screening.status.no_assessment.title': 'No completed activities yet',
+  'screening.status.no_assessment.copy':
+    'Once your child completes a session of activities, the observations they produce will appear here.',
+  'screening.status.assessment_incomplete.title': 'Finish a session first',
+  'screening.status.assessment_incomplete.copy':
+    'Screening only uses completed sessions. Ask your child to finish the activities they started.',
+  'screening.status.no_eligible_model.title':
+    'No validated screening model yet — no percentage is shown',
+  'screening.status.no_eligible_model.copy':
+    'Dyscover only shows a risk percentage from a model that has been tested with real children, independently validated, ethically approved and reviewed by reading specialists. No model has met these requirements yet, so we show the activity observations below instead of an estimate.',
+  'screening.status.unsupported_population.title':
+    'The screening model does not cover this situation',
+  'screening.status.unsupported_population.copy':
+    'The available model was only validated for certain ages and languages. Your child’s age, birth year or session language is outside that range, so no estimate is shown.',
+  'screening.status.insufficient_observations.title': 'Not enough answered activities yet',
+  'screening.status.insufficient_observations.copy':
+    'The screening model needs more answered activities from one session before it can give a result.',
+  'screening.status.invalid_features.title': 'This session cannot be screened',
+  'screening.status.invalid_features.copy':
+    'Some information the model needs was missing or out of range in this session. Playing another full session usually fixes this.',
+  'researchPredictor.eyebrow': 'Research mode',
+  'researchPredictor.title': 'Synthetic research predictor',
+  'researchPredictor.intro':
+    "Runs a machine-learning model trained only on simulated data on a child's real, stored activity results.",
+  'researchPredictor.warningTitle': 'For research and demonstration only',
+  'researchPredictor.warningCopy':
+    'This is not a dyslexia screening or a diagnosis. The model learned from simulated children whose labels are settings chosen by developers. A high score does not mean a child has dyslexia, and a low score does not rule it out. Do not use it to make decisions about a child.',
+  'researchPredictor.disabledTitle': 'Research mode is not enabled on this server',
+  'researchPredictor.disabledCopy':
+    'The synthetic research predictor is switched off. Operators can enable it on development or test servers only; it can never be enabled in production.',
+  'researchPredictor.chooseTitle': 'Choose a child and a session',
+  'researchPredictor.noChildren': 'No child profiles are available to you.',
+  'researchPredictor.childLabel': 'Child',
+  'researchPredictor.assessmentLabel': 'Completed session',
+  'researchPredictor.noAssessments': 'No sessions yet',
+  'researchPredictor.notCompleted': 'not completed',
+  'researchPredictor.run': 'Run the research model',
+  'researchPredictor.running': 'Running…',
+  'researchPredictor.runError': 'The research model could not be run. Please try again.',
+  'researchPredictor.resultTitle': 'Research model output',
+  'researchPredictor.badge': 'Synthetic data · not clinical',
+  'researchPredictor.scoreLabel': 'Synthetic research score:',
+  'researchPredictor.scoreLabelUncalibrated': 'Research score (not a probability):',
+  'researchPredictor.meaningCalibrated':
+    'Probability of the synthetic target under this model, NOT a real-child dyslexia probability.',
+  'researchPredictor.meaningScore':
+    'A model score that was not calibrated. It is not a probability of anything, and NOT a real-child dyslexia probability.',
+  'researchPredictor.neverConfirms':
+    "It only says how closely this session resembles the simulated 'difficulty' profiles. It cannot confirm or rule out dyslexia; only a qualified professional can assess that.",
+  'researchPredictor.basedOn':
+    'Based on {scored} answered activities ({unscored} not scored) from this session · model v{version}.',
+  'researchPredictor.featuresTitle': 'What the model looked at',
+  'researchPredictor.featuresIntro':
+    "Each row is a value measured from this session. 'Effect' is computed by the model itself: how much its score changes if that one value is replaced by the typical value in the synthetic training data.",
+  'researchPredictor.colFeature': 'Measure',
+  'researchPredictor.colValue': 'This session',
+  'researchPredictor.colTypical': 'Typical (synthetic)',
+  'researchPredictor.colEffect': 'Effect on score',
+  'researchPredictor.effectUp': 'raises it by {points} points',
+  'researchPredictor.effectDown': 'lowers it by {points} points',
+  'researchPredictor.effectNone': 'little or no effect',
+  'researchPredictor.outsideRange': '(outside synthetic training range)',
+  'researchPredictor.missingFeatures': 'Not recorded, so not used or estimated: {names}.',
+  'researchPredictor.modelTitle': 'About this research model',
+  'researchPredictor.modelName': 'Model',
+  'researchPredictor.trainingData': 'Trained on',
+  'researchPredictor.trainingDataValue': 'Simulated (synthetic) data only — no real children',
+  'researchPredictor.target': 'What it predicts',
+  'researchPredictor.syntheticMetrics': 'Accuracy on held-out synthetic data',
+  'researchPredictor.syntheticMetricsValue':
+    'ROC-AUC {auc} on {participants} simulated participants',
+  'researchPredictor.checksum': 'Artifact checksum',
+  'researchPredictor.metricsCaveat':
+    'These metrics measure how well the model recovers the simulator’s own settings. They say nothing about how well it would detect reading difficulties in real children.',
+  'researchPredictor.dashboardLink': 'Open the synthetic research predictor (research mode)',
+  'researchPredictor.feature.overall_accuracy': 'Overall accuracy',
+  'researchPredictor.feature.median_reaction_time_ms': 'Typical response time',
+  'researchPredictor.feature.reaction_time_variance_ms2': 'Response-time variability',
+  'researchPredictor.feature.mean_hesitation_time_ms': 'Hesitation before answering',
+  'researchPredictor.feature.completion_rate': 'Completed activities',
+  'researchPredictor.feature.domain_visual-symbol-discrimination_accuracy':
+    'Letter and symbol matching',
+  'researchPredictor.feature.domain_orthographic-recognition_accuracy': 'Word recognition',
+  'researchPredictor.feature.domain_working-memory_accuracy': 'Remembering sequences',
+  'researchPredictor.feature.domain_attention-visual-search_accuracy': 'Visual search',
+  'researchPredictor.feature.speech_error_rate': 'Reading-aloud errors',
+  'researchPredictor.feature.speech_words_per_minute': 'Reading-aloud speed',
+  'researchPredictor.feature.gaze_regression_count': 'Eye movements back (eye tracking)',
+  'researchPredictor.feature.gaze_mean_fixation_duration_ms': 'Eye fixation length (eye tracking)',
+  'researchPredictor.status.available.title': 'Research score available',
+  'researchPredictor.status.available.copy': '',
+  'researchPredictor.status.no_research_model.title': 'No research model is installed',
+  'researchPredictor.status.no_research_model.copy':
+    'The synthetic research model could not be loaded on this server, so no research score can be produced.',
+  'researchPredictor.status.assessment_incomplete.title': 'This session is not finished',
+  'researchPredictor.status.assessment_incomplete.copy':
+    'Only completed sessions can be scored by the research model.',
+  'researchPredictor.status.unsupported_population.title': 'Outside what the research model covers',
+  'researchPredictor.status.unsupported_population.copy':
+    'The synthetic training data does not cover this language or age, so no score is produced.',
+  'researchPredictor.status.insufficient_observations.title': 'Not enough observations',
+  'researchPredictor.status.insufficient_observations.copy':
+    'The research model needs a full visual adventure (all four activity areas). Missing information is never guessed. Speech attempts that could not be recognised are not counted as mistakes.',
+  'researchPredictor.status.invalid_features.title': 'This session cannot be scored',
+  'researchPredictor.status.invalid_features.copy': 'Some recorded values were out of range.',
+  'researchPredictor.status.model_version_conflict.title': 'Model version conflict',
+  'researchPredictor.status.model_version_conflict.copy':
+    'A different model file was recorded under the same version. The score is withheld until an operator resolves this.',
 };
 
 export type MessageKey = keyof typeof messages;

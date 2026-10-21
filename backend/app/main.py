@@ -34,6 +34,7 @@ from app.educator.routes import router as educator_router
 from app.gaze.routes import router as gaze_router
 from app.ml.quality import router as ml_quality_router
 from app.ml.routes import router as ml_router
+from app.ml.screening.routes import router as screening_router
 from app.personalization.routes import router as personalization_router
 from app.privacy.routes import router as privacy_router
 from app.remedial.routes import router as remedial_router
@@ -114,6 +115,7 @@ for router in (
     educator_router,
     ml_router,
     ml_quality_router,
+    screening_router,
     personalization_router,
     remedial_router,
     speech_router,

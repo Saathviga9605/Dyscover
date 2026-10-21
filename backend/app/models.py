@@ -12,7 +12,7 @@ Conventions:
 from datetime import datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import JSON, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, String, Text, Uuid
+from sqlalchemy import JSON, CheckConstraint, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.time import utcnow
@@ -314,3 +314,47 @@ class Message(Base):
     model: Mapped[str | None] = mapped_column(String(80))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
+
+
+class ScreeningResult(Base):
+    """A stored screening output from an *eligible* production model.
+
+    Only real model outputs are stored; "no model"/"insufficient evidence" states are
+    computed on request. One row per (assessment, model, version): a new model
+    version produces a new row instead of silently overwriting history.
+    """
+
+    __tablename__ = "screening_results"
+    __table_args__ = (UniqueConstraint("assessment_id", "model_id", "model_version", name="uq_screening_assessment_model"),)
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    child_id: Mapped[UUID] = mapped_column(ForeignKey("child_profiles.id", ondelete="CASCADE"), index=True)
+    assessment_id: Mapped[UUID] = mapped_column(ForeignKey("assessment_sessions.id", ondelete="CASCADE"), index=True)
+    model_id: Mapped[str] = mapped_column(String(120))
+    model_version: Mapped[str] = mapped_column(String(40))
+    feature_schema_version: Mapped[str] = mapped_column(String(40))
+    output_type: Mapped[str] = mapped_column(String(40))
+    score: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class ResearchPrediction(Base):
+    """Output of a *synthetic research* model for one assessment.
+
+    Deliberately a separate table from ``ScreeningResult``: research outputs are
+    never clinical-risk records and are never read by the parent screening card.
+    The artifact checksum pins the exact model that produced the score.
+    """
+
+    __tablename__ = "research_predictions"
+    __table_args__ = (UniqueConstraint("assessment_id", "model_id", "model_version", name="uq_research_assessment_model"),)
+    id: Mapped[UUID] = mapped_column(Uuid, primary_key=True, default=uuid4)
+    child_id: Mapped[UUID] = mapped_column(ForeignKey("child_profiles.id", ondelete="CASCADE"), index=True)
+    assessment_id: Mapped[UUID] = mapped_column(ForeignKey("assessment_sessions.id", ondelete="CASCADE"), index=True)
+    model_id: Mapped[str] = mapped_column(String(120))
+    model_version: Mapped[str] = mapped_column(String(40))
+    artifact_sha256: Mapped[str] = mapped_column(String(64))
+    target_id: Mapped[str] = mapped_column(String(80))
+    feature_schema_version: Mapped[str] = mapped_column(String(40))
+    output_type: Mapped[str] = mapped_column(String(40))
+    score: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

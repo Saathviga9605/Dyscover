@@ -323,6 +323,18 @@ export const api = {
       limitations: string[];
     }>(`/ml/profile/session/${sessionId}`),
 
+  // Reading-difficulty screening (latest completed assessment)
+  getScreening: (childId: string) => request<ScreeningResponse>(`/screening/children/${childId}`),
+
+  // Synthetic research predictor (404 unless the server enables research mode)
+  getResearchOverview: (childId: string) =>
+    request<ResearchOverview>(`/screening/research/children/${childId}`),
+  runResearchPrediction: (childId: string, assessmentId: string) =>
+    request<ResearchPredictionResponse>(
+      `/screening/research/children/${childId}/assessments/${assessmentId}/predict`,
+      json('POST')
+    ),
+
   // Educator workspace (role checked server-side)
   getEducatorLearners: () => request<EducatorLearnerSummary[]>('/educator/learners'),
   getEducatorLearnerSummary: (childId: string) =>
@@ -717,4 +729,130 @@ export interface ChatExchange {
   conversation: Conversation;
   user_message: ChatMessage;
   assistant_message: ChatMessage;
+}
+
+// Screening (mirrors backend app/ml/screening/service.py)
+export type ScreeningStatus =
+  | 'available'
+  | 'no_assessment'
+  | 'assessment_incomplete'
+  | 'no_eligible_model'
+  | 'unsupported_population'
+  | 'insufficient_observations'
+  | 'invalid_features';
+
+export interface ScreeningResponse {
+  child_id: string;
+  assessment_id: string | null;
+  assessment_completed_at: string | null;
+  target_definition: string;
+  feature_schema_version: string;
+  status: ScreeningStatus;
+  reasons: string[];
+  models_considered: number;
+  model: {
+    model_id: string;
+    model_version: string;
+    model_name: string;
+    output_type: 'calibrated_probability' | 'research_score';
+    feature_schema_version: string;
+  } | null;
+  result: {
+    score: number;
+    score_percent: number;
+    output_type: 'calibrated_probability' | 'research_score';
+    band: string | null;
+    created_at: string;
+  } | null;
+  observations: {
+    scored_trials: number;
+    unscored_trials: number;
+    games_played: string[];
+    domains: Array<{ domain: string; scored_trials: number; accuracy: number | null }>;
+    strengths: string[];
+    support_areas: string[];
+    speech_recorded: boolean;
+    gaze_recorded: boolean;
+  };
+}
+
+export interface ResearchModelSummary {
+  model_id: string;
+  model_version: string;
+  model_name: string;
+  algorithm: string;
+  designation: 'synthetic_research';
+  training_data: 'synthetic';
+  output_type: 'calibrated_probability' | 'research_score';
+  target_id: string;
+  target_definition: string;
+  feature_schema_version: string;
+  artifact_sha256: string;
+  created_at: string;
+  synthetic_test_metrics: Record<
+    'roc_auc' | 'pr_auc' | 'brier' | 'sensitivity' | 'specificity',
+    number | null
+  >;
+  synthetic_test_counts: { rows: number; participants: number } | null;
+  inputs: { min_scored_trials: number; languages: string[]; age_min: number; age_max: number };
+}
+
+export interface ResearchOverview {
+  label: string;
+  notice: string;
+  child_id: string;
+  model: ResearchModelSummary | null;
+  model_problems: string[];
+  assessments: Array<{
+    assessment_id: string;
+    status: string;
+    language: string;
+    created_at: string | null;
+    completed_at: string | null;
+    has_prediction: boolean;
+  }>;
+}
+
+export type ResearchStatus =
+  | 'available'
+  | 'no_research_model'
+  | 'assessment_incomplete'
+  | 'unsupported_population'
+  | 'insufficient_observations'
+  | 'invalid_features'
+  | 'model_version_conflict';
+
+export interface ResearchFeature {
+  name: string;
+  modality: string;
+  value: number | null;
+  available: boolean;
+  training_median: number | null;
+  outside_training_range: boolean | null;
+  score_change_if_typical: number | null;
+}
+
+export interface ResearchPredictionResponse {
+  label: string;
+  notice: string;
+  child_id: string;
+  assessment_id: string;
+  status: ResearchStatus;
+  reasons: string[];
+  notes: string[];
+  model: ResearchModelSummary | null;
+  observations: {
+    scored_trials: number;
+    unscored_trials: number;
+    games_played: string[];
+    speech_recorded: boolean;
+    gaze_recorded: boolean;
+  };
+  features: ResearchFeature[];
+  result: {
+    score: number;
+    score_percent: number;
+    output_type: 'calibrated_probability' | 'research_score';
+    created_at: string;
+  } | null;
 }

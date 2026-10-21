@@ -35,6 +35,8 @@ from app.models import (
     PracticeEvent,
     PracticeSession,
     RefreshToken,
+    ResearchPrediction,
+    ScreeningResult,
     SessionFeatureVector,
     SpeechSession,
     Trial,
@@ -64,6 +66,8 @@ def delete_children(db: Session, child_ids: Iterable[UUID]) -> int:
         delete(SpeechSession).where(or_(SpeechSession.assessment_id.in_(assessments), SpeechSession.trial_id.in_(trials))),
         delete(Trial).where(Trial.game_session_id.in_(games)),
         delete(GameSession).where(GameSession.assessment_session_id.in_(assessments)),
+        delete(ScreeningResult).where(ScreeningResult.child_id.in_(child_ids)),
+        delete(ResearchPrediction).where(ResearchPrediction.child_id.in_(child_ids)),
         delete(SessionFeatureVector).where(SessionFeatureVector.assessment_id.in_(assessments)),
         delete(AssessmentSummary).where(AssessmentSummary.assessment_id.in_(assessments)),
         delete(AssessmentSession).where(AssessmentSession.child_id.in_(child_ids)),
@@ -117,6 +121,8 @@ def collect_user_data(db: Session, user: User) -> dict[str, Any]:
             assessment_data["summary"] = _serialize(summary) if summary else None
             features = db.scalar(select(SessionFeatureVector).where(SessionFeatureVector.assessment_id == assessment.id))
             assessment_data["session_features"] = _serialize(features) if features else None
+            assessment_data["screening_results"] = [_serialize(row) for row in db.scalars(select(ScreeningResult).where(ScreeningResult.assessment_id == assessment.id))]
+            assessment_data["research_predictions"] = [_serialize(row) for row in db.scalars(select(ResearchPrediction).where(ResearchPrediction.assessment_id == assessment.id))]
             assessment_data["speech_sessions"] = [_serialize(row) for row in db.scalars(select(SpeechSession).where(SpeechSession.assessment_id == assessment.id))]
             assessment_data["game_sessions"] = []
             for game in db.scalars(select(GameSession).where(GameSession.assessment_session_id == assessment.id)):

@@ -27,6 +27,7 @@ import { useChildren } from './ChildContext';
 import { comparisonRows, dedupeRecommendations, formatPercent } from './dashboardUI';
 import { useDomainLabel } from './domainLabels';
 import { ModalitySummaryCard } from './ModalitySummaryCard';
+import { ResearchLink, ScreeningCard } from './ScreeningCard';
 
 type Profile = Awaited<ReturnType<typeof api.getProfile>>;
 
@@ -419,13 +420,8 @@ function ChildObservations({ child }: { child: ChildProfile }) {
         )}
       </Card>
 
-      <Card className="wide">
-        <div className="card-title-row">
-          <h3>{t('parent.modelStatus')}</h3>
-          <Badge>{t('parent.modelUnavailable')}</Badge>
-        </div>
-        <div className="notice">{t('parent.modelNotice')}</div>
-      </Card>
+      <ScreeningCard childId={child.id} />
+      <ResearchLink childId={child.id} />
 
       <Card className="wide recommendation-card">
         <Mascot mood="happy" size="small" decorative />

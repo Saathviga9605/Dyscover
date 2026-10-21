@@ -171,6 +171,10 @@ AssessmentSession
 
 > **No clinical model is registered.** Prediction endpoints return `status: "unavailable"` with observed features and limitations.
 
+### Synthetic Research Predictor
+
+A trained, saved model (`backend/artifacts/screening-synthetic/dyscover-research-synthetic/`, gradient boosting, sigmoid-calibrated, v1.0.0) runs on a child's **real stored game results** and shows its output on a separate research page (`/research/predictor`). It was trained **only on synthetic data** whose labels are simulator settings, so its output is the probability of the *synthetic* target under this model — **not** a real-child dyslexia probability. It is off by default (`RESEARCH_DEMO_ENABLED=false`), refused in production, never shown on the parent screening card, and stored separately (`research_predictions`). Dataset, label rules and metrics: [`docs/readiness/ai-ml-validation.md` §9](docs/readiness/ai-ml-validation.md).
+
 ### Research Commands
 
 ```bash
@@ -181,7 +185,15 @@ python -m app.ml split-info
 
 # Synthetic data generation (research only)
 python -m app.ml.synthetic.cli generate --help
+
+# Train, evaluate and save the synthetic research predictor (~15 s; seed 42 reproduces the same artifact SHA-256)
+python -m app.ml.screening.training --synthetic-demo --version 1.0.0 --output artifacts/screening-synthetic/dyscover-research-synthetic
+
+# Verify saved artifacts in a fresh process (checksum, runtime, which registry may serve them)
+python -m app.ml.screening.verify
 ```
+
+To use the research predictor locally, set `RESEARCH_DEMO_ENABLED=true` in `backend/.env`, restart the backend, play the visual adventures for a child, then open **Open the synthetic research predictor** on the parent dashboard (or `/research/predictor`).
 
 ---
 
@@ -361,8 +373,10 @@ Backend settings come from environment variables (or `backend/.env`):
 | `ACCESS_TOKEN_MINUTES` / `REFRESH_TOKEN_DAYS` | 15 / 7 | Session lifetimes |
 | `REFRESH_COOKIE_SECURE` / `REFRESH_COOKIE_SAMESITE` | secure in production / `lax` | |
 | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_AUTH`, `RATE_LIMIT_CHAT` | on, `10/minute`, `20/minute` | |
-| `GROQ_API_KEY`, `GROQ_MODEL` | empty, `llama-3.3-70b-versatile` | Without a key Lexi reports "not configured" |
+| `GROQ_API_KEY`, `GROQ_MODEL` | empty, `openai/gpt-oss-120b` | Without a key Lexi reports "not configured" |
 | `DYSCOVER_ASR_PROVIDER` (+ model vars) | unset | Optional local Whisper for the speech demo |
+| `SCREENING_MODEL_DIR` | `models/screening` | Production screening models; only models passing every eligibility check are used |
+| `RESEARCH_DEMO_ENABLED`, `RESEARCH_DEMO_MODEL_DIR` | `false`, `artifacts/screening-synthetic` | Synthetic research predictor; refused when `APP_ENV=production` |
 
 Frontend: `VITE_API_URL` (default `/api`, same-origin), `VITE_PROXY_TARGET` (dev proxy target, default `http://localhost:8000`).
 
@@ -378,6 +392,7 @@ All endpoints are under `/api`; the live schema is at `/docs` in development. Ev
 | Educator | `GET /educator/learners`, `GET /educator/learners/{id}/summary`, `POST /educator/learners/{id}/revoke` |
 | Personalization / practice | `/personalization/children/{id}/{profile,recommendations,progress,difficulty/{game}}`, `/remedial/...` |
 | Gaze / speech | `/gaze/trials/{id}/gaze[/features]`, `/speech/sessions[...]`, `/speech/analyze`, `/speech/demo/*` |
+| Screening | `GET /screening/children/{id}` (status + observations; a percentage only from an eligible validated model), `GET /screening/research/children/{id}` and `POST /screening/research/children/{id}/assessments/{aid}/predict` (synthetic research predictor; owner or granted educator; off by default), `GET /screening/research-demo/assessments/{id}` (admin, off by default) |
 | ML (research) | `/ml/features/session/{id}`, `/ml/profile/session/{id}`, `/ml/predict/session/{id}` (always `unavailable`), `/ml/models`, `/ml/quality` (admin) |
 | Privacy | `GET /privacy/data-summary`, `GET /privacy/export`, `DELETE /privacy/account` (password) |
 | Lexi | `GET /chat/status`, `GET/POST /chat/conversations`, `GET/DELETE /chat/conversations/{id}`, `GET/POST /chat/conversations/{id}/messages` |

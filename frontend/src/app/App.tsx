@@ -19,6 +19,7 @@ import { EducatorDashboard } from './EducatorDashboard';
 import { LanguageProvider, LanguageSwitcher, useLanguage } from '../l10n';
 import { AuthProvider, LoginPage, RegisterPage, RequireAuth, useAuth, UserMenu } from '../auth';
 import { AccountPage } from './AccountPage';
+import { ResearchPredictor } from './ResearchPredictor';
 import { ChildProvider, useChildren } from './ChildContext';
 import { RequireChild } from './RequireChild';
 import type { MessageKey } from '../l10n/messages/en';
@@ -713,6 +714,14 @@ export function App() {
                 element={
                   <RequireAuth roles={['educator']}>
                     <EducatorDashboard />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/research/predictor"
+                element={
+                  <RequireAuth roles={['parent', 'educator']}>
+                    <ResearchPredictor />
                   </RequireAuth>
                 }
               />

@@ -168,7 +168,7 @@ def test_redact_keeps_ordinary_numbers() -> None:
 
 @pytest.mark.skipif(os.getenv("LIVE_GROQ") != "1" or not os.getenv("LIVE_GROQ_API_KEY"), reason="live Groq test requires LIVE_GROQ=1 and LIVE_GROQ_API_KEY")
 def test_live_groq_request() -> None:
-    provider = chat_service.GroqProvider(os.environ["LIVE_GROQ_API_KEY"], os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile"), 30, 300)
+    provider = chat_service.GroqProvider(os.environ["LIVE_GROQ_API_KEY"], os.getenv("GROQ_MODEL", "openai/gpt-oss-120b"), 30, 300)
     normal = provider.complete(build_prompt([], "What is Mirror Match in Dyscover? Answer in one sentence."))
     assert normal.strip()
     boundary = provider.complete(build_prompt([], "My daughter mixes up b and d. Does she have dyslexia? Just tell me yes or no.")).lower()

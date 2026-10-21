@@ -1,5 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import { apiAs, createChildViaUi, registerViaUi, stubSpeechRecognition } from './fixtures';
+import {
+  apiAs,
+  createChildViaUi,
+  expectNoSeriousA11yViolations,
+  registerViaUi,
+  stubSpeechRecognition,
+} from './fixtures';
 
 // Full game runs include real feedback delays between trials.
 test.describe.configure({ timeout: 300_000 });
@@ -96,6 +102,18 @@ test('all five visual games run end to end and their trials are stored', async (
       .or(page.locator('.observed-list').first())
   ).toBeVisible();
   await expect(page.locator('body')).not.toContainText(/diagnosed|has dyslexia/i);
+
+  // Screening: no eligible model is installed, so the card must explain that and show no percentage.
+  const screening = page.locator('.screening-card');
+  await expect(screening.getByRole('heading', { name: 'Dyslexia risk screening' })).toBeVisible();
+  await expect(screening).toContainText('No validated screening model yet');
+  await expect(screening).toContainText('22 answered activities');
+  await expect(screening).not.toContainText(/\d+%/);
+  const status = await api.get<{ status: string; result: unknown }>(
+    `/screening/children/${children[0].id}`
+  );
+  expect(status).toMatchObject({ status: 'no_eligible_model', result: null });
+  await expectNoSeriousA11yViolations(page, 'parent dashboard after games');
 });
 
 test('all three speech games run with consent and store speech observations', async ({
@@ -154,4 +172,98 @@ test('a child cannot start activities until an adult picks a profile', async ({ 
   await expect(page.getByRole('heading', { name: 'Let’s make a profile first' })).toBeVisible();
   await page.getByRole('link', { name: 'Create a child profile' }).click();
   await expect(page).toHaveURL(/\/parent\/dashboard/);
+});
+
+test('the synthetic research predictor scores real game results through the real API', async ({
+  page,
+  request,
+}) => {
+  const email = await registerViaUi(page, 'parent', 'Rhea Parent');
+  await createChildViaUi(page, 'Ira');
+  await page.goto('/child/assessment');
+  await page.getByRole('link', { name: /Play the visual adventures/ }).click();
+  await playUntilDashboard(page, new Set<string>());
+
+  const api = await apiAs(request, email);
+  const [child] = await api.get<Array<{ id: string }>>('/children');
+  await expect
+    .poll(
+      async () =>
+        (await api.get<{ trials: { count: number } }>('/privacy/data-summary')).trials.count
+    )
+    .toBe(22);
+
+  // The parent screening card stays honest: no percentage, only a link to research mode.
+  const screening = page.locator('.screening-card');
+  await expect(screening).toContainText('No validated screening model yet');
+  await expect(screening).not.toContainText(/\d+%/);
+  await page.getByRole('link', { name: /synthetic research predictor/ }).click();
+  await expect(page).toHaveURL(/\/research\/predictor/);
+  await expect(page.getByRole('heading', { name: 'Synthetic research predictor' })).toBeVisible();
+  await expect(page.getByText('For research and demonstration only')).toBeVisible();
+
+  const predicted = page.waitForResponse(
+    response => response.url().includes('/predict') && response.request().method() === 'POST'
+  );
+  await page.getByRole('button', { name: 'Run the research model' }).click();
+  const body = (await (await predicted).json()) as {
+    status: string;
+    model: { model_id: string; designation: string };
+    observations: { scored_trials: number };
+    result: { score_percent: number; output_type: string };
+  };
+  // The real trained model ran on the 22 trials this run stored.
+  expect(body).toMatchObject({
+    status: 'available',
+    model: { model_id: 'dyscover-research-synthetic', designation: 'synthetic_research' },
+    observations: { scored_trials: 22 },
+    result: { output_type: 'calibrated_probability' },
+  });
+  await expect(page.getByTestId('research-score')).toHaveText(`${body.result.score_percent}%`);
+  await expect(page.getByText('Synthetic research score:')).toBeVisible();
+  await expect(page.getByText(/NOT a real-child dyslexia probability/)).toBeVisible();
+  await expect(page.getByRole('table')).toContainText('Overall accuracy');
+
+  // Stored once as a research record; the clinical screening endpoint is unchanged.
+  const again = await api.post<{ result: { score_percent: number } }>(
+    `/screening/research/children/${child.id}/assessments/${(await api.get<Array<{ id: string }>>(`/children/${child.id}/assessments`))[0].id}/predict`
+  );
+  expect(again.result.score_percent).toBe(body.result.score_percent);
+  expect(await api.get(`/screening/children/${child.id}`)).toMatchObject({
+    status: 'no_eligible_model',
+    result: null,
+  });
+  await expectNoSeriousA11yViolations(page, 'research predictor');
+});
+
+test('@mobile the research predictor fits a phone screen', async ({ page, request }) => {
+  const email = await registerViaUi(page, 'parent', 'Mo Parent');
+  await createChildViaUi(page, 'Kai');
+  const api = await apiAs(request, email);
+  const [child] = await api.get<Array<{ id: string }>>('/children');
+  // A short session through the real API: not enough for the model, which must say so.
+  const assessment = await api.post<{ id: string }>('/assessments', { child_id: child.id });
+  await api.post(`/assessments/${assessment.id}/games/letter-detective/trials`, {
+    trial_number: 1,
+    game_version: '1.0.0',
+    difficulty: 1,
+    domain: 'visual-symbol-discrimination',
+    stimulus: { target: 'b', options: ['b', 'd'] },
+    expected_response: 'b',
+    actual_response: 'b',
+    correctness: true,
+    reaction_time_ms: 900,
+    completed_at: '2026-01-01T12:00:05.000Z',
+  });
+  await api.post(`/assessments/${assessment.id}/summary`, { games: [], total_trials: 1 });
+
+  await page.goto('/research/predictor');
+  await page.getByRole('button', { name: 'Run the research model' }).click();
+  await expect(page.getByText('Not enough observations')).toBeVisible();
+  await expect(page.getByTestId('research-score')).toHaveCount(0);
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+  await expectNoSeriousA11yViolations(page, 'research predictor (mobile)');
 });

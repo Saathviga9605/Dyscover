@@ -71,3 +71,23 @@ Classification: **Verified** = behaviour exercised by the tests/commands below. 
 ## 5. Final e2e re-run
 
 The penultimate full run found a real race (Lexi duplicated the first reply when a new conversation's history load overlapped the first send). After the fix the Lexi journey passed in two consecutive isolated runs, and the final full suite passed 16/16 (3.8 min).
+
+## 6. Reading-difficulty screening pipeline (2026-10-21)
+
+- Added: `app/ml/screening/` (schema, training, model, registry + eligibility gate, service, routes), `ScreeningResult` table (migration `0003`), privacy export/deletion coverage, parent `ScreeningCard` (EN/TA). Details: `ai-ml-validation.md` §8.
+- Results: backend `pytest` → **403 passed, 1 skipped**; frontend typecheck 0 errors, lint 0 errors, vitest 151 passed, build OK; Playwright 16 passed. The visual run asserts the card shows `no_eligible_model` and no percentage. Fixed a race in `extract_profile` that this run found (concurrent dashboard requests hit a UNIQUE constraint); the fix is guarded by `test_concurrent_feature_extraction_does_not_fail`.
+- **No eligible model exists.** No labelled real-child data, external validation, specialist review or ethics approval. Real-child risk estimates: **NO-GO**.
+
+## 7. Synthetic research predictor (2026-10-21)
+
+- **Model:** trained and saved at `backend/artifacts/screening-synthetic/dyscover-research-synthetic/`. It is gradient boosting (depth 3), sigmoid-calibrated, v1.0.0, SHA-256 `16d52b48…f157d`. Retraining with seed 42 reproduces the same hash.
+- **Data:** an assessment-level synthetic dataset (1,600 assessments, 800 participants) that mirrors the app's visual run.
+- **Synthetic test results (160 held-out participants):** ROC-AUC 0.992, against 0.500 for the baseline. This reflects recovery of simulator settings, not children (`ai-ml-validation.md` §9).
+- **Real flow verified:** a child plays the five visual games in the browser; 22 trials are stored; feature extraction runs; the research API (`POST /api/screening/research/children/{id}/assessments/{aid}/predict`) scores them with the saved model; the result is stored in `research_predictions`; and `/research/predictor` displays exactly the returned percentage, labelled "Synthetic research score … NOT a real-child dyslexia probability" (Playwright).
+- **Separation verified:** the parent card still shows `no_eligible_model` and no percentage.
+- **Results:**
+  - Backend `pytest`: **431 passed, 1 skipped**. The skip is the live Groq test, which needs `LIVE_GROQ=1`.
+  - Frontend: typecheck 0 errors, lint 0 errors (52 warnings, all in pre-existing files), Vitest **160 passed**, production build OK.
+  - Playwright: **19 passed** (4.8 min), with no IntegrityError or traceback in the server log.
+- **Test isolation fix:** `tests/conftest.py` now pins `RESEARCH_DEMO_ENABLED=false` and an empty `SCREENING_MODEL_DIR`. Previously the suite inherited these from a developer's `backend/.env`.
+- **Not verified here:** migration `0004` on PostgreSQL. No PostgreSQL server is available in this environment; on SQLite it passes the zero-diff migration test.

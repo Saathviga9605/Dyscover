@@ -36,3 +36,17 @@ Start of this pass (2026-10-20): the backend could not be imported; most data en
 ## Next action
 
 Maintainers: review the diff, commit, and run the blocked verifications above. If resuming engineering work, start with bundle code-splitting, then the transformers 5.x migration.
+
+## Screening pipeline (2026-10-21)
+
+Implemented end to end (training → registry/eligibility gate → `GET /api/screening/children/{id}` → parent card). No model is installed or eligible, so the API returns `no_eligible_model` and no percentage is shown. See `ai-ml-validation.md` §8.
+
+## Synthetic research predictor (2026-10-21)
+
+- **Working:** a trained, committed artifact (`backend/artifacts/screening-synthetic/dyscover-research-synthetic`) scores real stored visual-run assessments through `POST /api/screening/research/children/{id}/assessments/{aid}/predict`. Results are stored in `research_predictions` (migration `0004`), and the page `/research/predictor` (EN/TA) shows them.
+- **Scope:**
+  - Off by default (`RESEARCH_DEMO_ENABLED`) and refused in production.
+  - Only the owner or a granted educator can use it.
+  - The output is never shown on the parent screening card.
+- **Not covered:** speech-only assessments and Tamil assessments return explicit statuses instead of scores.
+- See `ai-ml-validation.md` §9.

@@ -19,6 +19,8 @@ os.environ["DATABASE_URL"] = os.environ.get("TEST_DATABASE_URL") or f"sqlite:///
 os.environ["SECRET_KEY"] = "test-secret-key-" + "x" * 32
 os.environ["RATE_LIMIT_ENABLED"] = "false"
 os.environ["GROQ_API_KEY"] = ""
+os.environ["RESEARCH_DEMO_ENABLED"] = "false"  # tests enable research mode explicitly
+os.environ["SCREENING_MODEL_DIR"] = (_TMP / "no-screening-models").as_posix()
 os.environ.pop("DYSCOVER_ASR_PROVIDER", None)
 
 import pytest  # noqa: E402

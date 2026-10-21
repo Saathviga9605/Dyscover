@@ -53,10 +53,19 @@ class Settings(BaseSettings):
 
     # Lexi (Groq). Missing key => chat endpoints report "not configured" honestly.
     groq_api_key: str = ""
-    groq_model: str = "llama-3.3-70b-versatile"
+    groq_model: str = "openai/gpt-oss-120b"
     groq_timeout_seconds: float = 30.0
     groq_max_history_messages: int = 20
     groq_max_output_tokens: int = 600
+
+    # Screening models: one sub-directory per model (model_card.json + artifact).
+    # Only models passing app.ml.screening.registry eligibility checks are used.
+    screening_model_dir: str = "models/screening"
+    # Synthetic research predictor (separate research page and API; never the parent
+    # screening card). Off by default and refused in production: synthetic scores
+    # must not reach real families.
+    research_demo_enabled: bool = False
+    research_demo_model_dir: str = "artifacts/screening-synthetic"
 
     # Uploaded audio limits for the speech demo endpoints.
     speech_upload_max_bytes: int = 10 * 1024 * 1024
@@ -79,6 +88,8 @@ class Settings(BaseSettings):
                 )
             if "*" in self.cors_origin_list:
                 raise ConfigurationError("CORS_ORIGINS may not contain '*' in production.")
+            if self.research_demo_enabled:
+                raise ConfigurationError("RESEARCH_DEMO_ENABLED is not allowed in production (synthetic research models only).")
             if self.refresh_cookie_samesite.lower() == "none" and self.refresh_cookie_secure is False:
                 raise ConfigurationError("SameSite=None refresh cookies require REFRESH_COOKIE_SECURE=true.")
         elif not self.secret_key:

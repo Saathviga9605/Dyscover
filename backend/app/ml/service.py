@@ -1,5 +1,6 @@
 from uuid import UUID
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from app.models import AssessmentSession, Fixation, GazeSample, GameSession, InteractionEvent, SessionFeatureVector, SpeechSession, Trial
 from . import FEATURE_EXTRACTOR_VERSION, FEATURE_SCHEMA_VERSION
@@ -65,5 +66,15 @@ def extract_profile(db: Session, session_id: UUID):
     else:
         stored.features = serialized
         stored.quality = quality
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # A concurrent request cached the same assessment first; update that row instead.
+        db.rollback()
+        stored = db.scalar(select(SessionFeatureVector).where(SessionFeatureVector.assessment_id == session_id))
+        if stored is None:
+            raise
+        stored.features = serialized
+        stored.quality = quality
+        db.commit()
     return features, quality, build_profile(str(session_id), features, quality, language=session.language, locale=session.locale)

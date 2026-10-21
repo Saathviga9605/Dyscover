@@ -7,7 +7,8 @@ import { fileURLToPath } from 'node:url';
  * End-to-end tests run the real FastAPI backend (fresh throw-away SQLite
  * database, migrations applied at startup) behind the real Vite dev server.
  * Only the Lexi model is replaced, at the provider boundary, by the
- * test-only echo provider (refused outside APP_ENV=test).
+ * test-only echo provider (refused outside APP_ENV=test). Research mode is on so
+ * the synthetic research predictor can be exercised against the real model.
  */
 const API_PORT = Number(process.env.E2E_API_PORT ?? 8011);
 const WEB_PORT = Number(process.env.E2E_WEB_PORT ?? 5175);
@@ -53,6 +54,8 @@ export default defineConfig({
         CORS_ORIGINS: `http://localhost:${WEB_PORT}`,
         LEXI_TEST_PROVIDER: 'echo',
         GROQ_API_KEY: '',
+        // Synthetic research predictor, served from the committed artifact in backend/artifacts.
+        RESEARCH_DEMO_ENABLED: 'true',
       },
     },
     {

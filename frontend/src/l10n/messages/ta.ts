@@ -724,4 +724,156 @@ export const messages: Record<string, string> = {
   'game.maze.finish': 'நான் முடித்துவிட்டேன்',
   'speech.consentRequiredToStart':
     'இந்தச் செயல்பாடு தொடங்கும் முன் ஒரு பெரியவர் கீழே மைக்ரோஃபோனை அனுமதிக்க வேண்டும்.',
+  // --- Screening ---
+  'screening.title': 'டிஸ்லெக்சியா அபாயத் திரையிடல்',
+  'screening.badge': 'திரையிடல், நோயறிதல் அல்ல',
+  'screening.scoreAria': 'திரையிடல் முடிவு: {percent} சதவீதம்.',
+  'screening.meaningProbability':
+    'உங்கள் குழந்தையைப் போன்ற குழந்தைகளுக்கு ஒரு நிபுணர் வாசிப்பு மதிப்பீடு மேலும் மதிப்பீடு அல்லது வாசிப்பு உதவியைப் பரிந்துரைக்கும் மதிப்பிடப்பட்ட வாய்ப்பு. இது சரிபார்க்கப்பட்ட திரையிடல் மாதிரியிலிருந்து வருகிறது.',
+  'screening.meaningResearch':
+    '0 முதல் 100 வரையிலான ஆராய்ச்சி மதிப்பெண். இது நிகழ்தகவு அல்ல; டிஸ்லெக்சியாவின் வாய்ப்பாகப் புரிந்துகொள்ளக் கூடாது.',
+  'screening.band.lower':
+    'மேலும் மதிப்பீடு தேவைப்படும் வாய்ப்பு குறைவு (நிபுணர் அங்கீகரித்த வரம்பு)',
+  'screening.band.moderate':
+    'மேலும் மதிப்பீடு உதவக்கூடும் என்ற சில அறிகுறி (நிபுணர் அங்கீகரித்த வரம்பு)',
+  'screening.band.higher':
+    'மேலும் மதிப்பீடு தேவைப்படும் வாய்ப்பு அதிகம் (நிபுணர் அங்கீகரித்த வரம்பு)',
+  'screening.model': 'திரையிடல் மாதிரி',
+  'screening.assessmentDate': 'மதிப்பீட்டுத் தேதி',
+  'screening.evidenceTitle': 'இது எதன் அடிப்படையில்',
+  'screening.evidenceCounts':
+    'சமீபத்திய முடிந்த அமர்விலிருந்து {scored} பதிலளிக்கப்பட்ட செயல்பாடுகள். {unscored} மதிப்பிடப்படவில்லை (பதில் இல்லை அல்லது பேச்சு அறியப்படவில்லை); அவை தவறுகளாகக் கணக்கிடப்படவில்லை.',
+  'screening.strengths': 'ஒப்பீட்டு வலிமைகள்:',
+  'screening.supportAreas': 'கூடுதல் பயிற்சி உதவக்கூடிய பகுதிகள்:',
+  'screening.limitsTitle': 'நினைவில் கொள்ளுங்கள்',
+  'screening.limitNotDiagnosis':
+    'திரையிடல் நோயறிதல் அல்ல. தகுதியான நிபுணர் மட்டுமே டிஸ்லெக்சியாவைக் கண்டறிய முடியும்.',
+  'screening.limitLowHigh':
+    'குறைந்த முடிவு டிஸ்லெக்சியாவை விலக்காது; அதிக முடிவு அதை உறுதிப்படுத்தாது.',
+  'screening.limitFactors':
+    'சோர்வு, கவனம், சாதனம், விளையாட்டுப் பழக்கம், மொழிப் பின்னணி ஆகியவை முடிவுகளைப் பாதிக்கலாம்.',
+  'screening.nextTitle': 'பயனுள்ள அடுத்த படிகள்',
+  'screening.nextTalk':
+    'வாசிப்பு பற்றிக் கவலை இருந்தால், உங்கள் குழந்தையின் ஆசிரியர், வாசிப்பு நிபுணர் அல்லது கல்வி உளவியலாளரிடம் பேசுங்கள்.',
+  'screening.nextAssessment':
+    'சிரமங்கள் தொடர்ந்தால் முறையான வாசிப்பு மதிப்பீட்டைப் பற்றிக் கேளுங்கள் — கேட்பதற்குத் திரையிடல் முடிவு தேவையில்லை.',
+  'screening.nextPractice':
+    'காத்திருக்கும்போது சேர்ந்து வாசியுங்கள், பயிற்சிச் செயல்பாடுகளைப் பயன்படுத்துங்கள்.',
+  'screening.nextProgress':
+    'பல அமர்வுகளில் முன்னேற்றத்தைப் பாருங்கள்; ஒற்றை அமர்வுகளுக்கிடையே ஏற்ற இறக்கங்கள் இயல்பானவை.',
+  'screening.status.available.title': 'திரையிடல் முடிவு கிடைக்கிறது',
+  'screening.status.available.copy': '',
+  'screening.status.no_assessment.title': 'இன்னும் முடிந்த செயல்பாடுகள் இல்லை',
+  'screening.status.no_assessment.copy':
+    'உங்கள் குழந்தை ஒரு அமர்வை முடித்ததும், அதன் கவனிப்புகள் இங்கே தோன்றும்.',
+  'screening.status.assessment_incomplete.title': 'முதலில் ஒரு அமர்வை முடியுங்கள்',
+  'screening.status.assessment_incomplete.copy':
+    'திரையிடல் முடிந்த அமர்வுகளை மட்டுமே பயன்படுத்துகிறது. தொடங்கிய செயல்பாடுகளை முடிக்கச் சொல்லுங்கள்.',
+  'screening.status.no_eligible_model.title':
+    'இன்னும் சரிபார்க்கப்பட்ட திரையிடல் மாதிரி இல்லை — சதவீதம் காட்டப்படவில்லை',
+  'screening.status.no_eligible_model.copy':
+    'உண்மையான குழந்தைகளுடன் சோதிக்கப்பட்டு, சுயாதீனமாகச் சரிபார்க்கப்பட்டு, நெறிமுறை ஒப்புதல் பெற்று, வாசிப்பு நிபுணர்களால் மதிப்பாய்வு செய்யப்பட்ட மாதிரியிலிருந்து மட்டுமே Dyscover அபாயச் சதவீதத்தைக் காட்டும். எந்த மாதிரியும் இன்னும் இந்தத் தேவைகளைப் பூர்த்தி செய்யவில்லை; எனவே மதிப்பீட்டுக்குப் பதிலாகச் செயல்பாட்டுக் கவனிப்புகளைக் காட்டுகிறோம்.',
+  'screening.status.unsupported_population.title':
+    'இந்தச் சூழ்நிலையைத் திரையிடல் மாதிரி உள்ளடக்கவில்லை',
+  'screening.status.unsupported_population.copy':
+    'கிடைக்கும் மாதிரி குறிப்பிட்ட வயது மற்றும் மொழிகளுக்கு மட்டுமே சரிபார்க்கப்பட்டது. உங்கள் குழந்தையின் வயது, பிறந்த ஆண்டு அல்லது அமர்வின் மொழி அந்த வரம்பிற்கு வெளியே உள்ளது.',
+  'screening.status.insufficient_observations.title':
+    'இன்னும் போதுமான பதிலளிக்கப்பட்ட செயல்பாடுகள் இல்லை',
+  'screening.status.insufficient_observations.copy':
+    'முடிவு தர திரையிடல் மாதிரிக்கு ஒரு அமர்விலிருந்து அதிகமான பதில்கள் தேவை.',
+  'screening.status.invalid_features.title': 'இந்த அமர்வைத் திரையிட முடியாது',
+  'screening.status.invalid_features.copy':
+    'இந்த அமர்வில் மாதிரிக்குத் தேவையான சில தகவல்கள் இல்லை அல்லது வரம்பிற்கு வெளியே இருந்தன. இன்னொரு முழு அமர்வை விளையாடுவது பொதுவாக இதைச் சரிசெய்யும்.',
+  'researchPredictor.eyebrow': 'ஆய்வு முறை',
+  'researchPredictor.title': 'செயற்கை ஆய்வு முன்கணிப்பான்',
+  'researchPredictor.intro':
+    'உருவகப்படுத்தப்பட்ட தரவில் மட்டுமே பயிற்சி பெற்ற இயந்திரக் கற்றல் மாதிரியை, குழந்தையின் உண்மையான சேமிக்கப்பட்ட செயல்பாட்டு முடிவுகளில் இயக்குகிறது.',
+  'researchPredictor.warningTitle': 'ஆய்வு மற்றும் விளக்கத்திற்கு மட்டும்',
+  'researchPredictor.warningCopy':
+    'இது டிஸ்லெக்சியா திரையிடலோ நோயறிதலோ அல்ல. டெவலப்பர்கள் தேர்ந்தெடுத்த அமைப்புகளை லேபிள்களாகக் கொண்ட உருவகப்படுத்தப்பட்ட குழந்தைகளிடமிருந்து மாதிரி கற்றுக்கொண்டது. அதிக மதிப்பெண் குழந்தைக்கு டிஸ்லெக்சியா உள்ளது என்று பொருளல்ல; குறைந்த மதிப்பெண் அதை விலக்கவும் இல்லை. குழந்தையைப் பற்றிய முடிவுகளுக்கு இதைப் பயன்படுத்த வேண்டாம்.',
+  'researchPredictor.disabledTitle': 'இந்தச் சேவையகத்தில் ஆய்வு முறை இயக்கப்படவில்லை',
+  'researchPredictor.disabledCopy':
+    'செயற்கை ஆய்வு முன்கணிப்பான் அணைக்கப்பட்டுள்ளது. இயக்குநர்கள் அதை மேம்பாட்டு அல்லது சோதனைச் சேவையகங்களில் மட்டுமே இயக்க முடியும்; உற்பத்தியில் ஒருபோதும் இயக்க முடியாது.',
+  'researchPredictor.chooseTitle': 'ஒரு குழந்தையையும் அமர்வையும் தேர்ந்தெடுக்கவும்',
+  'researchPredictor.noChildren': 'உங்களுக்குக் குழந்தை சுயவிவரங்கள் எதுவும் இல்லை.',
+  'researchPredictor.childLabel': 'குழந்தை',
+  'researchPredictor.assessmentLabel': 'முடிக்கப்பட்ட அமர்வு',
+  'researchPredictor.noAssessments': 'இன்னும் அமர்வுகள் இல்லை',
+  'researchPredictor.notCompleted': 'முடிக்கப்படவில்லை',
+  'researchPredictor.run': 'ஆய்வு மாதிரியை இயக்கு',
+  'researchPredictor.running': 'இயங்குகிறது…',
+  'researchPredictor.runError': 'ஆய்வு மாதிரியை இயக்க முடியவில்லை. மீண்டும் முயலவும்.',
+  'researchPredictor.resultTitle': 'ஆய்வு மாதிரி வெளியீடு',
+  'researchPredictor.badge': 'செயற்கைத் தரவு · மருத்துவமல்ல',
+  'researchPredictor.scoreLabel': 'செயற்கை ஆய்வு மதிப்பெண்:',
+  'researchPredictor.scoreLabelUncalibrated': 'ஆய்வு மதிப்பெண் (நிகழ்தகவு அல்ல):',
+  'researchPredictor.meaningCalibrated':
+    'இந்த மாதிரியின் கீழ் செயற்கை இலக்கின் நிகழ்தகவு; உண்மையான குழந்தையின் டிஸ்லெக்சியா நிகழ்தகவு அல்ல.',
+  'researchPredictor.meaningScore':
+    'அளவீடு செய்யப்படாத மாதிரி மதிப்பெண். இது எதன் நிகழ்தகவும் அல்ல; உண்மையான குழந்தையின் டிஸ்லெக்சியா நிகழ்தகவும் அல்ல.',
+  'researchPredictor.neverConfirms':
+    "இந்த அமர்வு உருவகப்படுத்தப்பட்ட 'சிரமம்' சுயவிவரங்களை எவ்வளவு ஒத்திருக்கிறது என்பதை மட்டுமே இது கூறுகிறது. இது டிஸ்லெக்சியாவை உறுதிப்படுத்தவோ விலக்கவோ முடியாது; தகுதியான நிபுணர் மட்டுமே அதை மதிப்பிட முடியும்.",
+  'researchPredictor.basedOn':
+    'இந்த அமர்வின் {scored} பதிலளிக்கப்பட்ட செயல்பாடுகளின் அடிப்படையில் ({unscored} மதிப்பிடப்படவில்லை) · மாதிரி v{version}.',
+  'researchPredictor.featuresTitle': 'மாதிரி எதைப் பார்த்தது',
+  'researchPredictor.featuresIntro':
+    "ஒவ்வொரு வரிசையும் இந்த அமர்விலிருந்து அளவிடப்பட்ட மதிப்பு. 'விளைவு' மாதிரியால் கணக்கிடப்படுகிறது: அந்த ஒரு மதிப்பைச் செயற்கைப் பயிற்சித் தரவின் வழக்கமான மதிப்பால் மாற்றினால் மதிப்பெண் எவ்வளவு மாறும்.",
+  'researchPredictor.colFeature': 'அளவீடு',
+  'researchPredictor.colValue': 'இந்த அமர்வு',
+  'researchPredictor.colTypical': 'வழக்கமானது (செயற்கை)',
+  'researchPredictor.colEffect': 'மதிப்பெண்ணில் விளைவு',
+  'researchPredictor.effectUp': '{points} புள்ளிகள் உயர்த்துகிறது',
+  'researchPredictor.effectDown': '{points} புள்ளிகள் குறைக்கிறது',
+  'researchPredictor.effectNone': 'குறைவான அல்லது விளைவு இல்லை',
+  'researchPredictor.outsideRange': '(செயற்கைப் பயிற்சி வரம்புக்கு வெளியே)',
+  'researchPredictor.missingFeatures':
+    'பதிவு செய்யப்படவில்லை, எனவே பயன்படுத்தப்படவோ ஊகிக்கப்படவோ இல்லை: {names}.',
+  'researchPredictor.modelTitle': 'இந்த ஆய்வு மாதிரி பற்றி',
+  'researchPredictor.modelName': 'மாதிரி',
+  'researchPredictor.trainingData': 'பயிற்சித் தரவு',
+  'researchPredictor.trainingDataValue':
+    'உருவகப்படுத்தப்பட்ட (செயற்கை) தரவு மட்டும் — உண்மையான குழந்தைகள் இல்லை',
+  'researchPredictor.target': 'அது எதை முன்கணிக்கிறது',
+  'researchPredictor.syntheticMetrics': 'ஒதுக்கப்பட்ட செயற்கைத் தரவில் துல்லியம்',
+  'researchPredictor.syntheticMetricsValue':
+    '{participants} உருவகப் பங்கேற்பாளர்களில் ROC-AUC {auc}',
+  'researchPredictor.checksum': 'கோப்புச் சரிபார்ப்புத் தொகை',
+  'researchPredictor.metricsCaveat':
+    'இந்த அளவீடுகள் உருவகப்படுத்தியின் சொந்த அமைப்புகளை மாதிரி எவ்வளவு நன்றாக மீட்டெடுக்கிறது என்பதை மட்டுமே அளவிடுகின்றன. உண்மையான குழந்தைகளில் படிப்புச் சிரமங்களை எவ்வளவு கண்டறியும் என்பதைப் பற்றி எதுவும் கூறவில்லை.',
+  'researchPredictor.dashboardLink': 'செயற்கை ஆய்வு முன்கணிப்பானைத் திற (ஆய்வு முறை)',
+  'researchPredictor.feature.overall_accuracy': 'மொத்தத் துல்லியம்',
+  'researchPredictor.feature.median_reaction_time_ms': 'வழக்கமான பதில் நேரம்',
+  'researchPredictor.feature.reaction_time_variance_ms2': 'பதில் நேர மாறுபாடு',
+  'researchPredictor.feature.mean_hesitation_time_ms': 'பதிலளிக்கும் முன் தயக்கம்',
+  'researchPredictor.feature.completion_rate': 'முடிக்கப்பட்ட செயல்பாடுகள்',
+  'researchPredictor.feature.domain_visual-symbol-discrimination_accuracy':
+    'எழுத்து மற்றும் குறியீடு பொருத்தம்',
+  'researchPredictor.feature.domain_orthographic-recognition_accuracy': 'சொல் அடையாளம்',
+  'researchPredictor.feature.domain_working-memory_accuracy': 'வரிசைகளை நினைவில் கொள்ளுதல்',
+  'researchPredictor.feature.domain_attention-visual-search_accuracy': 'காட்சித் தேடல்',
+  'researchPredictor.feature.speech_error_rate': 'உரக்கப் படிக்கும் பிழைகள்',
+  'researchPredictor.feature.speech_words_per_minute': 'உரக்கப் படிக்கும் வேகம்',
+  'researchPredictor.feature.gaze_regression_count': 'பின்நோக்கிய கண் அசைவுகள் (கண் கண்காணிப்பு)',
+  'researchPredictor.feature.gaze_mean_fixation_duration_ms':
+    'கண் நிலைப்பு நேரம் (கண் கண்காணிப்பு)',
+  'researchPredictor.status.available.title': 'ஆய்வு மதிப்பெண் கிடைக்கிறது',
+  'researchPredictor.status.available.copy': '',
+  'researchPredictor.status.no_research_model.title': 'ஆய்வு மாதிரி நிறுவப்படவில்லை',
+  'researchPredictor.status.no_research_model.copy':
+    'இந்தச் சேவையகத்தில் செயற்கை ஆய்வு மாதிரியை ஏற்ற முடியவில்லை, எனவே ஆய்வு மதிப்பெண் உருவாக்க முடியாது.',
+  'researchPredictor.status.assessment_incomplete.title': 'இந்த அமர்வு முடியவில்லை',
+  'researchPredictor.status.assessment_incomplete.copy':
+    'முடிக்கப்பட்ட அமர்வுகளை மட்டுமே ஆய்வு மாதிரி மதிப்பிட முடியும்.',
+  'researchPredictor.status.unsupported_population.title': 'ஆய்வு மாதிரியின் வரம்புக்கு வெளியே',
+  'researchPredictor.status.unsupported_population.copy':
+    'செயற்கைப் பயிற்சித் தரவு இந்த மொழி அல்லது வயதை உள்ளடக்கவில்லை, எனவே மதிப்பெண் உருவாக்கப்படவில்லை.',
+  'researchPredictor.status.insufficient_observations.title': 'போதுமான கவனிப்புகள் இல்லை',
+  'researchPredictor.status.insufficient_observations.copy':
+    'ஆய்வு மாதிரிக்கு முழு காட்சிப் பயணம் (நான்கு செயல்பாட்டுப் பகுதிகளும்) தேவை. இல்லாத தகவல் ஒருபோதும் ஊகிக்கப்படுவதில்லை. அடையாளம் காண முடியாத பேச்சு முயற்சிகள் தவறுகளாகக் கணக்கிடப்படுவதில்லை.',
+  'researchPredictor.status.invalid_features.title': 'இந்த அமர்வை மதிப்பிட முடியாது',
+  'researchPredictor.status.invalid_features.copy':
+    'சில பதிவு செய்யப்பட்ட மதிப்புகள் வரம்பிற்கு வெளியே இருந்தன.',
+  'researchPredictor.status.model_version_conflict.title': 'மாதிரி பதிப்பு முரண்பாடு',
+  'researchPredictor.status.model_version_conflict.copy':
+    'அதே பதிப்பின் கீழ் வேறு மாதிரிக் கோப்பு பதிவாகியுள்ளது. இயக்குநர் இதைச் சரிசெய்யும் வரை மதிப்பெண் நிறுத்தி வைக்கப்படுகிறது.',
 };

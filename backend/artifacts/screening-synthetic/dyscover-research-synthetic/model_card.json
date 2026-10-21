@@ -1,0 +1,610 @@
+{
+  "model_id": "dyscover-research-synthetic",
+  "version": "1.0.0",
+  "name": "Dyscover synthetic research predictor (gradient_boosting)",
+  "designation": "synthetic_research",
+  "target_id": "synthetic_reading_difficulty_profile_v1",
+  "target_definition": "Synthetic target: 1 when the Dyscover simulator generated the participant from one of the profiles high_error_frequency, repeated_symbol_confusions, reduced_reading_response_coverage or working_memory_task_difficulty; 0 for the other trainable simulator profiles. It is a simulator setting chosen by developers, not a clinical label, and not a dyslexia diagnosis.",
+  "feature_schema_version": "screening-1.0",
+  "feature_names": [
+    "overall_accuracy",
+    "median_reaction_time_ms",
+    "reaction_time_variance_ms2",
+    "mean_hesitation_time_ms",
+    "completion_rate",
+    "domain_visual-symbol-discrimination_accuracy",
+    "domain_orthographic-recognition_accuracy",
+    "domain_working-memory_accuracy",
+    "domain_attention-visual-search_accuracy",
+    "speech_error_rate",
+    "speech_words_per_minute",
+    "gaze_regression_count",
+    "gaze_mean_fixation_duration_ms"
+  ],
+  "training_data": "synthetic",
+  "output_type": "calibrated_probability",
+  "algorithm": "gradient_boosting",
+  "hyperparameters": {
+    "max_depth": 3,
+    "n_estimators": 150
+  },
+  "artifact": "model.pkl",
+  "artifact_sha256": "16d52b48fa9765f36dabd8bf3bf28da20a4220630885a594b208a6ef732f157d",
+  "created_at": "2026-10-21T14:11:07.245143+00:00",
+  "seed": 42,
+  "runtime": {
+    "python": "3.13.14",
+    "numpy": "2.2.2",
+    "scikit_learn": "1.6.1"
+  },
+  "training_config": {
+    "split": "StratifiedGroupKFold by participant: 1/5 test, then 1/4 of the remainder validation",
+    "imputation": "median + missingness indicators, fitted on the training partition only",
+    "calibration": "sigmoid on validation (FrozenEstimator)",
+    "selection_criterion": "highest validation ROC-AUC among non-baseline candidates; ties keep the earlier (simpler) candidate",
+    "leakage_auc_limit": 0.98
+  },
+  "leakage_check": {
+    "univariate_train_auc": {
+      "overall_accuracy": 0.8072,
+      "median_reaction_time_ms": 0.5469,
+      "reaction_time_variance_ms2": 0.572,
+      "mean_hesitation_time_ms": 0.7155,
+      "domain_visual-symbol-discrimination_accuracy": 0.7723,
+      "domain_orthographic-recognition_accuracy": 0.6661,
+      "domain_working-memory_accuracy": 0.7007,
+      "domain_attention-visual-search_accuracy": 0.6556,
+      "gaze_regression_count": 0.63,
+      "gaze_mean_fixation_duration_ms": 0.5299
+    },
+    "passed": true
+  },
+  "feature_reference": {
+    "overall_accuracy": {
+      "available_fraction": 1.0,
+      "median": 0.7272727272727273,
+      "p01": 0.2727272727272727,
+      "p99": 1.0
+    },
+    "median_reaction_time_ms": {
+      "available_fraction": 1.0,
+      "median": 1140.6955083881394,
+      "p01": 805.0372596073566,
+      "p99": 1419.1590519644587
+    },
+    "reaction_time_variance_ms2": {
+      "available_fraction": 1.0,
+      "median": 4150.426391305929,
+      "p01": 1351.5312488656355,
+      "p99": 8930.536014548996
+    },
+    "mean_hesitation_time_ms": {
+      "available_fraction": 1.0,
+      "median": 200.80669994089232,
+      "p01": 67.81561033384062,
+      "p99": 281.7595779472045
+    },
+    "completion_rate": {
+      "available_fraction": 1.0,
+      "median": 1.0,
+      "p01": 1.0,
+      "p99": 1.0
+    },
+    "domain_visual-symbol-discrimination_accuracy": {
+      "available_fraction": 1.0,
+      "median": 0.7,
+      "p01": 0.2,
+      "p99": 1.0
+    },
+    "domain_orthographic-recognition_accuracy": {
+      "available_fraction": 1.0,
+      "median": 0.8,
+      "p01": 0.2,
+      "p99": 1.0
+    },
+    "domain_working-memory_accuracy": {
+      "available_fraction": 1.0,
+      "median": 0.75,
+      "p01": 0.0,
+      "p99": 1.0
+    },
+    "domain_attention-visual-search_accuracy": {
+      "available_fraction": 1.0,
+      "median": 0.6666666666666666,
+      "p01": 0.0,
+      "p99": 1.0
+    },
+    "speech_error_rate": {
+      "available_fraction": 0.0,
+      "median": null,
+      "p01": null,
+      "p99": null
+    },
+    "speech_words_per_minute": {
+      "available_fraction": 0.0,
+      "median": null,
+      "p01": null,
+      "p99": null
+    },
+    "gaze_regression_count": {
+      "available_fraction": 0.3042,
+      "median": 3.0,
+      "p01": 1.0,
+      "p99": 13.089999999999975
+    },
+    "gaze_mean_fixation_duration_ms": {
+      "available_fraction": 0.3042,
+      "median": 262.44262426715784,
+      "p01": 186.31195611459717,
+      "p99": 323.9024999634757
+    }
+  },
+  "provenance": {
+    "source": "Dyscover simulator (app.ml.screening.research_data)",
+    "license": "n/a",
+    "dataset": {
+      "dataset_version": "screening-synthetic-assessments-1.0",
+      "synthetic": true,
+      "seed": 42,
+      "participants": 800,
+      "assessments_per_participant": 2,
+      "gaze_availability": 0.3,
+      "visual_run": [
+        [
+          "letter-detective",
+          5
+        ],
+        [
+          "mirror-match",
+          5
+        ],
+        [
+          "word-flash",
+          5
+        ],
+        [
+          "sequence-quest",
+          4
+        ],
+        [
+          "word-maze",
+          3
+        ]
+      ],
+      "positive_profiles": [
+        "high_error_frequency",
+        "reduced_reading_response_coverage",
+        "repeated_symbol_confusions",
+        "working_memory_task_difficulty"
+      ],
+      "negative_profiles": [
+        "attention_variability",
+        "consistent_responses",
+        "mixed_interaction_profile",
+        "variable_response_timing"
+      ],
+      "target_id": "synthetic_reading_difficulty_profile_v1",
+      "rows": 1600,
+      "positive_rows": 800,
+      "data_checksum": "d11cdcacd39395f411323360a2f17d981a17f4222869f99658b2d50cd58bd2d7"
+    },
+    "note": "Synthetic research model. Labels are simulator settings, not clinical outcomes."
+  },
+  "data_summary": {
+    "rows_used": 1600,
+    "rows_excluded": {
+      "invalid_label": 0,
+      "missing_participant": 0,
+      "missing_required_features": 0,
+      "invalid_features": 0,
+      "duplicate": 0,
+      "contradictory_label": 0
+    },
+    "participants": {
+      "train": 480,
+      "validation": 160,
+      "test": 160
+    },
+    "positives": {
+      "train": 472,
+      "validation": 154,
+      "test": 174
+    }
+  },
+  "model_selection": [
+    {
+      "algorithm": "dummy_prior",
+      "hyperparameters": {},
+      "validation_roc_auc": 0.5
+    },
+    {
+      "algorithm": "logistic_regression",
+      "hyperparameters": {
+        "C": 0.1
+      },
+      "validation_roc_auc": 0.8183774057268033
+    },
+    {
+      "algorithm": "logistic_regression",
+      "hyperparameters": {
+        "C": 1.0
+      },
+      "validation_roc_auc": 0.818103583163824
+    },
+    {
+      "algorithm": "logistic_regression",
+      "hyperparameters": {
+        "C": 10.0
+      },
+      "validation_roc_auc": 0.8179471131278361
+    },
+    {
+      "algorithm": "random_forest",
+      "hyperparameters": {
+        "max_depth": 4,
+        "n_estimators": 300
+      },
+      "validation_roc_auc": 0.9584572054451572
+    },
+    {
+      "algorithm": "random_forest",
+      "hyperparameters": {
+        "max_depth": 8,
+        "n_estimators": 300
+      },
+      "validation_roc_auc": 0.9892035675168206
+    },
+    {
+      "algorithm": "gradient_boosting",
+      "hyperparameters": {
+        "max_depth": 2,
+        "n_estimators": 150
+      },
+      "validation_roc_auc": 0.9877171021749335
+    },
+    {
+      "algorithm": "gradient_boosting",
+      "hyperparameters": {
+        "max_depth": 3,
+        "n_estimators": 150
+      },
+      "validation_roc_auc": 0.9919417931466125
+    }
+  ],
+  "evaluation": {
+    "train": {
+      "estimate": {
+        "roc_auc": 1.0,
+        "pr_auc": 1.0,
+        "brier": 0.002165251836903528,
+        "sensitivity": 0.8919491525423728,
+        "specificity": 1.0,
+        "ppv": 1.0,
+        "npv": 0.9053803339517625
+      },
+      "ci95": {
+        "roc_auc": [
+          1.0,
+          1.0
+        ],
+        "pr_auc": [
+          0.9999999999999999,
+          1.0
+        ],
+        "brier": [
+          0.0016824301485018358,
+          0.0026773538116857615
+        ],
+        "sensitivity": [
+          0.8635732323232324,
+          0.9156465037441813
+        ],
+        "specificity": [
+          1.0,
+          1.0
+        ],
+        "ppv": [
+          1.0,
+          1.0
+        ],
+        "npv": [
+          0.8795370170596156,
+          0.9292386618747699
+        ]
+      },
+      "confusion_at_threshold": {
+        "tp": 421,
+        "tn": 488,
+        "fp": 0,
+        "fn": 51
+      },
+      "counts": {
+        "rows": 960,
+        "participants": 480,
+        "positive_rows": 472,
+        "negative_rows": 488
+      },
+      "calibration_bins": [
+        {
+          "bin": [
+            0.0,
+            0.2
+          ],
+          "n": 487,
+          "mean_score": 0.02421507267816722,
+          "observed_rate": 0.0
+        },
+        {
+          "bin": [
+            0.2,
+            0.4
+          ],
+          "n": 1,
+          "mean_score": 0.21004882605005176,
+          "observed_rate": 0.0
+        },
+        {
+          "bin": [
+            0.6000000000000001,
+            0.8
+          ],
+          "n": 6,
+          "mean_score": 0.733241707759347,
+          "observed_rate": 1.0
+        },
+        {
+          "bin": [
+            0.8,
+            1.0
+          ],
+          "n": 466,
+          "mean_score": 0.9694553667069395,
+          "observed_rate": 1.0
+        }
+      ]
+    },
+    "validation": {
+      "estimate": {
+        "roc_auc": 0.9919417931466125,
+        "pr_auc": 0.9905252075942973,
+        "brier": 0.03275848965081816,
+        "sensitivity": 0.8506493506493507,
+        "specificity": 0.9819277108433735,
+        "ppv": 0.9776119402985075,
+        "npv": 0.8763440860215054
+      },
+      "ci95": {
+        "roc_auc": [
+          0.9841896367266895,
+          0.9977350962290723
+        ],
+        "pr_auc": [
+          0.9794398456005216,
+          0.9976362469396105
+        ],
+        "brier": [
+          0.017684705403138393,
+          0.04886297115917721
+        ],
+        "sensitivity": [
+          0.7834545626298886,
+          0.9138101179673321
+        ],
+        "specificity": [
+          0.9560192616372392,
+          1.0
+        ],
+        "ppv": [
+          0.9494417347358524,
+          1.0
+        ],
+        "npv": [
+          0.8194276084740002,
+          0.92825761909715
+        ]
+      },
+      "confusion_at_threshold": {
+        "tp": 131,
+        "tn": 163,
+        "fp": 3,
+        "fn": 23
+      },
+      "counts": {
+        "rows": 320,
+        "participants": 160,
+        "positive_rows": 154,
+        "negative_rows": 166
+      },
+      "calibration_bins": [
+        {
+          "bin": [
+            0.0,
+            0.2
+          ],
+          "n": 156,
+          "mean_score": 0.021978312132091532,
+          "observed_rate": 0.00641025641025641
+        },
+        {
+          "bin": [
+            0.2,
+            0.4
+          ],
+          "n": 6,
+          "mean_score": 0.24036593566199008,
+          "observed_rate": 0.6666666666666666
+        },
+        {
+          "bin": [
+            0.4,
+            0.6000000000000001
+          ],
+          "n": 4,
+          "mean_score": 0.538930675389848,
+          "observed_rate": 0.5
+        },
+        {
+          "bin": [
+            0.6000000000000001,
+            0.8
+          ],
+          "n": 10,
+          "mean_score": 0.7361171525603833,
+          "observed_rate": 0.8
+        },
+        {
+          "bin": [
+            0.8,
+            1.0
+          ],
+          "n": 144,
+          "mean_score": 0.9695361751191212,
+          "observed_rate": 0.9652777777777778
+        }
+      ]
+    },
+    "test": {
+      "estimate": {
+        "roc_auc": 0.9920878601794992,
+        "pr_auc": 0.9930138369851937,
+        "brier": 0.03227486634140061,
+        "sensitivity": 0.8735632183908046,
+        "specificity": 0.9794520547945206,
+        "ppv": 0.9806451612903225,
+        "npv": 0.8666666666666667
+      },
+      "ci95": {
+        "roc_auc": [
+          0.9839595419487005,
+          0.9976514504715454
+        ],
+        "pr_auc": [
+          0.9845819616430521,
+          0.9980078542964481
+        ],
+        "brier": [
+          0.018365651830589087,
+          0.04962399879584524
+        ],
+        "sensitivity": [
+          0.8154381229235881,
+          0.9285714285714286
+        ],
+        "specificity": [
+          0.9533281250000001,
+          1.0
+        ],
+        "ppv": [
+          0.9539473684210527,
+          1.0
+        ],
+        "npv": [
+          0.799969512195122,
+          0.9272752666328085
+        ]
+      },
+      "confusion_at_threshold": {
+        "tp": 152,
+        "tn": 143,
+        "fp": 3,
+        "fn": 22
+      },
+      "counts": {
+        "rows": 320,
+        "participants": 160,
+        "positive_rows": 174,
+        "negative_rows": 146
+      },
+      "calibration_bins": [
+        {
+          "bin": [
+            0.0,
+            0.2
+          ],
+          "n": 138,
+          "mean_score": 0.022120622414972035,
+          "observed_rate": 0.021739130434782608
+        },
+        {
+          "bin": [
+            0.2,
+            0.4
+          ],
+          "n": 4,
+          "mean_score": 0.2509082467298005,
+          "observed_rate": 0.5
+        },
+        {
+          "bin": [
+            0.4,
+            0.6000000000000001
+          ],
+          "n": 3,
+          "mean_score": 0.5367604978240587,
+          "observed_rate": 0.3333333333333333
+        },
+        {
+          "bin": [
+            0.6000000000000001,
+            0.8
+          ],
+          "n": 5,
+          "mean_score": 0.7437738605629858,
+          "observed_rate": 0.6
+        },
+        {
+          "bin": [
+            0.8,
+            1.0
+          ],
+          "n": 170,
+          "mean_score": 0.9691584760747908,
+          "observed_rate": 0.9705882352941176
+        }
+      ]
+    },
+    "dummy_baseline_test": {
+      "roc_auc": 0.5,
+      "pr_auc": 0.54375,
+      "brier": 0.25079861111111107
+    },
+    "selected_beats_baseline": true,
+    "reliable_sample_size": true,
+    "reliability_note": null
+  },
+  "research_inputs": {
+    "min_scored_trials": 15,
+    "required_features": [
+      "overall_accuracy",
+      "median_reaction_time_ms",
+      "completion_rate",
+      "domain_visual-symbol-discrimination_accuracy",
+      "domain_orthographic-recognition_accuracy",
+      "domain_working-memory_accuracy",
+      "domain_attention-visual-search_accuracy"
+    ],
+    "languages": [
+      "en"
+    ],
+    "age_min": 4,
+    "age_max": 10
+  },
+  "candidate_threshold": {
+    "value": 0.9410123190281845,
+    "rule": "validation sensitivity >= 0.85",
+    "status": "requires_specialist_approval"
+  },
+  "validation": {
+    "held_out_participant_evaluation": true,
+    "external_validation_reference": null,
+    "specialist_review_reference": null,
+    "ethics_approval_reference": null,
+    "approved_thresholds": [],
+    "intended_population": {
+      "age_min": null,
+      "age_max": null,
+      "languages": []
+    },
+    "min_scored_trials": 15
+  }
+}
