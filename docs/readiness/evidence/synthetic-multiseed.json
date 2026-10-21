@@ -1,0 +1,485 @@
+{
+  "purpose": "Separability of simulator-defined synthetic profiles. Not a measure of real-world or clinical performance.",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "subjects_per_seed": 60,
+  "aggregate_test_metrics": {
+    "dummy": {
+      "accuracy": {
+        "mean": 0.15,
+        "sd": 0.0342,
+        "min": 0.125,
+        "max": 0.1875
+      },
+      "macro_f1": {
+        "mean": 0.1177,
+        "sd": 0.0258,
+        "min": 0.0857,
+        "max": 0.1456
+      }
+    },
+    "logistic_regression": {
+      "accuracy": {
+        "mean": 0.3875,
+        "sd": 0.1355,
+        "min": 0.25,
+        "max": 0.5625
+      },
+      "macro_f1": {
+        "mean": 0.317,
+        "sd": 0.0611,
+        "min": 0.225,
+        "max": 0.3958
+      }
+    },
+    "random_forest": {
+      "accuracy": {
+        "mean": 0.4375,
+        "sd": 0.1712,
+        "min": 0.25,
+        "max": 0.6875
+      },
+      "macro_f1": {
+        "mean": 0.3805,
+        "sd": 0.09,
+        "min": 0.3,
+        "max": 0.5322
+      }
+    },
+    "gradient_boosting": {
+      "accuracy": {
+        "mean": 0.525,
+        "sd": 0.1689,
+        "min": 0.3125,
+        "max": 0.6875
+      },
+      "macro_f1": {
+        "mean": 0.4335,
+        "sd": 0.0766,
+        "min": 0.337,
+        "max": 0.517
+      }
+    },
+    "permuted_labels_random_forest": {
+      "accuracy": {
+        "mean": 0.05,
+        "sd": 0.0523,
+        "min": 0.0,
+        "max": 0.125
+      },
+      "macro_f1": {
+        "mean": 0.0338,
+        "sd": 0.0354,
+        "min": 0.0,
+        "max": 0.0833
+      }
+    }
+  },
+  "per_seed": [
+    {
+      "seed": 1,
+      "eligible_sessions": 108,
+      "subjects": {
+        "train_subject_count": 38,
+        "validation_subject_count": 8,
+        "test_subject_count": 8
+      },
+      "classes": [
+        "attention_variability",
+        "consistent_responses",
+        "high_error_frequency",
+        "mixed_interaction_profile",
+        "reduced_reading_response_coverage",
+        "repeated_symbol_confusions",
+        "variable_response_timing",
+        "working_memory_task_difficulty"
+      ],
+      "test": {
+        "dummy": {
+          "accuracy": 0.125,
+          "macro_f1": 0.08571428571428573,
+          "support": null
+        },
+        "logistic_regression": {
+          "accuracy": 0.5,
+          "macro_f1": 0.3166666666666667,
+          "support": null
+        },
+        "random_forest": {
+          "accuracy": 0.6875,
+          "macro_f1": 0.5322344322344322,
+          "support": null
+        },
+        "gradient_boosting": {
+          "accuracy": 0.6875,
+          "macro_f1": 0.42777777777777776,
+          "support": null
+        }
+      },
+      "permutation_probe": {
+        "accuracy": 0.0,
+        "macro_f1": 0.0,
+        "chance_level": 0.125
+      },
+      "random_forest_top_features": [
+        [
+          "mean_reaction_time_ms",
+          0.1395
+        ],
+        [
+          "median_reaction_time_ms",
+          0.1356
+        ],
+        [
+          "mean_hesitation_time_ms",
+          0.1214
+        ],
+        [
+          "hint_count",
+          0.0754
+        ],
+        [
+          "pause_count",
+          0.0594
+        ],
+        [
+          "reaction_time_variance_ms2",
+          0.0491
+        ],
+        [
+          "incorrect_response_rate",
+          0.0365
+        ],
+        [
+          "total_error_count",
+          0.0303
+        ]
+      ]
+    },
+    {
+      "seed": 2,
+      "eligible_sessions": 108,
+      "subjects": {
+        "train_subject_count": 38,
+        "validation_subject_count": 8,
+        "test_subject_count": 8
+      },
+      "classes": [
+        "attention_variability",
+        "consistent_responses",
+        "high_error_frequency",
+        "mixed_interaction_profile",
+        "reduced_reading_response_coverage",
+        "repeated_symbol_confusions",
+        "variable_response_timing",
+        "working_memory_task_difficulty"
+      ],
+      "test": {
+        "dummy": {
+          "accuracy": 0.125,
+          "macro_f1": 0.13333333333333333,
+          "support": null
+        },
+        "logistic_regression": {
+          "accuracy": 0.5625,
+          "macro_f1": 0.3958333333333333,
+          "support": null
+        },
+        "random_forest": {
+          "accuracy": 0.4375,
+          "macro_f1": 0.36666666666666664,
+          "support": null
+        },
+        "gradient_boosting": {
+          "accuracy": 0.625,
+          "macro_f1": 0.5020408163265306,
+          "support": null
+        }
+      },
+      "permutation_probe": {
+        "accuracy": 0.0625,
+        "macro_f1": 0.05,
+        "chance_level": 0.125
+      },
+      "random_forest_top_features": [
+        [
+          "mean_hesitation_time_ms",
+          0.1193
+        ],
+        [
+          "mean_reaction_time_ms",
+          0.1088
+        ],
+        [
+          "median_reaction_time_ms",
+          0.1077
+        ],
+        [
+          "reaction_time_variance_ms2",
+          0.0492
+        ],
+        [
+          "pause_count",
+          0.0433
+        ],
+        [
+          "hint_count",
+          0.0421
+        ],
+        [
+          "incorrect_response_rate",
+          0.0379
+        ],
+        [
+          "gaze_regression_count",
+          0.0368
+        ]
+      ]
+    },
+    {
+      "seed": 3,
+      "eligible_sessions": 108,
+      "subjects": {
+        "train_subject_count": 38,
+        "validation_subject_count": 8,
+        "test_subject_count": 8
+      },
+      "classes": [
+        "attention_variability",
+        "consistent_responses",
+        "high_error_frequency",
+        "mixed_interaction_profile",
+        "reduced_reading_response_coverage",
+        "repeated_symbol_confusions",
+        "variable_response_timing",
+        "working_memory_task_difficulty"
+      ],
+      "test": {
+        "dummy": {
+          "accuracy": 0.1875,
+          "macro_f1": 0.1285714285714286,
+          "support": null
+        },
+        "logistic_regression": {
+          "accuracy": 0.3125,
+          "macro_f1": 0.3333333333333333,
+          "support": null
+        },
+        "random_forest": {
+          "accuracy": 0.5,
+          "macro_f1": 0.375,
+          "support": null
+        },
+        "gradient_boosting": {
+          "accuracy": 0.625,
+          "macro_f1": 0.5170068027210885,
+          "support": null
+        }
+      },
+      "permutation_probe": {
+        "accuracy": 0.125,
+        "macro_f1": 0.08333333333333333,
+        "chance_level": 0.125
+      },
+      "random_forest_top_features": [
+        [
+          "mean_reaction_time_ms",
+          0.1067
+        ],
+        [
+          "median_reaction_time_ms",
+          0.1025
+        ],
+        [
+          "mean_hesitation_time_ms",
+          0.0904
+        ],
+        [
+          "gaze_regression_count",
+          0.0562
+        ],
+        [
+          "pause_count",
+          0.0392
+        ],
+        [
+          "gaze_target_fixation_time_ms",
+          0.0381
+        ],
+        [
+          "reaction_time_variance_ms2",
+          0.0352
+        ],
+        [
+          "gaze_time_to_first_target_fixation_ms",
+          0.0346
+        ]
+      ]
+    },
+    {
+      "seed": 4,
+      "eligible_sessions": 108,
+      "subjects": {
+        "train_subject_count": 38,
+        "validation_subject_count": 8,
+        "test_subject_count": 8
+      },
+      "classes": [
+        "attention_variability",
+        "consistent_responses",
+        "high_error_frequency",
+        "mixed_interaction_profile",
+        "reduced_reading_response_coverage",
+        "repeated_symbol_confusions",
+        "variable_response_timing",
+        "working_memory_task_difficulty"
+      ],
+      "test": {
+        "dummy": {
+          "accuracy": 0.125,
+          "macro_f1": 0.09523809523809523,
+          "support": null
+        },
+        "logistic_regression": {
+          "accuracy": 0.25,
+          "macro_f1": 0.225,
+          "support": null
+        },
+        "random_forest": {
+          "accuracy": 0.25,
+          "macro_f1": 0.3,
+          "support": null
+        },
+        "gradient_boosting": {
+          "accuracy": 0.3125,
+          "macro_f1": 0.337037037037037,
+          "support": null
+        }
+      },
+      "permutation_probe": {
+        "accuracy": 0.0,
+        "macro_f1": 0.0,
+        "chance_level": 0.125
+      },
+      "random_forest_top_features": [
+        [
+          "mean_hesitation_time_ms",
+          0.1246
+        ],
+        [
+          "mean_reaction_time_ms",
+          0.1104
+        ],
+        [
+          "median_reaction_time_ms",
+          0.1052
+        ],
+        [
+          "reaction_time_variance_ms2",
+          0.0569
+        ],
+        [
+          "pause_count",
+          0.0505
+        ],
+        [
+          "hint_count",
+          0.0415
+        ],
+        [
+          "total_error_count",
+          0.0351
+        ],
+        [
+          "incorrect_response_rate",
+          0.0289
+        ]
+      ]
+    },
+    {
+      "seed": 5,
+      "eligible_sessions": 108,
+      "subjects": {
+        "train_subject_count": 38,
+        "validation_subject_count": 8,
+        "test_subject_count": 8
+      },
+      "classes": [
+        "attention_variability",
+        "consistent_responses",
+        "high_error_frequency",
+        "mixed_interaction_profile",
+        "reduced_reading_response_coverage",
+        "repeated_symbol_confusions",
+        "variable_response_timing",
+        "working_memory_task_difficulty"
+      ],
+      "test": {
+        "dummy": {
+          "accuracy": 0.1875,
+          "macro_f1": 0.14557823129251699,
+          "support": null
+        },
+        "logistic_regression": {
+          "accuracy": 0.3125,
+          "macro_f1": 0.31428571428571433,
+          "support": null
+        },
+        "random_forest": {
+          "accuracy": 0.3125,
+          "macro_f1": 0.32857142857142857,
+          "support": null
+        },
+        "gradient_boosting": {
+          "accuracy": 0.375,
+          "macro_f1": 0.38367346938775515,
+          "support": null
+        }
+      },
+      "permutation_probe": {
+        "accuracy": 0.0625,
+        "macro_f1": 0.03571428571428572,
+        "chance_level": 0.125
+      },
+      "random_forest_top_features": [
+        [
+          "median_reaction_time_ms",
+          0.1287
+        ],
+        [
+          "mean_hesitation_time_ms",
+          0.1092
+        ],
+        [
+          "mean_reaction_time_ms",
+          0.1032
+        ],
+        [
+          "pause_count",
+          0.0651
+        ],
+        [
+          "reaction_time_variance_ms2",
+          0.0494
+        ],
+        [
+          "gaze_regression_count",
+          0.0393
+        ],
+        [
+          "total_error_count",
+          0.038
+        ],
+        [
+          "hint_count",
+          0.0351
+        ]
+      ]
+    }
+  ]
+}

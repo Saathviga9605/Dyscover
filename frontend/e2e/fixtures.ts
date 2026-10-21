@@ -7,7 +7,11 @@ export function uniqueEmail(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`;
 }
 
-export async function registerViaUi(page: Page, role: 'parent' | 'educator', name: string): Promise<string> {
+export async function registerViaUi(
+  page: Page,
+  role: 'parent' | 'educator',
+  name: string
+): Promise<string> {
   const email = uniqueEmail(role);
   await page.goto('/register');
   await page.getByLabel('Display name').fill(name);
@@ -16,7 +20,9 @@ export async function registerViaUi(page: Page, role: 'parent' | 'educator', nam
   await page.getByLabel('Confirm password').fill(PASSWORD);
   if (role === 'educator') await page.getByLabel('Educator').check();
   await page.getByRole('button', { name: 'Create account' }).click();
-  await expect(page).toHaveURL(role === 'educator' ? /\/educator\/dashboard/ : /\/parent\/dashboard/);
+  await expect(page).toHaveURL(
+    role === 'educator' ? /\/educator\/dashboard/ : /\/parent\/dashboard/
+  );
   return email;
 }
 
@@ -36,7 +42,10 @@ export async function createChildViaUi(page: Page, name: string): Promise<void> 
   if (!(await nameField.isVisible())) await addButton.click();
   await page.getByLabel('Name or nickname').fill(name);
   await page.getByRole('button', { name: 'Create profile' }).click();
-  await expect(page.getByRole('button', { name: new RegExp(name) })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: new RegExp(name) })).toHaveAttribute(
+    'aria-pressed',
+    'true'
+  );
 }
 
 /** Independent API session (bearer token) used to verify what the UI persisted. */
@@ -89,16 +98,29 @@ export async function stubSpeechRecognition(page: Page): Promise<void> {
         window.clearTimeout(this.timer);
       }
     }
-    Object.defineProperty(window, 'SpeechRecognition', { value: FakeRecognition, configurable: true });
-    Object.defineProperty(window, 'webkitSpeechRecognition', { value: FakeRecognition, configurable: true });
+    Object.defineProperty(window, 'SpeechRecognition', {
+      value: FakeRecognition,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'webkitSpeechRecognition', {
+      value: FakeRecognition,
+      configurable: true,
+    });
   });
 }
 
 export async function expectNoSeriousA11yViolations(page: Page, context: string): Promise<void> {
-  const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
+  const results = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21aa'])
+    .analyze();
   const serious = results.violations.filter(v => v.impact === 'serious' || v.impact === 'critical');
   const details = serious.flatMap(v =>
-    v.nodes.map(n => `${v.id}: ${n.target.join(' ')} | ${n.any[0]?.message ?? n.failureSummary ?? ''}`.split(String.fromCharCode(10))[0])
+    v.nodes.map(
+      n =>
+        `${v.id}: ${n.target.join(' ')} | ${n.any[0]?.message ?? n.failureSummary ?? ''}`.split(
+          String.fromCharCode(10)
+        )[0]
+    )
   );
   expect(details, `${context}: serious/critical axe violations`).toEqual([]);
 }

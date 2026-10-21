@@ -1,186 +1,67 @@
-# Dyscover AI/ML Validation Report
+# AI/ML Validation Report
 
-**Date:** 2026-10-20  
-**Scope:** Synthetic interaction profile classification pipeline
+Updated 2026-10-21. Evidence file: `docs/readiness/evidence/synthetic-multiseed.json` (produced by `python -m app.ml.synthetic.experiment --seeds 1 2 3 4 5 --subjects 60`).
 
----
+**Bottom line:** Dyscover has no model validated on real children's data. All trained models are research artifacts fitted to **synthetic, simulator-defined** interaction profiles. Predictive inference in the product is disabled (`POST /api/ml/predict/session/{id}` always returns `status: unavailable`), and the production model registry refuses models flagged `synthetic`. Nothing in this report is evidence of dyslexia detection accuracy.
 
-## Pipeline Overview
+## 1. What runs in the product today
 
-The Dyscover ML pipeline is designed for **research-only** classification of simulator-defined interaction profiles. It does NOT perform clinical dyslexia detection.
+| Capability | Status | Evidence |
+|---|---|---|
+| Per-session feature extraction from persisted trials/events/gaze/speech (40 registered features, schema 1.0) | Implemented and tested | `app/ml/features.py`, `tests/test_api.py::test_end_to_end_telemetry_reaches_feature_extraction` |
+| Missing modalities | Reported as `value: null, available: false` — never zero | `features.py` `_append_gaze_features/_append_speech_features`; modality summary returns `null` coverage when nothing was recorded |
+| Descriptive "screening profile" (observations, data quality, limitations) | Implemented; descriptive only | `app/ml/profile.py` |
+| Predictive classification | **Deliberately unavailable** | `app/ml/routes.py::predict` |
+| Personalization rules | Deterministic, rule-based, uses scored visual-game trials only | `tests/test_personalization.py` |
 
-### Synthetic Data Generation
+## 2. Synthetic dataset
 
-**Configuration:**
-- 27 subjects, 2 sessions/subject, 5 trials/session
-- 8 eligible interaction profiles + 1 ineligible (insufficient_observations)
-- 8 games: letter-detective, mirror-match, word-flash, sequence-quest, word-maze, sound-quest-adventure, letter-bubble-pop, maze-runner-rush
-- 70% modality availability (gaze/speech)
-- Difficulty levels 1-5 (speech games capped at 3)
-- Deterministic seed: 42
+- Generator: `app/ml/synthetic` (seeded, checksummed). Each simulated subject is assigned one of 9 simulator profiles (`taxonomy.py`): consistent_responses, variable_response_timing, high_error_frequency, repeated_symbol_confusions, reduced_reading_response_coverage, attention_variability, working_memory_task_difficulty, mixed_interaction_profile, and insufficient_observations (excluded from training).
+- **Meaning of the labels:** a label is the parameter set the simulator used to generate that subject. Labels are *not* clinical categories and none corresponds to "dyslexic"/"not dyslexic".
+- Modality availability is simulated (default 70% of sessions have optional gaze/speech); unavailable modalities stay missing.
 
-**Output:**
-- 54 sessions (48 eligible, 6 ineligible)
-- Class distribution: ~6 per eligible profile
-- Data checksum: `d3873516dd3ed2dc9ff46e9c820199579ba7a48bc3634ced8409fb2badb55399`
-- Provenance: simulator_version=1.0, feature_schema_version=1.0, content_version=1.0
+## 3. Method
 
-### Feature Engineering
+- **Split:** subject-level random split (70/15/15) — all sessions of a subject are in one partition (`app/ml/datasets.py::subject_level_split`). Not stratified by class, so a partition may lack a class.
+- **Preprocessing:** median imputation **with missingness indicators** (added in this pass so "not recorded" is not conflated with a typical value), standard scaling for logistic regression; fitted inside the scikit-learn pipeline on training rows only.
+- **Estimators:** stratified `DummyClassifier` (baseline), logistic regression, random forest (balanced), gradient boosting.
+- **Seeds:** 1–5, 60 simulated subjects per seed (108 eligible sessions → 38 train / 8 validation / 8 test subjects).
+- **Leakage probes:** (a) random forest retrained with shuffled training labels; (b) random-forest feature importances inspected for any single dominant feature.
 
-**40 Canonical Features (registry v1.0):**
-- **Behavioral (10):** accuracy, error rate, reaction time (mean/median/variance), hesitation, error count, completion rate, pause count, hint count
-- **Gaze (15):** availability, sample/fixation counts, duration stats, target/distractor fixation, time-to-first, switch/regression counts, saccade variance, scanpath entropy, horizontal bias, coverage ratio
-- **Speech (12):** availability, reading duration, WPM, substitution/omission/insertion/repetition counts, error rate, pause count/duration/variance
-- **Text (5):** token count, unique tokens, type-token ratio, repetition count
+## 4. Results (held-out test subjects, 5 seeds)
 
-**Validation:**
-- Feature names, types, units, bounds, versions, missingness validated
-- Invalid/unavailable measurements distinct from valid zeros
-- No PII in features (no names, IDs, timestamps, label-derived metadata)
+8 eligible classes; chance level = 0.125.
 
-### Subject-Level Splitting
+| Model | Accuracy mean ± SD (min–max) | Macro-F1 mean ± SD (min–max) |
+|---|---|---|
+| Dummy (stratified) | 0.150 ± 0.034 (0.125–0.188) | 0.118 ± 0.026 (0.086–0.146) |
+| Logistic regression | 0.388 ± 0.136 (0.250–0.563) | 0.317 ± 0.061 (0.225–0.396) |
+| Random forest | 0.438 ± 0.171 (0.250–0.688) | 0.381 ± 0.090 (0.300–0.532) |
+| Gradient boosting | 0.525 ± 0.169 (0.313–0.688) | 0.434 ± 0.077 (0.337–0.517) |
+| Random forest, **shuffled labels** | 0.050 ± 0.052 (0.000–0.125) | 0.034 ± 0.035 |
 
-**Strategy:** GroupKFold by subject_id
-- Train: 18 subjects (60%)
-- Validation: 5 subjects (17%)
-- Test: 4 subjects (13%)
+Interpretation:
+- Learned models exceed the dummy baseline on every seed: the simulator's profiles leave a learnable signal, mainly in reaction-time and hesitation features (top importances each seed: mean/median reaction time, mean hesitation time; none above ~0.14).
+- The shuffled-label probe collapses to (below) chance → no evidence of label leakage through the split or the features.
+- **The test set is tiny (8 subjects ≈ 16 sessions per seed)**, so seed-to-seed spread is ±0.17 accuracy; single-seed numbers in older documents should not be quoted.
+- These numbers measure **recovery of simulator parameters**. Because the simulator was written by the developers, good separability partly reflects how distinct the simulated profiles were made, not anything about children.
 
-**Leakage Prevention:**
-- No subject appears in multiple partitions
-- Preprocessing (imputation, scaling) fitted on training only
-- Class coverage verified in training partition (≥2 classes)
+## 5. Requirements before any real-world predictive use
 
-### Model Training Results
+1. Ethics approval and verifiable parental consent for collecting assessment data for model development.
+2. A real dataset with reference labels from a qualified, standardised assessment performed independently of Dyscover (labels never derived from Dyscover's own outputs), with documented age, language, and site distribution.
+3. Pre-registered evaluation: subject-level splits, external test site, sensitivity/specificity with confidence intervals, calibration, subgroup analysis (age, language incl. Tamil, device), and comparison to existing screeners.
+4. Specialist review of intended use, thresholds, and how results are communicated to parents and educators.
+5. Regulatory assessment (a tool that claims to detect a condition may be a medical device in some jurisdictions).
+6. Model card and monitoring plan; only then lift the `predict` block, behind an explicit configuration flag.
 
-| Algorithm | Test Accuracy | Macro-F1 | Balanced Accuracy | Test Subjects |
-|-----------|--------------|----------|-------------------|---------------|
-| Dummy (stratified) | 0.167 | 0.111 | 0.125 | 4 |
-| Logistic Regression | 0.500 | 0.333 | 0.375 | 4 |
-| Random Forest | 0.500 | 0.333 | 0.375 | 4 |
-| Gradient Boosting | 0.833 | 0.667 | 0.708 | 4 |
+## 6. Speech ML
 
-**Per-Class Metrics (Gradient Boosting - best):**
-| Profile | Precision | Recall | F1 | Support |
-|---------|-----------|--------|-----|---------|
-| consistent_responses | 1.00 | 0.50 | 0.67 | 2 |
-| variable_response_timing | 0.50 | 1.00 | 0.67 | 1 |
-| high_error_frequency | 1.00 | 1.00 | 1.00 | 1 |
-| repeated_symbol_confusions | 1.00 | 1.00 | 1.00 | 1 |
-| reduced_reading_response_coverage | 0.50 | 1.00 | 0.67 | 1 |
-| attention_variability | 0.00 | 0.00 | 0.00 | 1 |
-| working_memory_task_difficulty | 1.00 | 0.50 | 0.67 | 2 |
-| mixed_interaction_profile | 1.00 | 1.00 | 1.00 | 1 |
+- Infrastructure (manifest validation, speaker-disjoint splits, Whisper fine-tuning/evaluation with WER/CER, CLI) is implemented and its tests pass on this machine: `pytest tests/ml/speech` → 85 passed (incl. 2 audio-decoding tests previously marked xfail on Windows, now passing and un-marked).
+- **No fine-tuning experiment was run.** Blocker: no appropriately licensed corpus of *children's read speech* with speaker IDs is available in this environment, and no Whisper weights are cached. Fine-tuning on adult audiobook speech would not answer the question that matters (child reading). No WER/CER results are claimed.
+- Game speech recognition uses the browser's Web Speech API; its accuracy for children and for Tamil is unknown and unmeasured. Recognition failures are recorded as unscored, separately from reading performance.
 
-**Confusion Matrix (Gradient Boosting):**
-```
-Predicted →
-Actual ↓    CR  VRT  HEF  RSC  RRC  AV  WMD  MIP
-CR         1   1    0    0    0    0   0    0
-VRT        0   1    0    0    0    0   0    0
-HEF        0   0    1    0    0    0   0    0
-RSC        0   0    0    1    0    0   0    0
-RRC        1   0    0    0    1    0   0    0
-AV         0   1    0    0    0    0   0    0
-WMD        1   0    0    0    0    0   1    0
-MIP        0   0    0    0    0    0   0    1
-```
+## 7. Artifact handling
 
-### Robustness Checks
-
-1. **Missing Modality**: Models trained with 70% modality availability degrade gracefully
-2. **Noise Robustness**: Synthetic noise added to features → performance tracked
-3. **Feature Ablation**: Removing gaze/speech features → behavioral-only baseline
-4. **Shortcut Learning**: Dummy baseline (stratified) = 16.7% accuracy, confirming no trivial shortcuts
-5. **Class Imbalance**: Balanced class weights in RF/GB, stratified dummy baseline
-
-### Artifact Integrity
-
-**Serialization:**
-- Models: pickle (.pkl)
-- Metadata: JSON with SHA256 of artifact
-- Verification: `load_synthetic_model()` checks:
-  - `synthetic=True`
-  - `clinical_use=prohibited`
-  - `feature_schema_version` match
-  - No unregistered features
-  - SHA256 match
-  - Valid BaselineModel with fitted pipeline
-
-**Registry Gatekeeper:**
-```python
-def register_model(info: ModelInfo) -> None:
-    if getattr(info, "synthetic", False):
-        raise PermissionError("Synthetic research models are strictly prohibited from entering the production model registry")
-```
-
----
-
-## Limitations & Disclaimers
-
-### What This Pipeline DOES
-- Classifies **simulator-defined interaction profiles** from game telemetry
-- Demonstrates ML pipeline feasibility for interaction pattern recognition
-- Provides reproducible research infrastructure with provenance
-
-### What This Pipeline DOES NOT
-- **NOT** detect clinical dyslexia
-- **NOT** provide diagnostic probabilities for children
-- **NOT** validate dyslexia biomarkers
-- **NOT** generalize to real-world clinical populations
-
-### Scientific Disclaimer (included in all evaluation reports)
-
-> "NOTICE: These metrics measure recovery of simulator-defined interaction profiles only. They do NOT demonstrate clinical dyslexia detection, diagnostic validity, or real-world generalization. Production dyslexia inference remains strictly unavailable."
-
----
-
-## Real-Data Readiness
-
-### Ingestion Interface (Implemented)
-- Dataset manifests with provenance, licensing, subject grouping IDs
-- Task versions, modality availability, data quality flags
-- Reproducible subject-level splits with documented strategy
-- Label provenance documentation required
-
-### Validation Gates (Implemented)
-- Schema validation against feature registry
-- Subject leakage detection
-- Class coverage verification
-- Data quality reporting
-
-### Pending for Real Data
-- [ ] Appropriately licensed dataset with dyslexia labels
-- [ ] Clinical validation protocol
-- [ ] IRB/ethics approval
-- [ ] Expert annotation of real interaction data
-
----
-
-## Reproducibility
-
-**Commands:**
-```bash
-# Generate dataset
-python -m app.ml.synthetic.cli --subjects 27 --output artifacts/synthetic/dataset.json
-
-# Train models
-python -m app.ml.synthetic.cli --subjects 27 --train-output artifacts/synthetic/models
-
-# Load and verify model
-python -c "
-from app.ml.synthetic.pipeline import load_synthetic_model
-from pathlib import Path
-model, meta = load_synthetic_model(Path('artifacts/synthetic/models/gradient_boosting.json'))
-print(f'Model: {meta[\"model_id\"]}, Test Acc: {meta[\"evaluation\"][\"test_metrics\"][\"accuracy\"]:.3f}')
-"
-```
-
-**Environment:** Python 3.13, scikit-learn 1.6.1, numpy 2.2.2
-
----
-
-## Conclusion
-
-The synthetic ML pipeline is **functionally complete and validated** for its intended research purpose: classifying simulator-defined interaction profiles from game telemetry features under documented assumptions. All artifacts are reproducible, integrity-checked, and isolated from clinical use.
-
-**Status: ✅ VALIDATED FOR RESEARCH USE ONLY**
+- Artifacts carry `synthetic: true`, `clinical_use: prohibited`, feature list, schema version and SHA-256; loading verifies all of them (`load_synthetic_model`), rejects path components in artifact names, and the production registry rejects synthetic models.
+- Pickle artifacts execute code on load; they are operator-produced only. There is no endpoint that accepts model uploads.

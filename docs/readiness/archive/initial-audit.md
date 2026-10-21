@@ -1,3 +1,5 @@
+> **SUPERSEDED (2026-10-21).** Kept for history only. Several claims below were found to be inaccurate during the 2026-10-20/21 engineering pass (e.g. the backend did not import, most data endpoints were unauthenticated, and no compliance assessment had been performed). See `../final-integration-report.md` and `../risk-register.md`.
+
 # Dyscover Initial Audit Report (Updated with Remediation Progress)
 
 **Date:** 2026-10-20  

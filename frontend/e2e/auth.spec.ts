@@ -1,5 +1,13 @@
 import { expect, test } from '@playwright/test';
-import { PASSWORD, apiAs, createChildViaUi, expectNoSeriousA11yViolations, loginViaUi, registerViaUi, uniqueEmail } from './fixtures';
+import {
+  PASSWORD,
+  apiAs,
+  createChildViaUi,
+  expectNoSeriousA11yViolations,
+  loginViaUi,
+  registerViaUi,
+  uniqueEmail,
+} from './fixtures';
 
 test.describe('accounts and protected routes', () => {
   test('protected pages redirect anonymous visitors to login and back', async ({ page }) => {
@@ -33,7 +41,9 @@ test.describe('accounts and protected routes', () => {
 
   test('login returns to the originally requested page', async ({ page, request }) => {
     const email = uniqueEmail('next');
-    await request.post('/api/auth/register', { data: { email, password: PASSWORD, display_name: 'Next', role: 'parent' } });
+    await request.post('/api/auth/register', {
+      data: { email, password: PASSWORD, display_name: 'Next', role: 'parent' },
+    });
     await page.goto('/account');
     await expect(page).toHaveURL(/\/login\?next=%2Faccount/);
     await page.getByLabel('Email').fill(email);
@@ -56,12 +66,17 @@ test.describe('accounts and protected routes', () => {
   test('educators cannot open the parent workspace', async ({ page }) => {
     await registerViaUi(page, 'educator', 'Ms Teacher');
     await page.goto('/parent/dashboard');
-    await expect(page.getByRole('heading', { name: 'This area is for a different account type' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'This area is for a different account type' })
+    ).toBeVisible();
   });
 });
 
 test.describe('child profiles and educator sharing', () => {
-  test('parent creates a child, shares with an educator, then revokes', async ({ browser, request }) => {
+  test('parent creates a child, shares with an educator, then revokes', async ({
+    browser,
+    request,
+  }) => {
     const educatorContext = await browser.newContext();
     const educatorPage = await educatorContext.newPage();
     const educatorEmail = await registerViaUi(educatorPage, 'educator', 'Ms Rivera');

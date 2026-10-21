@@ -176,6 +176,9 @@ def load_synthetic_model(
         raise ValueError(f"Model contains unregistered features: {sorted(unknown)}")
 
     artifact_name = metadata.get("artifact", "")
+    # Artifacts must live next to their metadata; reject path components (e.g. "../x.pkl").
+    if not artifact_name or Path(artifact_name).name != artifact_name:
+        raise ValueError("Model artifact name must be a plain file name")
     artifact_path = metadata_path.parent / artifact_name
     if not artifact_path.is_file():
         raise FileNotFoundError(f"Model artifact binary not found: {artifact_path}")
@@ -184,8 +187,10 @@ def load_synthetic_model(
     if actual_sha != metadata.get("artifact_sha256"):
         raise ValueError("Model artifact integrity check failed: SHA256 mismatch")
 
+    # pickle executes code on load: artifacts are operator-produced files only, verified by
+    # SHA-256 above. No API endpoint accepts model uploads.
     with artifact_path.open("rb") as f:
-        model = pickle.load(f)
+        model = pickle.load(f)  # noqa: S301
 
     if not isinstance(model, BaselineModel) or model.pipeline is None:
         raise ValueError("Artifact is not a valid trained BaselineModel")

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import platform
 import tempfile
 from pathlib import Path
 
@@ -19,11 +18,9 @@ from app.ml.speech.audio import (
     chunk_long_audio,
 )
 
-# Mark tests that require torchaudio.load (which uses torchcodec on Windows)
-requires_torchaudio_load = pytest.mark.xfail(
-    platform.system() == "Windows",
-    reason="torchaudio.load uses torchcodec backend with DLL issues on Windows",
-)
+# Formerly xfail on Windows (torchcodec DLL issues); verified passing on Windows with
+# torch/torchaudio 2.11 on 2026-10-21, so failures are reported again.
+requires_torchaudio_load = pytest.mark.torchaudio_load
 
 
 class TestAudioConfig:

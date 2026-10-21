@@ -15,7 +15,7 @@
 - [Speech Recognition Pipeline](#speech-recognition-pipeline)
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
-- [API Reference](#api-reference)
+- [API Overview](#api-overview)
 - [Development](#development)
 - [Testing](#testing)
 - [Documentation](#documentation)
@@ -311,232 +311,111 @@ Outputs: `experiment_report.md`, `experiment_metadata.json`, model checkpoints.
 
 ### Prerequisites
 
-- **Node.js 20+** (frontend)
-- **Python 3.11+** (backend)
-- **PostgreSQL 14+** (production) or SQLite (development)
-- **GPU optional** (for Whisper fine-tuning)
+- Python 3.13, Node.js 22+
+- Optional: Docker (for the PostgreSQL deployment), a Groq API key (for Lexi)
 
-### Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev          # Development server (Vite)
-npm run build        # Production build
-npm run test         # Unit tests (Vitest)
-```
-
-Environment variable:
-```bash
-VITE_API_URL=http://localhost:8000/api  # Default
-```
-
-### Backend
+### Backend (development, SQLite)
 
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate  # Windows: .\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-
-# Copy and configure environment
-cp .env.example .env
-# Edit .env with DATABASE_URL, CORS_ORIGINS, ASR provider settings
-
-uvicorn app.main:app --reload
+.venv/Scripts/activate            # Windows  (macOS/Linux: source .venv/bin/activate)
+pip install -r requirements-dev.txt
+cp .env.example .env              # optional: GROQ_API_KEY, DATABASE_URL, ...
+uvicorn app.main:app --reload     # applies Alembic migrations automatically in development
 ```
 
-API available at `http://localhost:8000`  
-Swagger UI at `http://localhost:8000/docs`
-
----
-
-## Configuration
-
-### Backend Environment Variables (`.env`)
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DATABASE_URL` | `sqlite:///./dyscover.db` | PostgreSQL connection string for production |
-| `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
-| `DYSCOVER_ASR_PROVIDER` | *(empty)* | `huggingface-whisper` or `faster-whisper` |
-| `DYSCOVER_HF_WHISPER_MODEL` | `openai/whisper-tiny` | HF model ID or local path |
-| `DYSCOVER_HF_WHISPER_LANGUAGE` | `en` | Default transcription language |
-| `DYSCOVER_HF_WHISPER_DEVICE` | `auto` | `auto`, `cpu`, `cuda`, `mps` |
-| `DYSCOVER_HF_WHISPER_DTYPE` | `float32` | `float32`, `float16`, `bfloat16` |
-| `DYSCOVER_HF_WHISPER_CACHE` | *(empty)* | Local cache directory for HF models |
-| `DYSCOVER_ASR_MODEL` | `small` | faster-whisper model size |
-| `DYSCOVER_ASR_MODEL_PATH` | *(empty)* | Local faster-whisper model path |
-| `DYSCOVER_ASR_DEVICE` | `cpu` | faster-whisper device |
-| `DYSCOVER_ASR_COMPUTE_TYPE` | `int8` | faster-whisper compute type |
-| `DYSCOVER_ASR_ALLOW_MODEL_LOAD` | `false` | Must be `true` to load faster-whisper |
-
-### Frontend Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VITE_API_URL` | `http://localhost:8000/api` | Backend API base URL |
-
----
-
-## API Reference
-
-### Core Routes
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/health` | Health check |
-| GET | `/api/version` | Version info |
-
-### Child & Assessment
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/children` | Create child profile |
-| GET | `/api/children/{id}` | Get child profile |
-| POST | `/api/assessments` | Create assessment session |
-| GET | `/api/assessments/{id}` | Get assessment |
-| POST | `/api/assessments/{id}/games` | Start game session |
-| POST | `/api/games/{id}/trials` | Submit trial |
-| POST | `/api/trials/{id}/events` | Submit interaction events |
-| POST | `/api/assessments/{id}/summary` | Create assessment summary |
-
-### ML Research
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/ml/features/{session_id}` | Get feature vector |
-| GET | `/api/ml/profile/{session_id}` | Get screening profile |
-| GET | `/api/ml/models` | List registered models |
-| GET | `/api/ml/quality` | Data quality report |
-
-### Speech Research
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/speech/status` | Provider status |
-| POST | `/api/speech/analyze` | Analyze reading (alignment + features) |
-| POST | `/api/speech/sessions` | Create speech session |
-| GET | `/api/speech/sessions/{id}` | Get speech session |
-| POST | `/api/speech/sessions/{id}/features` | Store speech features |
-
-### Speech Demo (requires consent)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/speech/demo/providers` | List providers & status |
-| POST | `/api/speech/demo/transcribe` | Transcribe audio (multipart) |
-| POST | `/api/speech/demo/compare` | Compare providers |
-| GET | `/api/speech/demo/models` | Show model configs |
-
-> **Consent required:** All demo endpoints require `consent=true` form field.
-
-### Educator Routes (auth required)
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/educator/learners/{id}/authorize` | Authorize learner |
-| POST | `/api/educator/learners/{id}/revoke` | Revoke access |
-| GET | `/api/educator/learners` | List authorized learners |
-| GET | `/api/educator/learners/{id}/summary` | Get learner summary |
-
----
-
-## Development
-
-### Project Structure
-
-```
-Dyscover/
-├── backend/
-│   ├── app/
-│   │   ├── api/              # FastAPI routes
-│   │   ├── core/             # Config, security
-│   │   ├── database.py       # SQLAlchemy engine/session
-│   │   ├── models.py         # ORM models
-│   │   ├── schemas.py        # Pydantic schemas
-│   │   ├── assessment.py     # Domain definitions
-│   │   ├── ml/               # Research ML subsystem
-│   │   │   ├── speech/       # Whisper pipeline
-│   │   │   ├── synthetic/    # Synthetic data generator
-│   │   │   └── ...           # Features, registry, training, eval
-│   │   ├── speech/           # Provider abstraction
-│   │   ├── gaze/             # Gaze provider & features
-│   │   ├── personalization/  # Stage 5: difficulty, recommendations
-│   │   ├── remedial/         # Practice activities
-│   │   └── main.py           # FastAPI app factory
-│   ├── tests/                # pytest suite
-│   ├── requirements.txt
-│   └── .env.example
-├── frontend/
-│   ├── src/
-│   │   ├── components/       # UI components
-│   │   ├── games/            # Game definitions & registry
-│   │   ├── speech/           # SpeechDemo, analyzer, types
-│   │   ├── gaze/             # WebGazer provider
-│   │   ├── l10n/             # i18n (EN/TA)
-│   │   ├── services/         # API client
-│   │   └── styles/           # CSS modules
-│   ├── package.json
-│   └── vite.config.ts
-└── docs/                     # Architecture & feature docs
-```
-
-### Code Conventions
-
-- **Python**: Black formatting, type hints, Pydantic v2, SQLAlchemy 2.0
-- **TypeScript**: Strict mode, functional components, React hooks
-- **API**: Pydantic validation, explicit error responses, OpenAPI tags
-- **Database**: Migrations via Alembic (not yet configured; uses `create_all`)
-- **Git**: Conventional commits, no direct pushes to main
-
-### Adding a New Game
-
-1. Define `GameDefinition` in `frontend/src/games/registry.ts`
-2. Implement game component with `GameInstance` callbacks
-3. Add domain in `backend/app/assessment.py`
-4. Register routes if new endpoints needed
-5. Update feature extraction if new behavioral signals
-
----
-
-## Testing
-
-### Backend
-
-```bash
-cd backend
-
-# All tests
-pytest
-
-# Specific modules
-pytest tests/ml/speech/ -v
-pytest tests/test_speech.py -v
-pytest tests/test_ml.py -v
-
-# Coverage
-pytest --cov=app --cov-report=html
-```
+API docs: http://localhost:8000/docs (disabled when `APP_ENV=production`).
 
 ### Frontend
 
 ```bash
 cd frontend
-npm run test          # Vitest
-npm run test:ui       # Vitest UI
-npm run build         # TypeScript + Vite build
+npm ci
+npm run dev                       # http://localhost:5173 ; /api is proxied to :8000
 ```
 
-### Test Philosophy
+Register a parent account, add a child profile on the parent dashboard, then choose **Start screening**. Educators register separately; a parent shares a child with an educator by the educator's account email.
 
-- **Unit tests** for pure logic (alignment, normalization, feature extraction)
-- **Integration tests** for API routes (TestClient)
-- **ML tests** for dataset integrity, model serialization, leakage prevention
-- **Synthetic data tests** for determinism, modality honesty, language boundaries
-- **No external dependencies** in CI — mocks for HF models, torchcodec
+### Production-style stack (Docker Compose)
 
----
+```bash
+cp .env.example .env              # set POSTGRES_PASSWORD and SECRET_KEY (>= 32 random chars)
+docker compose up -d --build      # postgres -> migrate (alembic upgrade head) -> backend -> web
+# open http://localhost:8080  (put TLS in front of "web" for any real deployment)
+```
+
+The API is not published directly; nginx serves the SPA and proxies `/api`. See `docs/readiness/final-integration-report.md` for what has and has not been verified.
+
+## Configuration
+
+Backend settings come from environment variables (or `backend/.env`):
+
+| Variable | Default | Notes |
+|---|---|---|
+| `APP_ENV` | `development` | `development`, `test` or `production` |
+| `SECRET_KEY` | dev-only key | **Required in production**, ≥32 random characters |
+| `DATABASE_URL` | `sqlite:///./dyscover.db` | PostgreSQL: `postgresql+psycopg://user:pass@host:5432/db` |
+| `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated exact origins; `*` refused in production |
+| `AUTO_MIGRATE` | on outside production | Production expects `alembic upgrade head` as a release step |
+| `ACCESS_TOKEN_MINUTES` / `REFRESH_TOKEN_DAYS` | 15 / 7 | Session lifetimes |
+| `REFRESH_COOKIE_SECURE` / `REFRESH_COOKIE_SAMESITE` | secure in production / `lax` | |
+| `RATE_LIMIT_ENABLED`, `RATE_LIMIT_AUTH`, `RATE_LIMIT_CHAT` | on, `10/minute`, `20/minute` | |
+| `GROQ_API_KEY`, `GROQ_MODEL` | empty, `llama-3.3-70b-versatile` | Without a key Lexi reports "not configured" |
+| `DYSCOVER_ASR_PROVIDER` (+ model vars) | unset | Optional local Whisper for the speech demo |
+
+Frontend: `VITE_API_URL` (default `/api`, same-origin), `VITE_PROXY_TARGET` (dev proxy target, default `http://localhost:8000`).
+
+## API Overview
+
+All endpoints are under `/api`; the live schema is at `/docs` in development. Every endpoint except health, registration/login/refresh/logout and static status endpoints requires `Authorization: Bearer <access token>`.
+
+| Area | Endpoints |
+|---|---|
+| Auth | `POST /auth/register`, `/auth/login`, `/auth/refresh`*, `/auth/logout`*, `/auth/logout-all`, `/auth/change-password`; `GET /auth/me` (*cookie + `X-Requested-With: dyscover`) |
+| Children | `GET/POST /children`, `GET/PATCH/DELETE /children/{id}`, `GET/POST /children/{id}/educators`, `DELETE /children/{id}/educators/{educator_id}` |
+| Assessments | `POST /assessments`, `GET /assessments/{id}`, `GET /children/{id}/assessments?limit&offset`, `POST /assessments/{id}/games/{game_id}/trials`, `POST|GET /trials/{id}/events`, `POST /assessments/{id}/summary`, `GET /assessments/{id}/modality-summary` |
+| Educator | `GET /educator/learners`, `GET /educator/learners/{id}/summary`, `POST /educator/learners/{id}/revoke` |
+| Personalization / practice | `/personalization/children/{id}/{profile,recommendations,progress,difficulty/{game}}`, `/remedial/...` |
+| Gaze / speech | `/gaze/trials/{id}/gaze[/features]`, `/speech/sessions[...]`, `/speech/analyze`, `/speech/demo/*` |
+| ML (research) | `/ml/features/session/{id}`, `/ml/profile/session/{id}`, `/ml/predict/session/{id}` (always `unavailable`), `/ml/models`, `/ml/quality` (admin) |
+| Privacy | `GET /privacy/data-summary`, `GET /privacy/export`, `DELETE /privacy/account` (password) |
+| Lexi | `GET /chat/status`, `GET/POST /chat/conversations`, `GET/DELETE /chat/conversations/{id}`, `GET/POST /chat/conversations/{id}/messages` |
+| Operations | `GET /health` (liveness), `GET /health/ready` (database + schema revision) |
+
+## Development
+
+```
+backend/app/
+  access.py          resource ownership checks used by every router
+  auth/ children/ assessments/ educator/ chat/ privacy/
+  gaze/ speech/ personalization/ remedial/ ml/
+  core/              config (fail-safe), migrations, rate limiting, time
+  models.py          ORM models (schema changes need an Alembic migration)
+backend/alembic/versions/   authoritative schema history
+frontend/src/
+  auth/ app/ chatbot/ games/ gaze/ speech/ l10n/ services/apiClient.ts
+frontend/e2e/       Playwright journeys against the real API
+```
+
+Schema changes: edit `models.py`, then `alembic revision --autogenerate -m "..."`, review, and `alembic upgrade head`. `tests/test_migrations.py` fails if models and migrations drift.
+
+## Testing
+
+```bash
+# Backend (isolated temporary SQLite DB; never touches dyscover.db)
+cd backend
+pytest                                   # all tests incl. speech-ML (needs requirements-speech-ml.txt)
+pytest --ignore=tests/ml/speech          # API + ML without the heavy speech stack
+TEST_DATABASE_URL=postgresql+psycopg://user:pass@localhost:5432/empty_db pytest   # run against PostgreSQL
+pip-audit -r requirements.txt            # dependency vulnerabilities
+LIVE_GROQ=1 LIVE_GROQ_API_KEY=... pytest tests/test_chat.py -k live   # optional real Groq request
+
+# Frontend
+cd frontend
+npm run typecheck && npm run lint && npm test && npm run build
+npx playwright test                      # starts its own backend (temp DB) + Vite; Lexi uses a test echo provider
+```
 
 ## Documentation
 
@@ -559,30 +438,15 @@ npm run build         # TypeScript + Vite build
 
 ## Privacy & Ethics
 
-### Data Handling
+See [docs/privacy.md](docs/privacy.md) for exactly what is stored, shared and deleted.
 
-| Data Type | Storage | Retention |
-|-----------|---------|-----------|
-| Child profile (name, birth year) | Encrypted DB | Until deletion request |
-| Interaction events | DB (pseudonymized) | Research configurable |
-| Gaze samples | DB (optional) | With consent only |
-| Speech audio | **Never stored** | N/A |
-| Speech transcripts | DB (optional) | With consent only |
-| Feature vectors | DB | Research configurable |
-
-### Core Privacy Guarantees
-
-- **No identity features** — child ID never used in ML
-- **Missing ≠ zero** — unavailable modalities stay `null`/`unavailable`
-- **Synthetic isolation** — research synthetic data never mixed with real
-- **Consent-gated** — gaze/speech require explicit opt-in per session
-- **No external calls** — all inference local; no cloud API keys required
-
-### Compliance Considerations
-
-- Designed for COPPA/GDPR alignment (pseudonymization, deletion, consent)
-- Research-mode disclaimer on all ML outputs
-- No clinical claims — explicit non-diagnostic positioning
+- **Not a diagnosis.** Games produce observations; no model has been validated on real children, and prediction is disabled.
+- **Missing ≠ zero.** Unrecorded gaze/speech stays `null`/unavailable; failed speech recognition is not counted as a reading error.
+- **Consent-gated capture.** Camera and microphone are used only after an adult opts in; no video or audio is stored.
+- **Owner-only access.** Each child's data is visible only to the parent account that created it, plus read-only summaries for educators the parent chooses.
+- **External services.** Lexi messages are sent to Groq; browser speech recognition may send audio to the browser vendor. Both are disclosed in the app.
+- **Export and erasure** are available from the account page.
+- Compliance with COPPA, GDPR, the UK Children's Code or India's DPDP Act has **not** been assessed; see `docs/readiness/risk-register.md`.
 
 ---
 
@@ -590,7 +454,7 @@ npm run build         # TypeScript + Vite build
 
 ### Near Term (Stage 5+)
 
-- [ ] Authentication & authorization (JWT, roles)
+- [x] Authentication & authorization (JWT + rotating refresh cookie, roles, ownership checks)
 - [ ] Validated labeled dataset collection pipeline
 - [ ] Explicit consented gaze integration (WebGazer calibration UX)
 - [ ] Configured speech providers in production

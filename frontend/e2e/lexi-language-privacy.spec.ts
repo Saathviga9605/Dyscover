@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { PASSWORD, apiAs, createChildViaUi, expectNoSeriousA11yViolations, loginViaUi, registerViaUi } from './fixtures';
+import {
+  PASSWORD,
+  apiAs,
+  createChildViaUi,
+  expectNoSeriousA11yViolations,
+  loginViaUi,
+  registerViaUi,
+} from './fixtures';
 
 test.describe('Lexi', () => {
   test('asks a signed-out visitor to sign in', async ({ page }) => {
@@ -19,7 +26,9 @@ test.describe('Lexi', () => {
     await input.fill('What is Mirror Match?');
     await input.press('Enter');
     // The e2e backend uses a labelled echo provider at the model boundary.
-    await expect(dialog.getByText('[test reply] You said: What is Mirror Match? (context turns: 1)')).toBeVisible();
+    await expect(
+      dialog.getByText('[test reply] You said: What is Mirror Match? (context turns: 1)')
+    ).toBeVisible();
 
     await input.fill('Can we play it?');
     await dialog.getByRole('button', { name: 'Send' }).click();
@@ -36,7 +45,11 @@ test.describe('Lexi', () => {
     await page.getByLabel('Message Lexi').press('Enter');
     await expect(page.getByText('You said: Hello again (context turns: 1)')).toBeVisible();
     await page.getByRole('button', { name: 'Past conversations' }).click();
-    await expect(page.getByRole('navigation', { name: 'Past conversations' }).getByRole('button', { name: 'What is Mirror Match?', exact: true })).toBeVisible();
+    await expect(
+      page
+        .getByRole('navigation', { name: 'Past conversations' })
+        .getByRole('button', { name: 'What is Mirror Match?', exact: true })
+    ).toBeVisible();
 
     // Escape closes the panel and returns focus to the toggle.
     await page.keyboard.press('Escape');
@@ -60,7 +73,9 @@ test.describe('English and Tamil', () => {
 
     // The choice persists across reloads.
     await page.reload();
-    await expect(page.getByLabel('உங்கள் மொழியைத் தேர்ந்தெடுக்கவும்').or(page.getByRole('combobox')).first()).toHaveValue('ta');
+    await expect(
+      page.getByLabel('உங்கள் மொழியைத் தேர்ந்தெடுக்கவும்').or(page.getByRole('combobox')).first()
+    ).toHaveValue('ta');
     await page.getByRole('combobox').first().selectOption('en');
     await expect(page.getByRole('link', { name: 'For parents' })).toBeVisible();
   });
@@ -103,19 +118,27 @@ test.describe('privacy', () => {
 
     const intruderPage = await (await browser.newContext()).newPage();
     const intruderEmail = await registerViaUi(intruderPage, 'parent', 'Intruder');
-    const login = await request.post('/api/auth/login', { data: { email: intruderEmail, password: PASSWORD } });
+    const login = await request.post('/api/auth/login', {
+      data: { email: intruderEmail, password: PASSWORD },
+    });
     const { access_token: token } = await login.json();
-    const response = await request.get(`/api/children/${child.id}`, { headers: { Authorization: `Bearer ${token}` } });
+    const response = await request.get(`/api/children/${child.id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     expect(response.status()).toBe(404);
     await expect(intruderPage.getByText('Private Child')).toHaveCount(0);
   });
 });
 
 test.describe('mobile layout @mobile', () => {
-  test('dashboard and Lexi fit a phone screen without horizontal scrolling @mobile', async ({ page }) => {
+  test('dashboard and Lexi fit a phone screen without horizontal scrolling @mobile', async ({
+    page,
+  }) => {
     await registerViaUi(page, 'parent', 'Phone Parent');
     await createChildViaUi(page, 'Ada');
-    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth - window.innerWidth
+    );
     expect(overflow).toBeLessThanOrEqual(1);
     await page.getByRole('button', { name: 'Open Lexi, the Dyscover guide' }).click();
     const box = await page.getByRole('dialog', { name: 'Lexi' }).boundingBox();

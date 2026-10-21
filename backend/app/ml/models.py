@@ -10,6 +10,10 @@ def _extract_val(val: Any) -> float | int | None:
 
 
 class BaselineModel(ABC):
+    """Missing feature values stay missing (None -> NaN): each pipeline imputes with the
+    training median *and* appends missingness indicators, so "modality not recorded" is
+    never conflated with a typical measured value. Imputation is fitted on training rows only."""
+
     model_type: str
 
     def __init__(self, feature_names: list[str]) -> None:
@@ -53,7 +57,7 @@ class DummyBaseline(BaselineModel):
             from sklearn.pipeline import Pipeline
         except Exception as error:
             raise RuntimeError(f"scikit-learn runtime unavailable: {error}") from error
-        return Pipeline([("imputer", SimpleImputer(strategy="median")), ("model", DummyClassifier(strategy=self.strategy, random_state=42))])
+        return Pipeline([("imputer", SimpleImputer(strategy="median", add_indicator=True)), ("model", DummyClassifier(strategy=self.strategy, random_state=42))])
 
 
 class LogisticBaseline(BaselineModel):
@@ -67,7 +71,7 @@ class LogisticBaseline(BaselineModel):
             from sklearn.preprocessing import StandardScaler
         except Exception as error:
             raise RuntimeError(f"scikit-learn runtime unavailable: {error}") from error
-        return Pipeline([("imputer", SimpleImputer(strategy="median")), ("scale", StandardScaler()), ("model", LogisticRegression(max_iter=1000, random_state=42))])
+        return Pipeline([("imputer", SimpleImputer(strategy="median", add_indicator=True)), ("scale", StandardScaler()), ("model", LogisticRegression(max_iter=1000, random_state=42))])
 
 
 class RandomForestBaseline(BaselineModel):
@@ -80,7 +84,7 @@ class RandomForestBaseline(BaselineModel):
             from sklearn.pipeline import Pipeline
         except Exception as error:
             raise RuntimeError(f"scikit-learn runtime unavailable: {error}") from error
-        return Pipeline([("imputer", SimpleImputer(strategy="median")), ("model", RandomForestClassifier(n_estimators=100, random_state=42, class_weight="balanced"))])
+        return Pipeline([("imputer", SimpleImputer(strategy="median", add_indicator=True)), ("model", RandomForestClassifier(n_estimators=100, random_state=42, class_weight="balanced"))])
 
 
 class GradientBoostingBaseline(BaselineModel):
@@ -93,4 +97,4 @@ class GradientBoostingBaseline(BaselineModel):
             from sklearn.pipeline import Pipeline
         except Exception as error:
             raise RuntimeError(f"scikit-learn runtime unavailable: {error}") from error
-        return Pipeline([("imputer", SimpleImputer(strategy="median")), ("model", GradientBoostingClassifier(random_state=42))])
+        return Pipeline([("imputer", SimpleImputer(strategy="median", add_indicator=True)), ("model", GradientBoostingClassifier(random_state=42))])

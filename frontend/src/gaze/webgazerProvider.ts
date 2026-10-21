@@ -5,7 +5,8 @@ import type { EyeTrackingPhase, EyeTrackingProvider } from './types';
 // Subresource Integrity, so a modified or swapped script is refused by the browser.
 // WebGazer is GPLv3-licensed; see docs/readiness/risk-register.md.
 const WEBGAZER_SRC = 'https://cdn.jsdelivr.net/npm/webgazer@3.5.3/dist/webgazer.js';
-const WEBGAZER_INTEGRITY = 'sha384-N9TfYQEjUGiaDcITkzB/MtVHEfF2JtTWCwHG8NUhjOSvJ8zObGwfebHUFLBS+4Rb';
+const WEBGAZER_INTEGRITY =
+  'sha384-N9TfYQEjUGiaDcITkzB/MtVHEfF2JtTWCwHG8NUhjOSvJ8zObGwfebHUFLBS+4Rb';
 const FACE_MESH_SOLUTION_PATH = 'https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@0.4.1633559619';
 const WATCHDOG_INTERVAL_MS = 1000;
 const NO_SAMPLE_TIMEOUT_MS = 3000;

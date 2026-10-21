@@ -1,216 +1,51 @@
-# Dyscover Invention Disclosure Draft
+# Dyscover — Invention Disclosure (Draft for Counsel)
 
-**Date:** 2026-10-20  
-**Status:** DRAFT — For internal review only  
-**Confidentiality:** Do not distribute externally without legal review
+Updated 2026-10-21. Internal draft for review by a qualified patent attorney. It records what the code does and the evidence for it. It makes **no** assertion of novelty, patentability or freedom to operate — none of those has been assessed, and no prior-art search has been performed.
 
----
+## 0. Time-critical issue for counsel
 
-## 1. Title
+The repository `github.com/Saathviga9605/Dyscover` is **publicly accessible** (unauthenticated HTTP 200, checked 2026-10-21), and git history shows pushes since at least the first commits of this project. Public availability of source code and documentation may already constitute a public disclosure of the mechanisms below. In absolute-novelty jurisdictions (e.g. EPO; India) this can bar patent protection; in the US a 12-month grace period runs from the first disclosure. Counsel should establish the date the repository first became public and advise before any further publication. This document itself should not be published.
 
-**Multimodal Adaptive Learning Platform with Research-Grade Telemetry Isolation and Synthetic Validation Pipeline**
+## 1. Working title
 
----
+Consent-gated multimodal observation platform for early-literacy activities, with server-verified trial outcomes, modality-availability-aware features, and separation of assessment evidence from practice.
 
-## 2. Inventors
+## 2. Technical field
 
-[To be completed with legal counsel]
+Educational technology; web-based capture of interaction, gaze-estimate and speech-recognition signals from children's literacy games; privacy-preserving telemetry; rule-based personalization.
 
----
+## 3. Mechanisms implemented (facts, with evidence)
 
-## 3. Technical Field
+| # | Mechanism | Where | Evidence |
+|---|---|---|---|
+| M1 | **Server-side re-scoring of client-generated game trials.** The browser generates stimuli and submits stimulus, expected and actual response; the server recomputes correctness/score for five game types with rules mirrored from the client, keeps the client's claim separately when they disagree, and stores trials without a response as *unscored* rather than wrong. | `backend/app/assessments/scoring.py`, `routes.py` | `tests/test_assessment_integrity.py` |
+| M2 | **Modality-availability-aware features.** Every extracted feature carries `available`/`status`; unrecorded gaze/speech is `null` and unavailable, never 0; models append missingness indicators; recognition failures and silence are unscored instead of counted as reading errors. | `backend/app/ml/features.py`, `models.py`; `frontend/src/games/speech/speechDefinitions.ts` | ML and e2e tests |
+| M3 | **Separation of assessment evidence from practice.** Remedial practice sessions/events live in separate tables and APIs and are never used as assessment evidence. | `backend/app/models.py`, `app/remedial` | `tests/test_remedial.py` |
+| M4 | **Evidence-gated, non-clinical personalization.** Deterministic rules with minimum-evidence thresholds; "insufficient evidence" is an explicit output; categories are relative and non-clinical. | `backend/app/personalization` | `tests/test_personalization.py` |
+| M5 | **Synthetic-data research pipeline with deployment gate.** Seeded simulator with nine profiles, subject-level splits, permutation probe, SHA-256-verified artifacts flagged `synthetic`/`clinical_use: prohibited`, and a production registry that refuses them. | `backend/app/ml/synthetic` | `tests/test_synthetic_ml.py`, `evidence/synthetic-multiseed.json` |
+| M6 | **Owner-granted, revocable educator access to aggregated summaries only.** | `backend/app/children`, `app/educator`, `app/access.py` | `tests/test_educator_access.py` |
+| M7 | **Language as structured metadata with honest availability.** Language/locale/content version recorded on assessments, games and trials; activities without curated content in a language are reported unavailable rather than auto-translated. | `backend/app/l10n.py`, `frontend/src/l10n` | `tests/test_l10n.py` |
+| M8 | **Lexi assistant boundary.** Server-only system prompt with non-diagnosis rules, contact-detail redaction before the provider call, write-after-success persistence with idempotency keys. | `backend/app/chat` | `tests/test_chat.py` |
 
-Educational technology, adaptive learning systems, multimodal human-computer interaction, machine learning for behavioral phenotyping, privacy-preserving telemetry architectures.
+Correction to the previous draft: consent for gaze and speech is held in the browser (local storage) and gates capture in the client; it is **not** persisted or queryable on the server. Leakage prevention is a subject-level random split plus a permutation probe — not a formal guarantee.
 
----
+## 4. What is not implemented (do not describe as existing)
 
-## 4. Problem Statement
+- Any validated prediction of dyslexia or reading difficulty (prediction endpoint returns `unavailable`).
+- Server-issued stimuli; server-side consent records; Tamil content for speech games; personalization for speech games.
+- Speech-model fine-tuning results (pipeline exists; no experiment run — see `ai-ml-validation.md` §6).
 
-Existing dyslexia screening tools suffer from several limitations:
-1. **Clinical conflation**: Screening tools often present probabilistic outputs as diagnostic indicators
-2. **Telemetry contamination**: Practice/learning data mixes with assessment evidence
-3. **Modality opacity**: Gaze/speech/behavioral data quality not explicitly reported
-4. **Validation gap**: ML models trained on synthetic/real data without strict isolation
-5. **Privacy gaps**: Raw audio/video often stored; consent flows incomplete
-6. **Multilingual neglect**: Non-English assessment content poorly supported
+## 5. Third-party components relevant to any claim
 
----
+WebGazer.js 3.5.3 (GPLv3 / separate commercial licence) for gaze estimation; browser Web Speech API; optional OpenAI Whisper weights (MIT) via Hugging Face/faster-whisper; Groq-hosted LLM for Lexi. Claims should not read on these components' own functionality.
 
-## 5. Novel Technical Contributions
+## 6. Questions for counsel
 
-### 5.1 Strict Assessment/Practice Data Isolation
+1. Effect of the public GitHub repository (§0) on each mechanism and jurisdiction.
+2. Whether M1/M2 (server re-scoring with unscored states; availability-aware features) merit a prior-art search, and in which classes.
+3. Inventorship (not determined here).
+4. Licensing implications of WebGazer (GPLv3) for distribution and for any patent licensing strategy.
 
-**Mechanism:** Separate database tables (`assessment_sessions` vs `practice_sessions`), distinct event schemas with mandatory `mode="practice"` field, separate API endpoints (`/api/assessments/*` vs `/api/remedial/*`), and evidence gates that reject practice data from assessment feature extraction.
+## 7. Supporting records
 
-**Key Innovation:** Canonical event contract shared between assessment and practice, but `mode` field and separate persistence ensure practice data can NEVER be mistaken for assessment evidence. Feature extraction pipeline explicitly filters by `mode="assessment"`.
-
-### 5.2 Modality-Availability-Aware Feature Extraction
-
-**Mechanism:** Each feature carries explicit `available: boolean` and `quality: enum` fields. Features report `null` with `available=false` when modality data missing, NOT zero. Quality metadata includes sample counts, calibration status, calibration completion events, ASR availability flags.
-
-**Key Innovation:** Downstream consumers (personalization, ML, dashboards) can distinguish "child performed poorly" from "modality unavailable" — preventing false negative interpretations.
-
-### 5.3 Synthetic Data Pipeline with Provenance & Leakage Prevention
-
-**Mechanism:**
-- Deterministic simulator with 9 documented interaction profiles
-- Subject-level GroupKFold splitting (no subject leakage)
-- SHA256 checksum over deterministic row contents (excl. timestamps)
-- Purity verification: `ensure_synthetic_purity()` rejects mixed datasets
-- Artifact integrity: SHA256 of pickled model + metadata validation on load
-- Registry gatekeeper: `register_model()` rejects `synthetic=True` models
-
-**Key Innovation:** End-to-end synthetic pipeline that is provably isolated from real data, with mathematical leakage prevention (subject-level splits) and cryptographic integrity verification.
-
-### 5.4 Consent-Gated Multimodal Capture
-
-**Mechanism:**
-- Gaze: Explicit WebGazer consent card → camera permission → calibration → calibrated/uncalibrated/low-quality tracking states
-- Speech: Browser SpeechRecognition + optional local Whisper → consent card with microphone skip option → audio never persisted by default
-- Both: Consent state persisted per session, granular per-modality
-
-**Key Innovation:** Consent as first-class persisted state, not UI-only. Quality states (unavailable, uncalibrated, low-quality, valid) distinguish hardware/consent failures from behavioral patterns.
-
-### 5.5 Language-Aware Assessment Architecture
-
-**Mechanism:**
-- Assessment metadata: `language`, `locale`, `content_version` persisted at session/game/trial level
-- Game registry validates game-language pairs (e.g., Tamil only for mirror-match)
-- Speech tasks filtered by language support
-- Locale derivation: `ta → ta-IN`, `en → en-US` canonicalized server-side
-
-**Key Innovation:** Language as structured metadata at every telemetry level, not just UI translation. Server canonicalizes locale/content_version from language.
-
-### 5.6 Rule-Based Personalization with Evidence Gates
-
-**Mechanism:**
-- Domain evidence: `evidence_trials` count, `accuracy`, `quality` (sufficient/insufficient)
-- Minimum evidence threshold: ≥3 trials for `sufficient`
-- Categories: `relative_strength`, `developing`, `practice_opportunity` — NO clinical labels
-- Difficulty adaptation: ±1 level bounded, window-based (recent 5 trials), hysteresis
-- Insufficient evidence → explicit `insufficient_evidence` state, NOT default recommendations
-
-**Key Innovation:** Personalization driven by explicit evidence thresholds with "insufficient evidence" as a first-class output, not a fallback.
-
-### 5.7 Educator Authorization with Revocation
-
-**Mechanism:**
-- `EducatorLearnerAssignment` table with `status` (active/revoked), `revoked_at`, `revocation_reason`
-- All educator endpoints check active assignment
-- Revocation immediate, audit logged
-- Educator dashboard aggregates only authorized learners
-
-**Key Innovation:** Fine-grained, auditable, revocable access control at the learner level with server-side enforcement on every request.
-
----
-
-## 6. Architecture Summary
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Frontend (React/TS)                      │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐  │
-│  │ Games    │ │ Speech   │ │ Gaze     │ │ Dashboards       │  │
-│  │ Engine   │ │ Runner   │ │ Tracker  │ │ (Parent/Educator)│  │
-│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────────┬─────────┘  │
-└───────┼─────────────┼────────────┼────────────────┼────────────┘
-        │             │            │                │
-        ▼             ▼            ▼                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    FastAPI Backend (Python)                     │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐  │
-│  │ Auth     │ │ Assess-  │ │ Remedial │ │ ML/Synthetic     │  │
-│  │ (JWT)    │ │ ment API │ │ API      │ │ Pipeline         │  │
-│  └────┬─────┘ └────┬─────┘ └────┬─────┘ └────────┬─────────┘  │
-└───────┼─────────────┼────────────┼────────────────┼────────────┘
-        │             │            │                │
-        ▼             ▼            ▼                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                    PostgreSQL / SQLite                          │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐  │
-│  │ Users/   │ │ Assess-  │ │ Practice │ │ ML Artifacts     │  │
-│  │ Children │ │ ment Data│ │ Data     │ │ (Synthetic Only) │  │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────────────┘  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 7. Prior Art Differentiation
-
-| Feature | Dyscover | Typical Screening Tools |
-|---------|----------|------------------------|
-| Practice/Assessment isolation | Separate tables, schemas, APIs | Often mixed |
-| Modality availability in features | Explicit `available`/`quality` per feature | Implicit/assumed |
-| Synthetic validation pipeline | Subject-level splits, SHA256, gatekeeper | Rarely documented |
-| Consent as persisted state | Per-modality, granular | Often UI-only |
-| Language as structured metadata | Session/game/trial level | Usually UI only |
-| Personalization evidence gates | Minimum trials, explicit insufficient | Often heuristic |
-| Educator revocation | Immediate, audited | Often coarse |
-
----
-
-## 8. Potential Claims (For Patent Counsel Review)
-
-### Claim Categories:
-1. **System Claims**: Multimodal adaptive learning platform with isolated assessment/practice telemetry
-2. **Method Claims**: Consent-gated gaze/speech capture with quality-state persistence
-3. **Method Claims**: Synthetic data generation with subject-level leakage prevention and cryptographic integrity
-4. **Method Claims**: Rule-based personalization with explicit evidence thresholds and insufficient-evidence state
-5. **System Claims**: Language-canonicalized assessment architecture with per-telemetry metadata
-6. **Method Claims**: Educator authorization with immediate revocation and audit trail
-
-### Key Differentiators to Emphasize:
-- **Assessment/Practice isolation at schema level** (not just logical)
-- **Modality availability as first-class feature property** (not implicit)
-- **Synthetic pipeline with mathematical leakage prevention** (subject-level GroupKFold)
-- **Consent as queryable persisted state** (not ephemeral UI)
-- **Clinical-use gatekeeper at registry level** (enforced in code)
-
----
-
-## 9. Development Evidence
-
-| Component | Files | Tests | Status |
-|-----------|-------|-------|--------|
-| Auth/JWT | `backend/app/auth/*` | 12 tests | ✅ |
-| Assessment API | `backend/app/main.py` | 15 tests | ✅ |
-| Games (8) | `frontend/src/games/definitions/*` | 40+ tests | ✅ |
-| Game Engine | `frontend/src/games/engine/*` | 12 tests | ✅ |
-| Speech Pipeline | `backend/app/speech/*`, `frontend/src/speech/*` | 18 tests | ✅ |
-| Gaze Pipeline | `backend/app/gaze/*`, `frontend/src/gaze/*` | 31 tests | ✅ |
-| Synthetic ML | `backend/app/ml/synthetic/*` | 17 tests | ✅ |
-| Personalization | `backend/app/personalization/*` | 24 tests | ✅ |
-| Remedial | `backend/app/remedial/*` | 20 tests | ✅ |
-| Educator Access | `backend/app/main.py` | 3 tests | ✅ |
-| Internationalization | `frontend/src/l10n/*` | 20 tests | ✅ |
-
----
-
-## 10. Known Limitations (For Disclosure)
-
-1. **Transformers install on Windows** blocks speech ML tests (4 tests) — long path issue
-2. **No clinical validation** — synthetic pipeline only
-3. **WCAG audit pending** — accessibility not yet verified
-4. **PWA not implemented** — offline support incomplete
-5. **Tamil speech games not implemented** — only mirror-match supports Tamil
-
----
-
-## 11. Next Steps for Patent Filing
-
-1. **Legal review** of this disclosure with qualified patent attorney
-2. **Claim drafting** focusing on schema-level isolation, modality availability features, synthetic pipeline integrity
-3. **Prior art search** for: multimodal educational telemetry, synthetic ML validation, consent-gated capture
-4. **Provisional filing** decision within 12 months of first public disclosure
-5. **International filing strategy** (PCT vs. national) based on market analysis
-
----
-
-## 12. Confidentiality Notice
-
-This document contains potentially patentable technical details. Do not distribute externally, publish, or present at conferences without explicit written authorization from legal counsel. All development records (git history, test results, architecture decisions) should be preserved for potential patent prosecution.
-
----
-
-**End of Draft**
+Git history; `docs/readiness/final-integration-report.md` (commands, test counts); `docs/readiness/evidence/`.

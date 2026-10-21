@@ -47,6 +47,10 @@ function LexiPanel({ onClose }: { onClose: () => void }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<{ text: string; retry: PendingSend | null } | null>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // Conversations created by this panel start empty; loading their history would race
+  // with the in-flight first message and could duplicate it.
+  const createdHere = useRef(new Set<string>());
+  const conversationId = conversation?.id ?? null;
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -70,21 +74,22 @@ function LexiPanel({ onClose }: { onClose: () => void }) {
   }, []);
 
   useEffect(() => {
-    if (!conversation) {
+    if (!conversationId) {
       setMessages([]);
       return;
     }
+    if (createdHere.current.has(conversationId)) return;
     let active = true;
     setLoadingHistory(true);
     api
-      .listMessages(conversation.id)
+      .listMessages(conversationId)
       .then(page => active && setMessages(page.messages))
       .catch(() => active && setError({ text: t('lexi.historyError'), retry: null }))
       .finally(() => active && setLoadingHistory(false));
     return () => {
       active = false;
     };
-  }, [conversation, t]);
+  }, [conversationId, t]);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
@@ -113,12 +118,14 @@ function LexiPanel({ onClose }: { onClose: () => void }) {
         let target = conversation;
         if (!target) {
           target = await api.createConversation();
+          createdHere.current.add(target.id);
           setConversation(target);
           setConversations(list => [target as Conversation, ...list]);
         }
         const exchange = await api.sendMessage(target.id, pending.content, pending.clientMessageId);
+        const added = new Set([exchange.user_message.id, exchange.assistant_message.id]);
         setMessages(current => [
-          ...current.filter(message => message.id !== exchange.user_message.id),
+          ...current.filter(message => !added.has(message.id)),
           exchange.user_message,
           exchange.assistant_message,
         ]);
